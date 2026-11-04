@@ -1,0 +1,683 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dark Grimoire — Tabletop RPG Table</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;800&family=Crimson+Text:ital@0;1&display=swap" rel="stylesheet">
+<script>
+tailwind.config = { theme: { extend: {
+  colors: { bone:"#e7dcc8", rune:"#a78bfa", ember:"#f48c06" },
+  fontFamily: { display:['Cinzel','serif'], body:['"Crimson Text"','serif'] },
+  boxShadow: { glow:"0 0 22px rgba(167,139,250,.25)", crit:"0 0 22px rgba(250,204,21,.5)" }
+}}};
+</script>
+<style>
+body{background:radial-gradient(circle at 15% 0%,rgba(127,29,29,.30),transparent 40%),
+     radial-gradient(circle at 85% 100%,rgba(88,28,135,.25),transparent 45%),#060610;}
+.panel{background:linear-gradient(180deg,rgba(15,23,42,.94),rgba(2,6,23,.97));border:1px solid rgba(148,163,184,.18);}
+.sb::-webkit-scrollbar{width:8px}.sb::-webkit-scrollbar-thumb{background:rgba(148,163,184,.35);border-radius:99px}
+.sb::-webkit-scrollbar-track{background:rgba(15,23,42,.4)}
+@keyframes rise{from{transform:translateY(5px);opacity:0}to{transform:none;opacity:1}}
+.msg{animation:rise .2s ease-out}
+.crit-glow{animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 8px rgba(250,204,21,.3)}50%{box-shadow:0 0 24px rgba(250,204,21,.6)}}
+</style>
+</head>
+<body class="min-h-screen text-slate-100 font-body">
+<div class="min-h-screen flex flex-col">
+
+<header class="px-4 py-3 border-b border-slate-800 bg-slate-950/85 backdrop-blur flex flex-wrap gap-3 items-center justify-between">
+  <div>
+    <h1 class="font-display text-2xl font-extrabold tracking-wide text-bone">🕯️ Dark Grimoire</h1>
+    <p class="text-xs text-slate-400">AI companions · dice oracle · persistent chronicle</p>
+  </div>
+  <div class="flex flex-wrap gap-2 text-sm">
+    <button id="exportBtn" class="px-3 py-2 rounded-lg bg-emerald-900/70 hover:bg-emerald-800 border border-emerald-700">⬇ Export JSON</button>
+    <label class="px-3 py-2 rounded-lg bg-indigo-900/70 hover:bg-indigo-800 border border-indigo-700 cursor-pointer">⬆ Import JSON
+      <input id="importFile" type="file" accept="application/json,.json" class="hidden" /></label>
+    <button id="resetBtn" class="px-3 py-2 rounded-lg bg-red-950/70 hover:bg-red-900 border border-red-800">Reset Demo</button>
+  </div>
+</header>
+
+<div class="grid grid-cols-1 xl:grid-cols-[330px_minmax(0,1fr)_360px] gap-4 p-4 flex-1 min-h-0">
+
+  <!-- ===== SIDEBAR: PARTY ===== -->
+  <aside class="panel rounded-2xl shadow-glow xl:h-[calc(100vh-110px)] overflow-y-auto sb">
+    <div class="sticky top-0 z-10 bg-slate-950/95 border-b border-slate-800 p-4 rounded-t-2xl">
+      <h2 class="font-display font-bold text-bone">Party Ledger</h2>
+      <p class="text-xs text-slate-400">Profiles · vitals · inventory</p>
+    </div>
+    <div id="charactersPanel" class="p-4 space-y-4"></div>
+  </aside>
+
+  <!-- ===== CENTER: CHAT ===== -->
+  <main class="panel rounded-2xl shadow-glow flex flex-col min-h-[520px] xl:h-[calc(100vh-110px)]">
+    <div class="p-4 border-b border-slate-800 flex items-center justify-between">
+      <div><h2 class="font-display font-bold text-bone">Central Chronicle</h2>
+        <p class="text-xs text-slate-400">DM narration, AI replies, dice results</p></div>
+      <button id="clearChatBtn" class="px-3 py-1.5 text-xs rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700">Clear Chat</button>
+    </div>
+    <div id="chatLog" class="flex-1 overflow-y-auto sb p-4 space-y-3"></div>
+    <div class="border-t border-slate-800 p-4 bg-slate-950/80 rounded-b-2xl">
+      <div class="grid grid-cols-1 md:grid-cols-[230px_1fr] gap-3">
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">AI character to respond</label>
+          <select id="targetCharacter" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm"></select>
+        </div>
+        <div>
+          <label class="block text-xs text-slate-400 mb-1">DM prompt / narration <span class="text-slate-600">(Enter = send · Shift+Enter = newline)</span></label>
+          <textarea id="dmPrompt" rows="3" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm resize-none"
+            placeholder="Kael, the vault door is covered in frost-runes. What do you do?"></textarea>
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 mt-3">
+        <button id="sendDmBtn" class="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-600 text-sm">Post as DM</button>
+        <button id="askLlmBtn" class="px-4 py-2 rounded-lg bg-violet-900 hover:bg-violet-800 border border-violet-700 text-sm shadow-glow font-display">✦ Ask Selected AI</button>
+      </div>
+    </div>
+  </main>
+
+  <!-- ===== SIDEBAR: SETTINGS + DICE ===== -->
+  <aside class="panel rounded-2xl shadow-glow xl:h-[calc(100vh-110px)] overflow-y-auto sb">
+    <div class="p-4 border-b border-slate-800">
+      <h2 class="font-display font-bold text-bone">Runes &amp; Machinery</h2>
+    </div>
+    <div class="p-4 space-y-5">
+
+      <section class="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+        <h3 class="font-display font-semibold text-rune mb-3">LLM API</h3>
+        <label class="block text-xs text-slate-400 mb-1">Endpoint (OpenAI-compatible)</label>
+        <input id="apiEndpoint" class="w-full mb-2 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm" />
+        <label class="block text-xs text-slate-400 mb-1">Model</label>
+        <input id="apiModel" class="w-full mb-2 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm" />
+        <label class="block text-xs text-slate-400 mb-1">API Key <span class="text-slate-600">(blank OK for local Ollama/LM&nbsp;Studio)</span></label>
+        <input id="apiKey" type="password" class="w-full mb-2 bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm" placeholder="sk-..." />
+        <div class="grid grid-cols-2 gap-2">
+          <div><label class="block text-xs text-slate-400 mb-1">Temperature</label>
+            <input id="apiTemp" type="number" min="0" max="2" step="0.1" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-2 text-sm" /></div>
+          <div><label class="block text-xs text-slate-400 mb-1">Context msgs</label>
+            <input id="contextTurns" type="number" min="2" max="80" class="w-full bg-slate-900 border border-slate-700 rounded-lg px-2 py-2 text-sm" /></div>
+        </div>
+        <label class="flex items-center gap-2 text-xs text-slate-300 mt-3">
+          <input id="autosaveEnabled" type="checkbox" class="accent-violet-600" /> localStorage autosave</label>
+        <label class="flex items-center gap-2 text-xs text-slate-300 mt-1.5">
+          <input id="storeKeyLocal" type="checkbox" class="accent-violet-600" /> Persist API key locally</label>
+        <label class="flex items-center gap-2 text-xs text-slate-300 mt-1.5">
+          <input id="exportKey" type="checkbox" class="accent-violet-600" /> Include API key in JSON export</label>
+        <button id="saveSettingsBtn" class="w-full mt-3 px-3 py-2 rounded-lg bg-violet-900 hover:bg-violet-800 border border-violet-700 text-sm">Save Settings</button>
+        <p class="mt-2 text-[11px] text-amber-300/80">Browser-held keys are visible to this page. Use a backend proxy for shared/hosted play.</p>
+      </section>
+
+      <section class="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+        <h3 class="font-display font-semibold text-ember mb-3">🎲 Dice Oracle</h3>
+
+        <div class="pb-4 mb-4 border-b border-slate-800">
+          <h4 class="text-sm font-semibold text-bone mb-2">Saving Throw</h4>
+          <div class="grid grid-cols-2 gap-2 text-sm">
+            <select id="saveChar" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-2"></select>
+            <select id="saveAbility" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-2">
+              <option>STR</option><option>DEX</option><option>CON</option><option>INT</option><option>WIS</option><option>CHA</option></select>
+            <input id="saveDc" type="number" value="13" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-2" placeholder="DC" />
+            <button id="rollSaveBtn" class="rounded-lg bg-emerald-900 hover:bg-emerald-800 border border-emerald-700">Roll Save</button>
+          </div>
+        </div>
+
+        <div class="pb-4 mb-4 border-b border-slate-800">
+          <h4 class="text-sm font-semibold text-bone mb-2">Damage Total</h4>
+          <div class="grid grid-cols-[1fr_90px] gap-2 text-sm">
+            <input id="dmgFormula" value="2d6+3" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-2 font-mono" />
+            <button id="rollDmgBtn" class="rounded-lg bg-orange-900 hover:bg-orange-800 border border-orange-700">Roll</button>
+          </div>
+          <p class="text-[11px] text-slate-500 mt-1">Supports d8 · 2d6+3 · 1d8+2d6-1</p>
+        </div>
+
+        <div class="pb-4 mb-4 border-b border-slate-800">
+          <h4 class="text-sm font-semibold text-bone mb-2">Combat Hit</h4>
+          <div class="grid grid-cols-2 gap-2 text-sm">
+            <select id="atkChar" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-2"></select>
+            <select id="atkTarget" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-2"></select>
+            <input id="atkMod" type="number" value="5" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-2" placeholder="Atk mod" />
+            <input id="atkAc" type="number" value="13" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-2" placeholder="Target AC" />
+            <button id="rollAtkBtn" class="col-span-2 rounded-lg bg-red-950 hover:bg-red-900 border border-red-800 py-2">Roll Attack</button>
+          </div>
+        </div>
+
+        <div>
+          <h4 class="text-sm font-semibold text-bone mb-2">Skill Check</h4>
+          <div class="grid grid-cols-2 gap-2 text-sm">
+            <select id="skillChar" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-2"></select>
+            <select id="skillName" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-2"></select>
+            <input id="skillMod" type="number" value="0" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-2" placeholder="Mod" />
+            <input id="skillDc" type="number" value="15" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-2" placeholder="DC" />
+            <button id="rollSkillBtn" class="col-span-2 rounded-lg bg-blue-950 hover:bg-blue-900 border border-blue-800 py-2">Roll Skill</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </aside>
+</div>
+</div>
+
+<script>
+"use strict";
+const VERSION = 1, LS_KEY = "dark-grimoire-state-v1";
+const ABILITIES = ["STR","DEX","CON","INT","WIS","CHA"];
+const SKILLS = ["Acrobatics","Arcana","Athletics","Deception","History","Insight","Intimidation",
+  "Investigation","Medicine","Nature","Perception","Performance","Persuasion","Religion",
+  "Sleight of Hand","Stealth","Survival"];
+const DEFAULT_SETTINGS = {
+  apiEndpoint:"https://api.openai.com/v1/chat/completions", apiKey:"", model:"gpt-4o-mini",
+  temperature:0.8, contextTurns:20, autosave:true, storeKeyLocal:false
+};
+
+// ---------- helpers ----------
+const $ = id => document.getElementById(id);
+const uid = () => crypto.randomUUID ? crypto.randomUUID() : "id-"+Date.now()+"-"+Math.random().toString(16).slice(2);
+const nowISO = () => new Date().toISOString();
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const mod = s => Math.floor((Number(s)-10)/2);
+const modTxt = n => n >= 0 ? `+${n}` : `${n}`;
+const die = s => 1 + Math.floor(Math.random()*s);
+const clampI = (v,lo,hi,fb) => { const n = Number(v); return Number.isFinite(n) ? Math.min(hi,Math.max(lo,Math.trunc(n))) : fb; };
+const clampF = (v,lo,hi,fb) => { const n = Number(v); return Number.isFinite(n) ? Math.min(hi,Math.max(lo,n)) : fb; };
+const cleanS = (v,fb="",max=1000) => typeof v === "string" ? v.slice(0,max) : fb;
+const deepCopy = v => typeof structuredClone === "function" ? structuredClone(v) : JSON.parse(JSON.stringify(v));
+const intInput = (v,label) => { const n = Number(v); if(!Number.isInteger(n)) throw new Error(`${label} must be an integer.`); return n; };
+
+// ---------- default state ----------
+function makeDefaultState(){
+  return {
+    version: VERSION,
+    settings: {...DEFAULT_SETTINGS},
+    characters: [
+      { id:"seraphina", name:"Seraphina Dawnshield", cls:"Human Paladin", portrait:"🛡️",
+        hp:32, maxHp:38, ac:18, stats:{STR:16,DEX:10,CON:14,INT:9,WIS:12,CHA:16},
+        skills:{Athletics:5,Insight:3,Intimidation:5,Persuasion:5,Religion:1},
+        inventory:["Longsword","Shield","Holy Symbol","Potion of Healing"],
+        persona:"You are Seraphina Dawnshield, a resolute paladin sworn to the Candle Saint. Speak with solemn conviction, protect innocents, distrust necromancy, and inspire the party. Brave but never reckless." },
+      { id:"kael", name:"Kael Nightbriar", cls:"Half-Elf Rogue", portrait:"🗡️",
+        hp:24, maxHp:29, ac:15, stats:{STR:9,DEX:18,CON:12,INT:14,WIS:13,CHA:11},
+        skills:{Acrobatics:6,Investigation:4,Perception:5,"Sleight of Hand":8,Stealth:8},
+        inventory:["Daggers","Thieves' Tools","Black Cloak","Grappling Hook"],
+        persona:"You are Kael Nightbriar, a wry, cautious rogue who always checks the exits. Pragmatic, observant, fond of dry humor. Prefer stealth, traps, and negotiation before open battle." },
+      { id:"morrigan", name:"Morrigan Ashveil", cls:"Tiefling Wizard", portrait:"🔮",
+        hp:17, maxHp:22, ac:12, stats:{STR:8,DEX:14,CON:12,INT:18,WIS:12,CHA:13},
+        skills:{Arcana:7,History:6,Investigation:6,Religion:4},
+        inventory:["Spellbook","Crystal Focus","Ink Vials","Scroll of Misty Step"],
+        persona:"You are Morrigan Ashveil, a sharp-tongued wizard fascinated by forbidden lore. Analytical, curious, unsettlingly calm. You value knowledge but know the price of arrogance." }
+    ],
+    chat: [{ id:uid(), type:"system", speaker:"Grimoire",
+      content:"Welcome, Dungeon Master. Configure your API in the right panel, select an AI character below the chat, write a prompt, and press ✦ Ask Selected AI. Dice results and inventory changes are recorded here.",
+      timestamp:nowISO(), meta:{outcome:"neutral", badge:"READY"} }]
+  };
+}
+
+let state = makeDefaultState();
+let llmPending = false, saveTimer = null;
+
+// ---------- dice parser (multi-term: 1d8+2d6-1, d20, 4d6) ----------
+function rollFormula(input){
+  const raw = String(input||"").replace(/\s+/g,"");
+  if(!raw) throw new Error("Dice notation is empty. Example: 2d6+3");
+  if(!/^[+-]?(\d*d\d+|\d+)([+-](\d*d\d+|\d+))*$/i.test(raw))
+    throw new Error(`Invalid dice notation "${input}". Use forms like 2d6+3, d20, 1d8+2d6-1.`);
+  const terms = (raw[0]==="+"||raw[0]==="-" ? raw : "+"+raw).match(/[+-](\d*d\d+|\d+)/gi);
+  let total = 0; const parts = [];
+  for(const t of terms){
+    const sign = t[0]==="-" ? -1 : 1, body = t.slice(1);
+    if(/^\d+$/.test(body)){
+      const v = sign*Number(body); total += v;
+      parts.push((parts.length ? (sign<0?" - ":" + ") : (sign<0?"-":"")) + Math.abs(v));
+    } else {
+      const m = body.match(/^(\d*)d(\d+)$/i);
+      const count = m[1]==="" ? 1 : Number(m[1]), sides = Number(m[2]);
+      if(count<1 || count>100) throw new Error("Dice count must be 1–100.");
+      if(sides<2 || sides>1000) throw new Error("Die faces must be 2–1000.");
+      const rolls = Array.from({length:count}, () => die(sides));
+      total += sign*rolls.reduce((a,b)=>a+b,0);
+      parts.push((parts.length ? (sign<0?" - ":" + ") : (sign<0?"-":"")) + `${count}d${sides}[${rolls.join(", ")}]`);
+    }
+  }
+  return { notation:raw, total, breakdown:parts.join("") };
+}
+
+// ---------- chat ----------
+function addChat(entry){
+  state.chat.push(entry);
+  if(state.chat.length > 2500) state.chat = state.chat.slice(-2000);
+  renderChat(); autosave();
+}
+function sysMsg(content, outcome="neutral", badge="SYSTEM"){
+  addChat({ id:uid(), type:"system", speaker:"Grimoire", content, timestamp:nowISO(), meta:{outcome,badge} });
+}
+function findChar(id){ return state.characters.find(c => c.id === id); }
+function mustChar(id){ const c = findChar(id); if(!c) throw new Error("Character not found."); return c; }
+
+// ---------- game roll builders ----------
+function doSave(){
+  try{
+    const c = mustChar($("saveChar").value), ab = $("saveAbility").value;
+    const dc = intInput($("saveDc").value,"DC"), m = mod(c.stats[ab] ?? 10);
+    const d = die(20), total = d+m, ok = total >= dc;
+    const nat = d===20 ? " Natural 20!" : d===1 ? " Natural 1!" : "";
+    addChat({ id:uid(), type:"roll", speaker:"Dice Oracle", timestamp:nowISO(),
+      content:`${c.name} makes a ${ab} saving throw:\nd20(${d}) ${modTxt(m)} = ${total} vs DC ${dc}\n${ok?"SUCCESS":"FAILURE"}.${nat}`,
+      meta:{outcome:ok?"success":"failure", badge:ok?"SAVE ✓":"SAVE ✗"} });
+  } catch(e){ sysMsg(e.message,"failure","ROLL ERROR"); }
+}
+function doDamage(){
+  try{
+    const r = rollFormula($("dmgFormula").value);
+    addChat({ id:uid(), type:"roll", speaker:"Dice Oracle", timestamp:nowISO(),
+      content:`Damage roll ${r.notation}:\n${r.breakdown}\nTotal: ${r.total}`,
+      meta:{outcome:"neutral", badge:"DAMAGE"} });
+  } catch(e){ sysMsg(e.message,"failure","BAD DICE"); }
+}
+function doAttack(){
+  try{
+    const a = mustChar($("atkChar").value);
+    const m = intInput($("atkMod").value,"Attack modifier");
+    const tv = $("atkTarget").value;
+    let ac, tName;
+    if(tv === "manual"){ ac = intInput($("atkAc").value,"Target AC"); tName = "the target"; }
+    else { const t = mustChar(tv); ac = t.ac; tName = t.name; }
+    const d = die(20), total = d+m;
+    let outcome, badge, verdict;                       // nat 20/1 override AC comparison
+    if(d===20){ outcome="crit"; badge="CRIT!"; verdict="CRITICAL HIT — roll damage twice"; }
+    else if(d===1){ outcome="fumble"; badge="FUMBLE"; verdict="FUMBLE — automatic miss"; }
+    else if(total>=ac){ outcome="success"; badge="HIT"; verdict="HIT"; }
+    else { outcome="failure"; badge="MISS"; verdict="MISS"; }
+    addChat({ id:uid(), type:"roll", speaker:"Dice Oracle", timestamp:nowISO(),
+      content:`${a.name} attacks ${tName}:\nd20(${d}) ${modTxt(m)} = ${total} vs AC ${ac}\n${verdict}.`,
+      meta:{outcome,badge} });
+  } catch(e){ sysMsg(e.message,"failure","ROLL ERROR"); }
+}
+function doSkill(){
+  try{
+    const c = mustChar($("skillChar").value), skill = $("skillName").value;
+    const m = intInput($("skillMod").value,"Skill modifier"), dc = intInput($("skillDc").value,"DC");
+    const d = die(20), total = d+m, ok = total >= dc;
+    const nat = d===20 ? " Natural 20!" : d===1 ? " Natural 1!" : "";
+    addChat({ id:uid(), type:"roll", speaker:"Dice Oracle", timestamp:nowISO(),
+      content:`${c.name} attempts ${skill}:\nd20(${d}) ${modTxt(m)} = ${total} vs DC ${dc}\n${ok?"SUCCESS":"FAILURE"}.${nat}`,
+      meta:{outcome:ok?"success":"failure", badge:ok?"SKILL ✓":"SKILL ✗"} });
+  } catch(e){ sysMsg(e.message,"failure","ROLL ERROR"); }
+}
+
+// ---------- LLM ----------
+function buildLLMMessages(ch){
+  const sheet = { name:ch.name, class:ch.cls, hp:`${ch.hp}/${ch.maxHp}`, ac:ch.ac,
+    stats:ch.stats, skills:ch.skills, inventory:ch.inventory };
+  const party = state.characters.filter(c=>c.id!==ch.id)
+    .map(c => `${c.name} (${c.cls}, HP ${c.hp}/${c.maxHp})`).join("; ") || "none";
+  const system =
+`${ch.persona}
+
+=== YOUR LIVE CHARACTER SHEET ===
+${JSON.stringify(sheet,null,2)}
+
+=== PARTY ===
+${party}
+
+=== TABLE RULES ===
+- Stay strictly in character as ${ch.name}, first person.
+- Never control other player characters or narrate their outcomes.
+- Never invent or roll dice. Recorded [ROLL] results are authoritative; if a roll is needed, state your intent and let the DM roll.
+- Keep replies vivid but concise (2–6 sentences) unless asked for detail.
+- Never break character or mention being an AI.`;
+
+  const msgs = [{ role:"system", content:system }];
+  const recent = state.chat.filter(m => m.type !== "system" || m.meta?.outcome !== "failure") // drop error notices
+                           .slice(-state.settings.contextTurns);
+  for(const m of recent){
+    if(m.type === "ai" && m.characterId === ch.id){
+      msgs.push({ role:"assistant", content:m.content });
+    } else {
+      const prefix = m.type === "roll" ? "[ROLL] " : m.type === "dm" ? "DM: " : `${m.speaker}: `;
+      const c = (prefix + m.content).slice(0, 8000);
+      if(c.trim()) msgs.push({ role:"user", content:c });
+    }
+  }
+  return msgs;
+}
+
+async function askSelectedAI(){
+  if(llmPending) return;
+  readSettingsUI();
+  const ch = findChar($("targetCharacter").value);
+  if(!ch){ sysMsg("No AI character selected.","failure","NO CHAR"); return; }
+
+  // post the pending DM prompt (if any) so it enters context first
+  const promptEl = $("dmPrompt"), prompt = promptEl.value.trim();
+  if(prompt){
+    addChat({ id:uid(), type:"dm", speaker:"DM", content:prompt, timestamp:nowISO(),
+      meta:{outcome:"neutral", badge:"DM → "+ch.name} });
+    promptEl.value = "";
+  }
+
+  const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)/i.test(state.settings.apiEndpoint);
+  if(!state.settings.apiKey && !isLocal){
+    sysMsg("No API key configured (local endpoints work keyless). Set it in the right panel.","failure","API"); return;
+  }
+
+  setPending(true, ch.name);
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 60000);
+  try{
+    const headers = { "Content-Type":"application/json" };
+    if(state.settings.apiKey) headers.Authorization = "Bearer " + state.settings.apiKey;
+    const res = await fetch(state.settings.apiEndpoint, {
+      method:"POST", headers, signal:ctl.signal,
+      body: JSON.stringify({ model:state.settings.model, temperature:state.settings.temperature,
+        max_tokens:800, messages: buildLLMMessages(ch) })
+    });
+    const rawText = await res.text();
+    let data = null; try{ data = JSON.parse(rawText); } catch{}
+    if(!res.ok){
+      const hint = res.status===401 ? " (check API key)" : res.status===404 ? " (check endpoint URL / model)" :
+                   res.status===429 ? " (rate limited — wait and retry)" : "";
+      throw new Error(`API ${res.status}${hint}: ${data?.error?.message || rawText.slice(0,300) || res.statusText}`);
+    }
+    if(!data) throw new Error("API returned non-JSON response.");
+    const content = (data.choices?.[0]?.message?.content ?? data.choices?.[0]?.text ?? data.output_text ?? "").trim();
+    if(!content) throw new Error("API response contained no message content.");
+    addChat({ id:uid(), type:"ai", speaker:ch.name, characterId:ch.id, content,
+      timestamp:nowISO(), meta:{outcome:"neutral", badge:"AI"} });
+  } catch(e){
+    const msg = e.name === "AbortError" ? "Request timed out after 60s." : (e.message || String(e));
+    sysMsg(`LLM error for ${ch.name}: ${msg}`, "failure", "LLM ERROR");
+  } finally {
+    clearTimeout(timer); setPending(false);
+  }
+}
+function setPending(on, name=""){
+  llmPending = on;
+  const b = $("askLlmBtn");
+  b.disabled = on; b.classList.toggle("opacity-60", on);
+  b.textContent = on ? `Consulting ${name}…` : "✦ Ask Selected AI";
+}
+
+// ---------- persistence ----------
+function autosave(){
+  if(!state.settings.autosave) return;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => {
+    try{
+      const copy = deepCopy(state);
+      if(!copy.settings.storeKeyLocal) copy.settings.apiKey = "";
+      localStorage.setItem(LS_KEY, JSON.stringify(copy));
+    } catch(e){ console.warn("Autosave failed:", e); }
+  }, 350);
+}
+function exportState(){
+  readSettingsUI();
+  const copy = deepCopy(state);
+  if(!$("exportKey").checked) copy.settings.apiKey = "";
+  const blob = new Blob([JSON.stringify(copy,null,2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `grimoire-save-${new Date().toISOString().slice(0,19).replace(/[:T]/g,"-")}.json`;
+  a.click(); URL.revokeObjectURL(a.href);
+  sysMsg("Game state exported.","success","EXPORT");
+}
+async function importState(e){
+  const file = e.target.files?.[0]; e.target.value = "";
+  if(!file) return;
+  try{
+    const parsed = JSON.parse(await file.text());   // may throw SyntaxError
+    const next = validateState(parsed);             // may throw structured errors
+    if(state.settings.apiKey && !next.settings.apiKey) next.settings.apiKey = state.settings.apiKey; // keep live key
+    state = next;
+    renderAll(); autosave();
+    sysMsg(`Imported "${file.name}" — ${state.characters.length} characters, ${state.chat.length} chat entries.`,"success","IMPORT");
+  } catch(err){
+    sysMsg(`Import failed (state unchanged): ${err.message}`,"failure","IMPORT ERROR");
+  }
+}
+function validateState(raw){
+  if(!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("Save root must be an object.");
+  if(!Array.isArray(raw.characters) || raw.characters.length === 0) throw new Error("Save needs a non-empty characters array.");
+  if(raw.chat !== undefined && !Array.isArray(raw.chat)) throw new Error("chat must be an array.");
+
+  const s = (raw.settings && typeof raw.settings === "object" && !Array.isArray(raw.settings)) ? raw.settings : {};
+  const settings = {
+    apiEndpoint: cleanS(s.apiEndpoint, DEFAULT_SETTINGS.apiEndpoint, 500),
+    apiKey: cleanS(s.apiKey, "", 500),
+    model: cleanS(s.model, DEFAULT_SETTINGS.model, 120),
+    temperature: clampF(s.temperature, 0, 2, DEFAULT_SETTINGS.temperature),
+    contextTurns: clampI(s.contextTurns, 2, 80, DEFAULT_SETTINGS.contextTurns),
+    autosave: typeof s.autosave === "boolean" ? s.autosave : true,
+    storeKeyLocal: s.storeKeyLocal === true
+  };
+
+  const seen = new Set();
+  const characters = raw.characters.slice(0,20).map((c,i) => {
+    if(!c || typeof c !== "object" || Array.isArray(c)) throw new Error(`Character at index ${i} is invalid.`);
+    let id = cleanS(c.id, "", 80).replace(/[^\w-]/g,"-") || `char-${i}`;
+    if(seen.has(id)) id = `${id}-${i}`; seen.add(id);
+    const stats = {};
+    for(const ab of ABILITIES) stats[ab] = clampI(c.stats?.[ab], 1, 30, 10);
+    const skills = {};
+    if(c.skills && typeof c.skills === "object" && !Array.isArray(c.skills))
+      for(const [k,v] of Object.entries(c.skills)){ const n = cleanS(k,"",60); if(n) skills[n] = clampI(v,-20,40,0); }
+    return {
+      id, name: cleanS(c.name,"Unnamed",80) || "Unnamed",
+      cls: cleanS(c.cls || c.class, "Adventurer", 80),
+      portrait: cleanS(c.portrait,"❖",8),
+      hp: clampI(c.hp,0,999,10), maxHp: clampI(c.maxHp,1,999,10), ac: clampI(c.ac,1,50,10),
+      stats, skills,
+      inventory: Array.isArray(c.inventory) ? c.inventory.slice(0,200).map(x=>cleanS(x,"",120)).filter(Boolean) : [],
+      persona: cleanS(c.persona,"A mysterious adventurer.",4000)
+    };
+  });
+
+  const okType = new Set(["dm","ai","roll","system"]), okOut = new Set(["neutral","success","failure","crit","fumble"]);
+  const chat = (raw.chat || []).slice(-1500).map(m => {
+    if(!m || typeof m !== "object") throw new Error("A chat entry is malformed.");
+    return {
+      id: cleanS(m.id, uid(), 120), type: okType.has(m.type) ? m.type : "system",
+      speaker: cleanS(m.speaker,"Unknown",120), characterId: cleanS(m.characterId,"",120),
+      content: cleanS(m.content,"",20000),
+      timestamp: Number.isFinite(Date.parse(m.timestamp)) ? m.timestamp : nowISO(),
+      meta: { outcome: okOut.has(m.meta?.outcome) ? m.meta.outcome : "neutral",
+              badge: cleanS(m.meta?.badge,"",40) }
+    };
+  });
+  return { version:VERSION, settings, characters, chat };
+}
+
+// ---------- rendering ----------
+function renderAll(){ renderCharacters(); renderSelects(); populateSettingsUI(); renderChat(true); syncSkillMod(); syncTargetAc(); }
+
+function renderCharacters(){
+  $("charactersPanel").innerHTML = state.characters.map(c => `
+    <article class="rounded-xl border border-slate-800 bg-slate-950/60 p-4">
+      <div class="flex gap-3">
+        <div class="w-14 h-14 rounded-xl bg-gradient-to-br from-slate-800 to-slate-950 border border-slate-700 flex items-center justify-center text-3xl">${esc(c.portrait)}</div>
+        <div class="min-w-0">
+          <h3 class="font-display font-bold text-bone leading-tight">${esc(c.name)}</h3>
+          <p class="text-xs text-slate-400">${esc(c.cls)}</p>
+        </div>
+      </div>
+      <div class="mt-3">
+        <div class="h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+          <div class="h-full rounded-full ${c.hp/c.maxHp>.6?"bg-emerald-500":c.hp/c.maxHp>.3?"bg-amber-500":"bg-red-600"}"
+               style="width:${Math.max(0,Math.min(100,(c.hp/c.maxHp)*100)).toFixed(0)}%"></div>
+        </div>
+      </div>
+      <div class="grid grid-cols-3 gap-2 mt-2 text-xs">
+        <label class="rounded-lg bg-red-950/40 border border-red-900/70 px-2 py-1.5"><span class="block text-red-200/70">HP</span>
+          <input data-edit="hp" data-char="${esc(c.id)}" type="number" value="${c.hp}" class="w-full bg-transparent font-bold outline-none"/></label>
+        <label class="rounded-lg bg-red-950/30 border border-red-900/60 px-2 py-1.5"><span class="block text-red-200/70">Max</span>
+          <input data-edit="maxHp" data-char="${esc(c.id)}" type="number" value="${c.maxHp}" class="w-full bg-transparent font-bold outline-none"/></label>
+        <label class="rounded-lg bg-indigo-950/40 border border-indigo-900/70 px-2 py-1.5"><span class="block text-indigo-200/70">AC</span>
+          <input data-edit="ac" data-char="${esc(c.id)}" type="number" value="${c.ac}" class="w-full bg-transparent font-bold outline-none"/></label>
+      </div>
+      <div class="grid grid-cols-3 gap-1.5 mt-2">
+        ${ABILITIES.map(ab => `<div class="rounded bg-slate-950/70 border border-slate-800 px-2 py-1 text-[11px] flex justify-between">
+          <span class="text-slate-400">${ab}</span><span class="font-semibold">${c.stats[ab]} <span class="text-slate-500">(${modTxt(mod(c.stats[ab]))})</span></span></div>`).join("")}
+      </div>
+      <div class="mt-3">
+        <div class="flex justify-between items-center mb-1.5">
+          <h4 class="text-[11px] uppercase tracking-wider text-slate-400">Inventory</h4>
+          <span class="text-[10px] text-slate-500">${c.inventory.length} item(s)</span>
+        </div>
+        <ul class="space-y-1 mb-2">
+          ${c.inventory.length ? c.inventory.map((it,i) => `
+            <li class="flex justify-between gap-2 rounded bg-slate-950/70 border border-slate-800 px-2 py-1 text-xs">
+              <span class="truncate">${esc(it)}</span>
+              <button data-drop="${i}" data-char="${esc(c.id)}" class="text-red-300 hover:text-red-100">✕</button>
+            </li>`).join("") : `<li class="text-xs text-slate-500 italic">Empty pack.</li>`}
+        </ul>
+        <div class="flex gap-2">
+          <input data-invinput data-char="${esc(c.id)}" class="min-w-0 flex-1 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs" placeholder="Add item…"/>
+          <button data-additem data-char="${esc(c.id)}" class="px-2 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs">Add</button>
+        </div>
+      </div>
+    </article>`).join("");
+}
+
+const STYLES = {
+  dm:      {b:"border-amber-800/70", bg:"bg-amber-950/20", n:"text-amber-200", extra:""},
+  ai:      {b:"border-violet-800/70", bg:"bg-violet-950/20", n:"text-violet-200", extra:""},
+  neutral: {b:"border-slate-800", bg:"bg-slate-950/40", n:"text-slate-200", extra:""},
+  success: {b:"border-emerald-700/70", bg:"bg-emerald-950/20", n:"text-emerald-200", extra:""},
+  failure: {b:"border-red-800/70", bg:"bg-red-950/25", n:"text-red-200", extra:""},
+  crit:    {b:"border-yellow-500/80", bg:"bg-yellow-950/25", n:"text-yellow-200", extra:"crit-glow"},
+  fumble:  {b:"border-fuchsia-800/80", bg:"bg-fuchsia-950/25", n:"text-fuchsia-200", extra:""}
+};
+function renderChat(force){
+  const log = $("chatLog");
+  const nearBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 90;
+  log.innerHTML = state.chat.map(m => {
+    const st = m.type==="dm" ? STYLES.dm : m.type==="ai" ? STYLES.ai : (STYLES[m.meta?.outcome] || STYLES.neutral);
+    const t = new Date(m.timestamp);
+    const time = Number.isFinite(t.getTime()) ? t.toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"}) : "";
+    return `<div class="msg rounded-xl border ${st.b} ${st.bg} ${st.extra} p-3">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+        <span class="text-sm font-bold ${st.n}">${esc(m.speaker)}
+          ${m.meta?.badge ? `<span class="ml-2 px-2 py-0.5 rounded-full text-[10px] border border-current">${esc(m.meta.badge)}</span>` : ""}</span>
+        <time class="text-[11px] text-slate-500">${time}</time>
+      </div>
+      <div class="text-sm leading-relaxed whitespace-pre-wrap">${esc(m.content)}</div>
+    </div>`;
+  }).join("");
+  if(force || nearBottom) log.scrollTop = log.scrollHeight;   // don't yank the DM away from reading history
+}
+
+function renderSelects(){
+  const opts = state.characters.map(c => `<option value="${esc(c.id)}">${esc(c.name)}</option>`).join("");
+  ["targetCharacter","saveChar","atkChar","skillChar"].forEach(id => {
+    const s = $(id), prev = s.value; s.innerHTML = opts;
+    if([...s.options].some(o=>o.value===prev)) s.value = prev;
+  });
+  const t = $("atkTarget"), prev = t.value;
+  t.innerHTML = `<option value="manual">Manual AC / Monster</option>` + opts;
+  if([...t.options].some(o=>o.value===prev)) t.value = prev;
+  const sk = $("skillName"), prevSk = sk.value;
+  sk.innerHTML = SKILLS.map(s => `<option>${esc(s)}</option>`).join("");
+  if(SKILLS.includes(prevSk)) sk.value = prevSk;
+}
+function syncSkillMod(){
+  const c = findChar($("skillChar").value);
+  if(c) $("skillMod").value = c.skills?.[$("skillName").value] ?? 0;
+}
+function syncTargetAc(){
+  const t = findChar($("atkTarget").value);
+  if(t) $("atkAc").value = t.ac;
+}
+
+function populateSettingsUI(){
+  const s = state.settings;
+  $("apiEndpoint").value = s.apiEndpoint; $("apiModel").value = s.model; $("apiKey").value = s.apiKey;
+  $("apiTemp").value = s.temperature; $("contextTurns").value = s.contextTurns;
+  $("autosaveEnabled").checked = s.autosave; $("storeKeyLocal").checked = s.storeKeyLocal;
+}
+function readSettingsUI(){
+  const s = state.settings;
+  s.apiEndpoint = $("apiEndpoint").value.trim() || DEFAULT_SETTINGS.apiEndpoint;
+  s.model = $("apiModel").value.trim() || DEFAULT_SETTINGS.model;
+  s.apiKey = $("apiKey").value.trim();
+  s.temperature = clampF($("apiTemp").value, 0, 2, DEFAULT_SETTINGS.temperature);
+  s.contextTurns = clampI($("contextTurns").value, 2, 80, DEFAULT_SETTINGS.contextTurns);
+  s.autosave = $("autosaveEnabled").checked;
+  s.storeKeyLocal = $("storeKeyLocal").checked;
+  autosave();
+}
+
+// ---------- events ----------
+function postDM(){
+  const el = $("dmPrompt"), text = el.value.trim();
+  if(!text){ sysMsg("Cannot post an empty message.","failure","EMPTY"); return; }
+  addChat({ id:uid(), type:"dm", speaker:"DM", content:text, timestamp:nowISO(), meta:{outcome:"neutral", badge:"DM"} });
+  el.value = "";
+}
+function wire(){
+  $("sendDmBtn").onclick = postDM;
+  $("askLlmBtn").onclick = askSelectedAI;
+  $("dmPrompt").addEventListener("keydown", e => { if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); postDM(); }});
+  $("saveSettingsBtn").onclick = () => { readSettingsUI(); sysMsg("Settings saved.","success","SETTINGS"); };
+  $("exportBtn").onclick = exportState;
+  $("importFile").addEventListener("change", importState);
+  $("resetBtn").onclick = () => { if(confirm("Reset everything to the demo campaign?")){ localStorage.removeItem(LS_KEY); state = makeDefaultState(); renderAll(); }};
+  $("clearChatBtn").onclick = () => { if(confirm("Clear the chat log? Characters and settings remain.")){ state.chat = []; sysMsg("The chronicle was cleared. A new page begins.","neutral","CLEAR"); }};
+  $("rollSaveBtn").onclick = doSave; $("rollDmgBtn").onclick = doDamage;
+  $("rollAtkBtn").onclick = doAttack; $("rollSkillBtn").onclick = doSkill;
+  $("skillChar").onchange = syncSkillMod; $("skillName").onchange = syncSkillMod;
+  $("atkTarget").onchange = syncTargetAc;
+
+  // delegated sidebar events
+  const panel = $("charactersPanel");
+  panel.addEventListener("click", e => {
+    const drop = e.target.closest("[data-drop]");
+    if(drop){
+      const c = findChar(drop.dataset.char), i = Number(drop.dataset.drop);
+      if(c && c.inventory[i] !== undefined){
+        const removed = c.inventory.splice(i,1)[0];
+        renderCharacters(); sysMsg(`${c.name} discarded: ${removed}`,"neutral","INVENTORY");
+      }
+      return;
+    }
+    const add = e.target.closest("[data-additem]");
+    if(add) addItem(add.dataset.char);
+  });
+  panel.addEventListener("keydown", e => {
+    if(e.key==="Enter" && e.target.matches("[data-invinput]")){ e.preventDefault(); addItem(e.target.dataset.char); }
+  });
+  panel.addEventListener("change", e => {
+    const inp = e.target.closest("[data-edit]"); if(!inp) return;
+    const c = findChar(inp.dataset.char), f = inp.dataset.edit;
+    if(!c || !["hp","maxHp","ac"].includes(f)) return;
+    c[f] = clampI(inp.value, 0, 999, c[f]); inp.value = c[f];
+    renderCharacters(); autosave(); syncTargetAc();
+  });
+}
+function addItem(charId){
+  const c = findChar(charId);
+  const input = document.querySelector(`[data-invinput][data-char="${CSS.escape(charId)}"]`);
+  if(!c || !input) return;
+  const item = input.value.trim();
+  if(!item){ sysMsg("Item name cannot be empty.","failure","INVENTORY"); return; }
+  if(item.length > 80){ sysMsg("Item name too long (max 80 chars).","failure","INVENTORY"); return; }
+  c.inventory.push(item); input.value = "";
+  renderCharacters(); sysMsg(`${c.name} acquired: ${item}`,"neutral","INVENTORY");
+}
+
+// ---------- boot ----------
+(function init(){
+  try{
+    const saved = localStorage.getItem(LS_KEY);
+    if(saved) state = validateState(JSON.parse(saved));
+  } catch(e){
+    state = makeDefaultState();
+    state.chat.push({ id:uid(), type:"system", speaker:"Grimoire",
+      content:"Autosave could not be restored: "+e.message, timestamp:nowISO(),
+      meta:{outcome:"failure", badge:"LOAD ERROR"} });
+  }
+  wire(); renderAll();
+})();
+</script>
+</body>
+</html>

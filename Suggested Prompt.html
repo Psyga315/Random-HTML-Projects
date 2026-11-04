@@ -1,0 +1,4054 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Dataset Tag Analyzer</title>
+  <meta charset="UTF-8">
+  <style>
+    :root { --link:#4dabf7; --error:#dc3545; --databg:#f1f0e4; --datatxt:#c1c5c1; --string:#64ad15; --key:#8563c1; --number:#ff9e64; --boolean:#61aeee; --null:#e06c75;}
+    :root { --primary:#e2dfd8; --bg:#F4F4F4; --text:#3e3a3e; --ntext:var(--text); --inputtext:var(--text); --inputbg:#dddbd6; --inputborder:#777; --hover:color-mix(in srgb, var(--primary) 80%, white); }
+    :root { --font: Arial, sans-serif; }
+    .light-theme { --hover:color-mix(in srgb, var(--primary) 80%, white); }
+    .dark-theme { --bg:#121212; --text:#c1c5c1; --ntext:#3e3a3e; --inputtext:var(--text); --inputbg:#2C2E33; --hover:color-mix(in srgb, var(--primary) 80%, white); --databg:#1A1B26; --string:#9ece6a; --key:#bb9af7; }
+    .default-light-theme { --primary:#e2dfd8; }
+    .default-dark-theme { --primary:#373A40; --ntext:var(--text); }
+    .console-theme { --primary:#22c92a; --font: monospace; --bg:#000; --text:var(--primary); --ntext:#000; --inputtext:var(--text); --inputbg: var(--bg); --inputborder: var(--primary); --hover:var(--primary); --databg:#000; --string:#9ece6a; --key:#bb9af7; }
+    .doro-theme { --primary:#fcb8d1; --font: cursive; --bg:#fff; --text:#983cc3; --ntext:#983cc3; --inputtext:var(--text); --inputbg: #fff0f0; --inputborder: var(--primary); --hover:var(--primary); --databg:#000; }
+    .amber-theme { --primary:#ffc400; }
+    .blue-theme { --primary:#4369fe; }
+    .lightblue-theme { --primary:#50c7ff; }
+    .cyan-theme { --primary:#00cccc; }
+    .green-theme { --primary:#22c92a; }
+    .lightgreen-theme { --primary:#97c922; }
+    .magenta-theme { --primary:#ff307f; }
+    .orange-theme { --primary:#ff8800; }
+    .purple-theme { --primary:#983cc3; }
+    .red-theme { --primary:#c90000; }
+    .pink-theme { --primary:#ffa3cb; }
+    .teal-theme { --primary:#00ac95; }
+    .yellow-theme { --primary:#ffee00; }
+    body { font-family: var(--font); background-color:var(--bg); color: var(--text); margin:0; }
+    .body-content { margin:10px; }
+    #dropArea { width: 100%; border: 2px dashed var(--primary); text-align: center; padding: 30px 0; margin-bottom: 10px; background-color: var(--inputbg); border-radius: 20px; cursor: pointer; }
+    #dropArea.hover { background-color: var(--hover); color: var(--ntext); }
+    .collapsible { cursor: pointer; user-select: none; margin-bottom: 5px; }
+    .collapsible:hover { background-color: var(--hover); color: var(--ntext); border-radius: 10px; }
+    .collapsible::before { content: "▼ "; display: inline-block; width: 1em; }
+    .collapsible.active::before { content: "▲ "; }
+    .content { display: none; padding: 5px; position: relative; }
+    .copy-btn { position: absolute; right: 0.5em; background-color: transparent; border: none; color: grey; cursor: pointer; }
+    .copy-btn:hover { background-color: grey; color: white; border-radius: 5px; }
+    .note { font-size: 0.7em; font-style: italic; }
+    .header { margin:20px; font-size: 2em; font-weight: bold; }
+    #settings-btn { margin:20px; font-size: 2em; font-weight: bold; position: absolute; top: 0; right: 0; }
+    #settings-btn.collapsible::before, #settings-btn.collapsible.active::before { content: none; }
+    .footer { margin:10px; text-align: center; font-size: 0.9em; }
+    .error { text-align: center; color:var(--error); font-weight: bold; }
+    a { color: var(--link); font-weight: bold; text-decoration: none; }
+    select, input, textarea, button { border-color: var(--inputborder); }
+    input, textarea, select { font-family: monospace; color: var(--text); background-color: var(--inputbg); border-radius: 10px; }
+    input { padding:5px; }
+    textarea { width: 100%; }
+    select { font-size: 1.3em; padding: 5px; }
+    hr { border: none; border-bottom: 1px solid var(--primary); }
+    input[type=checkbox] { margin: 10px; }
+    pre { margin: 0; }
+    .json-data { overflow: overlay; background:var(--databg); color:var(--datatxt); padding: 10px; border-radius: 10px; }
+    .settings-button, .custom-file-upload { font-size: 1.1em; color: var(--text); background-color: var(--inputbg); border: 1px solid var(--primary); border-radius: 10px; padding:8px; cursor: pointer; }
+    .settings-button:hover, .custom-file-upload:hover { background-color: var(--hover); color:var(--ntext); }
+    .custom-file-upload > input { display: none; }
+    .svg-icon { width: 1em; height: 1em; }
+    .svg-icon-lg { width: 3em; height: 3em; }
+    .svg-icon path, .svg-icon polygon, .svg-icon rect { fill: var(--text); }
+    #dropArea.hover .svg-icon path { fill: var(--ntext); }
+    .string { color:var(--string); }
+    .key { color:var(--key); }
+    .number { color:var(--number); }
+    .boolean { color:var(--boolean); }
+    .null { color:var(--null); }
+    .summary-table td { border-bottom: 1px solid var(--primary); width: 100%; padding:4px; }
+    .summary-table tr td:first-child { font-weight: bold; width: auto; white-space: nowrap; padding-right: 20px; }
+    .summary-table select { font-size: 1em; }
+    .summary-table input[type=text] { width: 100%; width: -moz-available; width: -webkit-fill-available; }
+    .summary-table input[type=number] { max-width: 60px; }
+    .panel-option { font-size: 0.8em; }
+    .section-header { font-size: 1.2em; font-weight: bold; }
+    .notes { font-style: italic; font-size: 0.8em; }
+    .summary-grid { display: flex; flex-wrap: wrap; font-size: 20px; color: var(--datatxt); }
+    .summary-grid > div { border: 1px solid var(--inputbg); background-color: var(--databg); align-self: flex-start; border-radius: 12px; margin: 5px; padding: 8px 12px; }
+    .summary-grid > div > div:first-child { color: var(--string); font-size: 16px; }
+    .tabcontent { display: none; border:1px solid var(--primary); border-radius: 0 20px 20px 20px; padding: 10px; margin-bottom: 10px; }
+    .tablinks { font-size: 1em; color: var(--text); background-color: var(--inputbg); cursor: pointer; padding: 10px 20px; margin: 0; border: 1px solid var(--primary); border-radius: 12px 12px 0 0; }
+    .tablinks:hover, .tablinks.active { background-color: var(--hover); color: var(--ntext); }
+    .tooltip { position:absolute; background-color: black; color: white; padding: 5px; border-radius: 3px; z-index: 1000; }
+    .copyable-item { cursor: pointer; background-color: var(--inputbg); font-weight: normal; border-radius: 8px; padding: 3px; display: inline-block; }
+    .copyable-item:hover { background-color: var(--hover); color: var(--ntext); }
+    #toast-container { position: fixed; top: 1rem; right: 1rem; display: flex; flex-direction: column; gap: 0.5rem; z-index: 9999; }
+    .toast { background-color: #333; padding: 1rem 1.5rem; border-radius: 0.5rem; box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); position: relative; min-width: 200px; max-width: 300px; font-family: sans-serif; color: #fff; animation: fadeIn 0.3s ease; }
+    .toast span { margin-right: 20px; }
+    .toast.success { background-color: #2ecc71; }
+    .toast.error { background-color: #e74c3c; }
+    .toast.warning { background-color: #f39c12; }
+    .toast.info { background-color: #3498db; }
+    .toast .close-btn { position: absolute; top: 0.5rem; right: 0.7rem; background: none; border: none; color: #fff; font-size: 1rem; cursor: pointer; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+    #settings-panel-display span { margin-right: 16px; }
+    .file-select-row { text-align: center; margin-bottom: 20px; }
+    .file-select-row .custom-file-upload { margin: 0 5px; }
+    .source-badge { font-size: 0.7em; padding: 2px 8px; border-radius: 8px; background-color: var(--primary); color: var(--ntext); margin-left: 8px; vertical-align: middle; }
+
+    /* ===== Character Tag Detection Styles ===== */
+    .char-indicator { color: #ffd700; cursor: help; font-size: 0.9em; }
+    .char-badge { font-size: 0.6em; padding: 2px 6px; border-radius: 6px; background-color: #ffd700; color: #000; margin-left: 6px; vertical-align: middle; font-weight: bold; letter-spacing: 0.5px; }
+    .char-legend { font-size: 0.8em; padding: 4px 8px; margin-bottom: 5px; opacity: 0.7; font-style: italic; }
+    .char-filter-row { display: none; }
+  </style>
+</head>
+<body class="dark-theme">
+  <div class="header">Dataset Tag Analyzer</div>
+  <hr/>
+  <span id="settings-btn" class="collapsible" data-target="settings-panel">⚙</span>
+  <div id="toast-container"></div>
+
+  <div class="body-content">
+    <!-- ============ SETTINGS PANEL ============ -->
+    <div id="settings-panel" class="content">
+      <div class="tab-container">
+        <button class="tablinks" data-target-tab="tabGeneral">General</button>
+        <button class="tablinks" data-target-tab="tabDisplay">Display</button>
+
+        <div id="tabGeneral" class="tabcontent">
+          <div><span class="notes">Settings are stored in your browser via Local Storage and persist across sessions.</span></div><br>
+          <button id="clearSettingsBtn" class="settings-button">Restore Default Settings</button>
+          <button id="exportSettingsBtn" class="settings-button">Export Settings</button>
+          <button id="importSettingsBtn" class="settings-button">Import Settings</button>
+          <label class="custom-file-upload"><input type="file" id="importSettingsFile">Choose Import File</label>
+          <span id="importSettingsFileName">No file chosen</span>
+        </div>
+
+        <div id="tabDisplay" class="tabcontent">
+          <div class="section-header">Display Settings</div>
+          <hr>
+          <div id="settings-panel-display">
+            <span>
+              <label for="themeSelect">Theme: </label>
+              <select id="themeSelect" class="settings-field">
+                <option value="default" selected>Default</option>
+                <option value="light-theme">Light</option>
+                <option value="dark-theme">Dark</option>
+                <option value="console-theme">Hackerman</option>
+                <option value="doro-theme">:3</option>
+              </select>
+            </span>
+            <span>
+              <label for="themeColorSelect">Color: </label>
+              <select id="themeColorSelect" class="settings-field">
+                <option value="default" selected>Default</option>
+                <option value="amber-theme">Amber</option>
+                <option value="blue-theme">Blue</option>
+                <option value="lightblue-theme">Blue (Light)</option>
+                <option value="cyan-theme">Cyan</option>
+                <option value="green-theme">Green</option>
+                <option value="lightgreen-theme">Green (Light)</option>
+                <option value="magenta-theme">Magenta</option>
+                <option value="orange-theme">Orange</option>
+                <option value="red-theme">Red</option>
+                <option value="pink-theme">Pink</option>
+                <option value="purple-theme">Purple</option>
+                <option value="teal-theme">Teal</option>
+                <option value="yellow-theme">Yellow</option>
+                <option value="custom-theme">Custom</option>
+              </select>
+              <input id="themeColorPicker" type="color" class="settings-field" value="#888888">
+            </span>
+            <span>
+              <label for="themeBgColorSelect">Background: </label>
+              <select id="themeBgColorSelect" class="settings-field">
+                <option value="" selected>Default</option>
+                <option value="black">Black</option>
+                <option value="white">White</option>
+                <option value="custom-theme">Custom</option>
+              </select>
+              <input id="themeBgColorPicker" type="color" class="settings-field" value="#888888">
+            </span>
+            <span>
+              <label for="themeFont">Font: </label>
+              <select id="themeFont" class="settings-field">
+                <option value="">Default</option>
+                <option value="Arial, sans-serif">Arial</option>
+                <option value="cursive">Cursive</option>
+                <option value="monospace">Monospace</option>
+              </select>
+            </span>
+          </div>
+          <hr>
+          <div><input type="checkbox" id="enableSuggestedPrompt" class="settings-field" data-display="suggestedPromptPanel" checked><label for="enableSuggestedPrompt">Display Suggested Prompt</label></div>
+          <div><input type="checkbox" id="enableTagFrequency" class="settings-field" data-display="tagFrequencyPanel" checked><label for="enableTagFrequency">Display Tag Frequency</label></div>
+          <div><input type="checkbox" id="enableCharacterDetection" class="settings-field" checked><label for="enableCharacterDetection">Enable Character Tag Detection</label></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ DROP AREA ============ -->
+    <div id="dropArea">
+      <p>Drag and drop a <strong>folder</strong> of .txt files or a <strong>.zip</strong> archive here<br/>or click to select a folder</p>
+      <div>
+        <svg class="svg-icon svg-icon-lg" viewBox="0 0 20 20">
+          <path fill="none" d="M8.416,3.943l1.12-1.12v9.031c0,0.257,0.208,0.464,0.464,0.464c0.256,0,0.464-0.207,0.464-0.464V2.823l1.12,1.12c0.182,0.182,0.476,0.182,0.656,0c0.182-0.181,0.182-0.475,0-0.656l-1.744-1.745c-0.018-0.081-0.048-0.16-0.112-0.224C10.279,1.214,10.137,1.177,10,1.194c-0.137-0.017-0.279,0.02-0.384,0.125C9.551,1.384,9.518,1.465,9.499,1.548L7.76,3.288c-0.182,0.181-0.182,0.475,0,0.656C7.941,4.125,8.234,4.125,8.416,3.943z M15.569,6.286h-2.32v0.928h2.32c0.512,0,0.928,0.416,0.928,0.928v8.817c0,0.513-0.416,0.929-0.928,0.929H4.432c-0.513,0-0.928-0.416-0.928-0.929V8.142c0-0.513,0.416-0.928,0.928-0.928h2.32V6.286h-2.32c-1.025,0-1.856,0.831-1.856,1.856v8.817c0,1.025,0.832,1.856,1.856,1.856h11.138c1.024,0,1.855-0.831,1.855-1.856V8.142C17.425,7.117,16.594,6.286,15.569,6.286z"></path>
+        </svg>
+      </div>
+    </div>
+    <div class="file-select-row">
+      <label class="custom-file-upload">
+        <input type="file" id="individualFileInput" accept=".txt" multiple>
+        📄 Select individual .txt files
+      </label>
+      <label class="custom-file-upload">
+        <input type="file" id="zipFileInput" accept=".zip">
+        📦 Select a .zip archive
+      </label>
+    </div>
+
+    <!-- ============ DATASET SUMMARY ============ -->
+    <div id="datasetSummaryPanel" style="display:none;">
+      <h3 class="collapsible expanded">Dataset Summary</h3>
+      <div class="content">
+        <div class="summary-grid" id="datasetSummary"></div>
+        <div class="collapsible" data-target="fileListContent" style="font-size:0.9em;">File List</div>
+        <div id="fileListContent" class="content">
+          <pre id="fileListDisplay" class="json-data" style="max-height:300px; overflow:auto;"></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ CHARACTER TAG ANALYSIS (NEW) ============ -->
+    <div id="characterAnalysisPanel" style="display:none;">
+      <h3 class="collapsible" data-target="character-analysis-content">Character Tag Analysis <span class="char-badge">CHAR</span></h3>
+      <div id="character-analysis-content" class="content">
+        <div class="summary-grid" id="characterAnalysisSummary"></div>
+        <br>
+        <div class="collapsible" data-target="charTagListContent" style="font-size:0.9em;">Detected Character Tags</div>
+        <div id="charTagListContent" class="content">
+          <button class="copy-btn" onclick="copyToClipboard('characterTagFrequency',event)">Copy to clipboard</button>
+          <pre id="characterTagFrequency" class="json-data" style="max-height:400px; overflow:auto;"></pre>
+        </div>
+        <div class="collapsible" data-target="nonCharTagListContent" style="font-size:0.9em;">Non-Character Tags</div>
+        <div id="nonCharTagListContent" class="content">
+          <button class="copy-btn" onclick="copyToClipboard('nonCharacterTagFrequency',event)">Copy to clipboard</button>
+          <pre id="nonCharacterTagFrequency" class="json-data" style="max-height:400px; overflow:auto;"></pre>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ SUGGESTED PROMPT ============ -->
+    <div id="suggestedPromptPanel">
+      <h3 class="collapsible" data-target="suggested-prompt-content">Suggested Prompt</h3>
+      <div id="suggested-prompt-content" class="content">
+        <div class="collapsible" data-target="suggested-prompt-settings">⚙ Filter Settings</div>
+        <div id="suggested-prompt-settings">
+          <table class="summary-table">
+            <tr>
+              <td><label for="suggestedPromptCount">Show top N tags</label> <span id="suggestedPromptCountVld" class="error"></span></td>
+              <td colspan="2"><input type="number" id="suggestedPromptCount" class="settings-field"></td>
+            </tr>
+            <tr>
+              <td><label for="suggestedPromptFilter">Include Filter</label> <span id="suggestedPromptFilterVld" class="error"></span></td>
+              <td><input type="text" id="suggestedPromptFilter" class="settings-field"></td>
+              <td>
+                <select id="suggestedPromptFilterMethod" class="settings-field">
+                  <option selected>None/Disable</option>
+                  <option value="partial">Partial Match (comma delimited)</option>
+                  <option value="exact">Exact Match (comma delimited)</option>
+                  <option value="regex">Regular Expression</option>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td><label for="suggestedPromptExcludeFilter">Exclude Filter</label> <span id="suggestedPromptExcludeFilterVld" class="error"></span></td>
+              <td><input type="text" id="suggestedPromptExcludeFilter" class="settings-field"></td>
+              <td>
+                <select id="suggestedPromptExcludeFilterMethod" class="settings-field">
+                  <option>None/Disable</option>
+                  <option value="partial">Partial Match (comma delimited)</option>
+                  <option value="exact" selected>Exact Match (comma delimited)</option>
+                  <option value="regex">Regular Expression</option>
+                </select>
+              </td>
+            </tr>
+            <tr class="char-filter-row">
+              <td><label for="suggestedPromptCharacterFilter">Character Filter</label></td>
+              <td colspan="2">
+                <select id="suggestedPromptCharacterFilter" class="settings-field">
+                  <option value="all" selected>All Tags</option>
+                  <option value="character">Character Tags Only</option>
+                  <option value="noncharacter">Non-Character Tags Only</option>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td colspan="3"><input type="checkbox" id="suggestedPromptByFolder" class="settings-field"><label for="suggestedPromptByFolder">Show prompt by folder</label></td>
+            </tr>
+          </table>
+        </div>
+        <div id="suggestedPromptDetails"></div>
+      </div>
+    </div>
+
+    <!-- ============ TAG FREQUENCY ============ -->
+    <div id="tagFrequencyPanel">
+      <h3 class="collapsible" data-target="tag-frequency-content">Tag Frequency</h3>
+      <div id="tag-frequency-content" class="content">
+        <div class="collapsible" data-target="tag-frequency-settings">⚙ Filter Settings</div>
+        <div id="tag-frequency-settings">
+          <table class="summary-table">
+            <tr>
+              <td><label for="tagFrequencyCount">Show top N tags</label> <span id="tagFrequencyCountVld" class="error"></span></td>
+              <td colspan="2"><input type="number" id="tagFrequencyCount" class="settings-field"></td>
+            </tr>
+            <tr>
+              <td><label for="tagFrequencyFilter">Include Filter</label> <span id="tagFrequencyFilterVld" class="error"></span></td>
+              <td><input type="text" id="tagFrequencyFilter" class="settings-field"></td>
+              <td>
+                <select id="tagFrequencyFilterMethod" class="settings-field">
+                  <option selected>None/Disable</option>
+                  <option value="partial">Partial Match (comma delimited)</option>
+                  <option value="exact">Exact Match (comma delimited)</option>
+                  <option value="regex">Regular Expression</option>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td><label for="tagExcludeFilter">Exclude Filter</label> <span id="tagExcludeFilterVld" class="error"></span></td>
+              <td><input type="text" id="tagExcludeFilter" class="settings-field"></td>
+              <td>
+                <select id="tagExcludeFilterMethod" class="settings-field">
+                  <option selected>None/Disable</option>
+                  <option value="partial">Partial Match (comma delimited)</option>
+                  <option value="exact">Exact Match (comma delimited)</option>
+                  <option value="regex">Regular Expression</option>
+                </select>
+              </td>
+            </tr>
+            <tr class="char-filter-row">
+              <td><label for="tagCharacterFilter">Character Filter</label></td>
+              <td colspan="2">
+                <select id="tagCharacterFilter" class="settings-field">
+                  <option value="all" selected>All Tags</option>
+                  <option value="character">Character Tags Only</option>
+                  <option value="noncharacter">Non-Character Tags Only</option>
+                </select>
+              </td>
+            </tr>
+            <tr>
+              <td colspan="3"><input type="checkbox" id="tagByFolder" class="settings-field"><label for="tagByFolder">Show tags by folder</label></td>
+            </tr>
+          </table>
+        </div>
+        <button class="copy-btn" onclick="copyToClipboard('keywordDetails',event)">Copy to clipboard</button>
+        <pre id="keywordDetails" class="json-data"></pre>
+      </div>
+    </div>
+  </div>
+
+  <hr/>
+  <div class="footer">
+    Dataset Tag Analyzer — Based on <a href="https://github.com/Xypher7/lora-metadata-viewer" target="_blank">LoRA Metadata Viewer</a>
+  </div>
+
+  <!-- JSZip library for .zip archive support -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+  <script>
+    // ========================================================
+    // GLOBAL STATE
+    // ========================================================
+    const STATE = {
+      tags: {},
+      tagsByFolder: {},
+      fileCount: 0,
+      uniqueTags: 0,
+      totalInstances: 0,
+      folders: [],
+      fileNames: [],
+      source: ''
+    };
+
+    const DEFAULTS = {
+      suggestedPromptCount: 10,
+      suggestedPromptExcludeFilter: "1girl,1boy,background,standing,portrait,cowboy shot,upper body,looking at viewer,solo,smile,open mouth,closed mouth,blush,nude,nipples,anime,male focus",
+      suggestedPromptExcludeFilterMethod: 'partial',
+      suggestedPromptByFolder: 'true',
+      tagFrequencyCount: '',
+      enableCharacterDetection: true,
+    };
+
+    // ========================================================
+    // CHARACTER TAG DATABASE
+    // ========================================================
+    const CHARACTER_TAGS = new Set(`hatsune miku
+hakurei reimu
+kirisame marisa
+remilia scarlet
+flandre scarlet
+izayoi sakuya
+admiral (kancolle)
+artoria pendragon (fate)
+kochiya sanae
+alice margatroid
+patchouli knowledge
+konpaku youmu
+cirno
+komeiji koishi
+yakumo yukari
+shameimaru aya
+reisen udongein inaba
+fujiwara no mokou
+komeiji satori
+hong meiling
+akemi homura
+saigyouji yuyuko
+kaname madoka
+inubashiri momiji
+kaga (kancolle)
+yakumo ran
+kagamine rin
+konpaku youmu (ghost)
+kaenbyou rin
+moriya suwako
+rumia
+shimakaze (kancolle)
+kazami yuuka
+miki sayaka
+reiuji utsuho
+chen
+saber (fate)
+ganyu (genshin impact)
+hibiki (kancolle)
+mash kyrielight
+tatara kogasa
+kawashiro nitori
+kamishirasawa keine
+shigure (kancolle)
+hinanawi tenshi
+sakura kyoko
+tomoe mami
+houraisan kaguya
+koakuma
+mystia lorelei
+souryuu asuka langley
+inaba tewi
+ibuki suika
+kongou (kancolle)
+nazrin
+inazuma (kancolle)
+hijiri byakuren
+warrior of light (ff)
+akagi (kancolle)
+kagamine len
+link
+raiden shogun
+tamamo (fate)
+houjuu nue
+lumine (genshin impact)
+houshou marine
+tenryuu (kancolle)
+fujimaru ritsuka (male)
+yasaka kanako
+gawr gura
+yuudachi (kancolle)
+yagokoro eirin
+fujimaru ritsuka (female)
+megurine luka
+jeanne d'arc alter (fate)
+mizuhashi parsee
+sensei (blue archive)
+fubuki (kancolle)
+ikazuchi (kancolle)
+abigail williams (fate)
+pikachu
+hu tao (genshin impact)
+akatsuki (kancolle)
+zuikaku (kancolle)
+akiyama mio
+toyosatomimi no miko
+hamakaze (kancolle)
+suzumiya haruhi
+haruna (kancolle)
+nero claudius (fate)
+nagato (kancolle)
+morichika rinnosuke
+princess zelda
+kagiyama hina
+inkling player character
+tifa lockhart
+hoshiguma yuugi
+fate testarossa
+kashima (kancolle)
+nishizumi miho
+tohsaka rin
+daiyousei
+mononobe no futo
+b (nier:automata)
+wriggle nightbug
+shanghai doll
+nakano azusa
+nagato yuki
+rem (re:zero)
+shirakami fubuki
+asuna (blue archive)
+shiki eiki
+usami renko
+misaka mikoto
+onozuka komachi
+suzuya (kancolle)
+ryuujou (kancolle)
+illyasviel von einzbern
+hirasawa yui
+maribel hearn
+kyubey
+scathach (fate)
+yae miko
+imaizumi kagerou
+gotoh hitori
+yuuka (blue archive)
+zhongli (genshin impact)
+ayanami rei
+producer (idolmaster)
+shigure kai ni (kancolle)
+manjuu (azur lane)
+houshou (kancolle)
+toramaru shou
+takamachi nanoha
+inkling girl
+usada pekora
+joseph joestar
+yuudachi kai ni (kancolle)
+matoi ryuuko
+jeanne d'arc (fate)
+aether (genshin impact)
+serval (kemono friends)
+yor briar
+hoshimachi suisei
+tainaka ritsu
+himekaidou hatate
+murakumo (kancolle)
+amatsukaze (kancolle)
+mona (genshin impact)
+megumin
+nishikino maki
+ninomae ina'nis
+ushio (kancolle)
+mori calliope
+kafuu chino
+kaku seiga
+dawn (pokemon)
+toujou nozomi
+jeanne d'arc alter (avenger) (fate)
+sonoda umi
+okita souji (fate)
+keqing (genshin impact)
+shiroko (blue archive)
+shibuya rin
+yukikaze (kancolle)
+murasa minamitsu
+lillie (pokemon)
+atago (kancolle)
+northern ocean princess
+nanami chiaki
+minato aqua
+yamato (kancolle)
+gardevoir
+shoukaku (kancolle)
+ayase eli
+yazawa nico
+yuzuki yukari
+tamamo no mae (fate/extra)
+nagae iku
+kujo jotaro
+hata no kokoro
+akebono (kancolle)
+kaito (vocaloid)
+joseph joestar (young)
+doodle sensei (blue archive)
+ibaraki kasen
+pyra (xenoblade)
+chun-li
+doctor (arknights)
+kinomoto sakura
+trainer (umamusume)
+nekomata okayu
+kitakami (kancolle)
+amiya (arknights)
+shuten douji (fate)
+makima (chainsaw man)
+gilgamesh (fate)
+byleth (fire emblem)
+soga no tojiko
+hina (blue archive)
+may (pokemon)
+cloud strife
+kurodani yamame
+kasodani kyouko
+matou sakura
+miyako yoshika
+kumoi ichirin
+rensouhou-chan
+rosa (pokemon)
+toki (blue archive)
+ooyodo (kancolle)
+astolfo (fate)
+takanashi kiara
+marnie (pokemon)
+darjeeling (girls und panzer)
+hoshii miki
+venti (genshin impact)
+clownpiece
+prinz eugen (kancolle)
+cu chulainn (fate)
+tokoyami towa
+kijin seija
+mythra (xenoblade)
+asashio (kancolle)
+hilda (pokemon)
+hiiragi kagami
+mutsu (kancolle)
+samus aran
+kotobuki tsumugi
+klee (genshin impact)
+kaban (kemono friends)
+texas (arknights)
+female admiral (kancolle)
+watson amelia
+mordred (fate)
+nishizumi maho
+kirby
+tatsuta (kancolle)
+ouro kronii
+kamisato ayaka
+princess peach
+nanashi mumei
+minamoto no raikou (fate)
+sekibanki
+itsumi erika
+emiya shirou
+meiko (vocaloid)
+aki minoriko
+minami kotori
+rice shower (umamusume)
+c.c.
+junko (touhou)
+hieda no akyuu
+tartaglia (genshin impact)
+izumi konata
+dio brando
+sendai (kancolle)
+archer (fate)
+ooi (kancolle)
+aerith gainsborough
+paimon (genshin impact)
+bismarck (kancolle)
+mika (blue archive)
+musashi (kancolle)
+anchovy (girls und panzer)
+eula (genshin impact)
+tsukino usagi
+caesar anthonio zeppeli
+mejiro mcqueen (umamusume)
+akashi (kancolle)
+takao (kancolle)
+gloria (pokemon)
+shirogane noel
+asuna (sao)
+amami haruka
+aris (blue archive)
+sakura miko
+sukuna shinmyoumaru
+nahida (genshin impact)
+daiwa scarlet (umamusume)
+furina (genshin impact)
+shiranui (kancolle)
+medusa (fate)
+hk (girls' frontline)
+yoko littner
+futatsuiwa mamizou
+okita souji (koha-ace)
+shenhe (genshin impact)
+sazanami (kancolle)
+souryuu (kancolle)
+koharu (blue archive)
+scaramouche (genshin impact)
+nero claudius (fate/extra)
+skadi (arknights)
+akiyama yukari
+d.va (overwatch)
+byleth (female) (fire emblem)
+taihou (azur lane)
+samidare (kancolle)
+aki shizuha
+inugami korone
+asuna (bunny) (blue archive)
+shijou takane
+yamashiro (kancolle)
+letty whiterock
+komaeda nagito
+senketsu
+kousaka honoka
+ash ketchum
+mordred (fate/apocrypha)
+amane kanata
+suigintou
+watanabe you
+ookami mio
+hiei (kancolle)
+bb (fate)
+wo-class aircraft carrier
+hoshino (blue archive)
+oozora subaru
+gumi
+kiryuuin satsuki
+ro- (kancolle)
+hecatia lapislazuli
+kasumi (kancolle)
+karin (blue archive)
+kisaragi chihaya
+boo tao (genshin impact)
+iowa (kancolle)
+verniy (kancolle)
+kikuchi makoto
+kirishima (kancolle)
+shirasaka koume
+yumemi riamu
+minase iori
+morrigan aensland
+oshino shinobu
+houshou marine (st costume)
+gold ship (umamusume)
+red (pokemon)
+nami (one piece)
+bremerton (azur lane)
+hoshizora rin
+atago (azur lane)
+cynthia (pokemon)
+anya (spy x family)
+nishikigi chisato
+aqua (konosuba)
+oma kokichi
+uruha rushia
+shimamura uzuki
+saber alter
+midoriya izuku
+xiao (genshin impact)
+yukihana lamy
+agnes tachyon (umamusume)
+cammy white
+ex-keine
+shishiro botan
+prinz eugen (azur lane)
+sakamata chloe
+jeanne d'arc (ruler) (fate)
+yuubari (kancolle)
+ganaha hibiki
+higuchi madoka
+tokai teio (umamusume)
+meltryllis (fate)
+oyama mahiro
+hinata hajime
+takagaki kaede
+formidable (azur lane)
+sagisawa fumika
+kiso (kancolle)
+karyl (princess connect!)
+power (chainsaw man)
+zero two (darling in the franxx)
+son goku
+hiryuu (kancolle)
+asahina mikuru
+frieren
+wakasagihime
+djeeta (granblue fantasy)
+ultimate madoka
+miyamoto musashi (fate)
+ikari shinji
+kishin sagume
+gawr gura (st costume)
+graf zeppelin (kancolle)
+medusa (rider) (fate)
+kitagawa marin
+suletta mercury
+ereshkigal (fate)
+saihara shuichi
+selene (pokemon)
+serena (pokemon)
+lucina (fire emblem)
+koizumi hanayo
+ishtar (fate)
+murasaki shion
+lily white
+kuroki tomoko
+corrin (fire emblem)
+mario
+jougasaki mika
+hestia (danmachi)
+belfast (azur lane)
+takatsuki yayoi
+sirius (azur lane)
+lappland (arknights)
+kyon
+bowsette
+uraraka ochako
+kiryu coco
+la+ darknesss
+ahri (league of legends)
+kanzaki ranko
+black rock shooter (character)
+naka (kancolle)
+furude rika
+sailor moon
+haruno sakura
+takebe saori
+toki (bunny) (blue archive)
+nilou (genshin impact)
+stocking (psg)
+eevee
+usada pekora (st costume)
+tsushima yoshiko
+narukami yuu
+kisume
+zuihou (kancolle)
+cu chulainn (fate/stay night)
+commander (azur lane)
+yelan (genshin impact)
+inoue takina
+super sonico
+fairy (kancolle)
+nakiri ayame
+seaport princess
+kita ikuyo
+naganami (kancolle)
+monster hunter (character)
+shiranui flare
+fischl (genshin impact)
+arona (blue archive)
+denji (chainsaw man)
+i- (kancolle)
+hakos baelz
+ichinose shiki
+kakyoin noriaki
+mirko
+misty (pokemon)
+nitta minami
+takarada rikka
+gokou ruri
+kiana kaslana
+hanako (blue archive)
+kisaki (blue archive)
+silence suzuka (umamusume)
+edelgard von hresvelg
+kujo jolyne
+tachibana arisu
+medicine melancholy
+unicorn (azur lane)
+mari (blue archive)
+murasame (kancolle)
+barbara (genshin impact)
+doremy sweet
+fu hua
+kokkoro (princess connect!)
+sanya v. litvyak
+barnaby brooks jr.
+lunasa prismriver
+yamakaze (kancolle)
+suzuran (arknights)
+giorno giovanna
+sakurauchi riko
+chloe von einzbern
+natsuiro matsuri
+maya (kancolle)
+eila ilmatar juutilainen
+ump (girls' frontline)
+jean (genshin impact)
+manhattan cafe (umamusume)
+uzumaki naruto
+trailblazer (honkai: star rail)
+bakugou katsuki
+kay (girls und panzer)
+ako (blue archive)
+florence nightingale (fate)
+jonathan joestar
+i- (kancolle)
+miorine rembran
+sangonomiya kokomi
+ch'en (arknights)
+usami sumireko
+anastasia (idolmaster)
+rio (blue archive)
+kaburagi t. kotetsu
+yagami hayate
+yuki miku
+kotomine kirei
+kirito
+mikasa ackerman
+ijichi nijika
+gojou satoru
+hiiragi tsukasa
+nakano nino
+kama (fate)
+robin (fire emblem)
+futaba anzu
+katyusha (girls und panzer)
+shimada arisu
+jack the ripper (fate/apocrypha)
+koshimizu sachiko
+motoori kosuzu
+exusiai (arknights)
+reisalin stout
+shirai kuroko
+mercy (overwatch)
+hyuuga hinata
+pecorine (princess connect!)
+nice nature (umamusume)
+raihan (pokemon)
+iskandar (fate)
+akigumo (kancolle)
+leon (pokemon)
+ayanami (azur lane)
+shirogane naoto
+kafka (honkai: star rail)
+aru (blue archive)
+monkey d. luffy
+ryuuguu rena
+ruby rose
+emilia (re:zero)
+nia teppelin
+z leberecht maass (kancolle)
+kal'tsit (arknights)
+shiranui mai
+momoi (blue archive)
+narmaya (granblue fantasy)
+star sapphire
+hoto cocoa
+common raccoon (kemono friends)
+bridget (guilty gear)
+yorigami shion
+taihou (kancolle)
+miyu (blue archive)
+sheryl nome
+waver velvet
+plana (blue archive)
+bronya zaychik
+ceres fauna
+surtr (arknights)
+aisaka taiga
+higashikata josuke
+nakano miku
+miura azusa
+z max schultz (kancolle)
+corrin (female) (fire emblem)
+takami chika
+tatsumaki
+fusou (kancolle)
+kuma (kancolle)
+iono (pokemon)
+warspite (kancolle)
+jougasaki rika
+kizuna akari
+fern (sousou no frieren)
+hasumi (blue archive)
+oda nobunaga (fate)
+reizei mako
+nico robin
+aoba (kancolle)
+kaedehara kazuha
+hagiwara yukiho
+oboro (kancolle)
+elizabeth bathory (fate)
+artoria pendragon (lancer) (fate)
+weiss schnee
+luna child
+maekawa miku
+mayuzumi fuyuko
+i- (kancolle)
+satono diamond (umamusume)
+pyonta
+kumano (kancolle)
+don-chan (usada pekora)
+bea (pokemon)
+shirakami fubuki (st costume)
+roronoa zoro
+holo
+izumi sagiri
+satonaka chie
+nessa (pokemon)
+octoling player character
+illustrious (azur lane)
+nitocris (fate)
+raiden mei
+kirigiri kyoko
+fennec (kemono friends)
+lelouch vi britannia
+tokitsukaze (kancolle)
+sunny milk
+mudrock (arknights)
+non-human admiral (kancolle)
+alice (alice in wonderland)
+shokuhou misaki
+satsuki (kancolle)
+mankanshoku mako
+kiyohime (fate)
+sonic the hedgehog
+midorikawa nao
+beatrice (umineko)
+yoimiya (genshin impact)
+mogami (kancolle)
+uzuki (kancolle)
+boko (girls und panzer)
+hyuuga (kancolle)
+ashigara (kancolle)
+dark magician girl
+yoshida yuuko (machikado mazoku)
+amber (genshin impact)
+akizuki ritsuko
+kise yayoi
+han juri
+makise kurisu
+charlotte (madoka magica)
+akari (pokemon)
+kamado nezuko
+kitasan black (umamusume)
+amamiya ren
+tomoe gozen (fate)
+kagerou (kancolle)
+noa (blue archive)
+urakaze (kancolle)
+midori (blue archive)
+shiratsuyu (kancolle)
+kiyoshimo (kancolle)
+kazusa (blue archive)
+nagisa kaworu
+kirima syaro
+kouzuki kallen
+dizzy (guilty gear)
+mika (girls und panzer)
+yamada ryo
+jintsuu (kancolle)
+unzan
+enoshima junko
+kousaka kirino
+twilight (spy x family)
+houjou satoko
+hayami kanade
+isokaze (kancolle)
+qiqi (genshin impact)
+ram (re:zero)
+unryuu (kancolle)
+eren yeager
+callie (splatoon)
+atlanta (kancolle)
+w (arknights)
+hatsuyuki (kancolle)
+accelerator (toaru majutsu no index)
+diluc (genshin impact)
+karin (bunny) (blue archive)
+rotom
+arcueid brunestud
+miyu edelfelt
+wa (girls' frontline)
+miyafuji yoshika
+special week (umamusume)
+yuuki makoto (persona )
+chitanda eru
+kanna kamui
+taigei (kancolle)
+michishio (kancolle)
+emiya kiritsugu
+lana (pokemon)
+erica hartmann
+yorigami jo'on
+saratoga (kancolle)
+nakano yotsuba
+akitsu maru (kancolle)
+shiroko (swimsuit) (blue archive)
+kamijou touma
+mutsuki (blue archive)
+hishikawa rikka
+rowlet
+symboli rudolf (umamusume)
+laffey (azur lane)
+yukine chris
+merlin prismriver
+hatsuzuki (kancolle)
+uchiha sasuke
+marie (splatoon)
+akai haato
+diarmuid ua duibhne (lancer) (fate)
+kaenbyou rin (cat)
+asakura ryouko
+yahagi (kancolle)
+nia (xenoblade)
+katsushika hokusai (fate)
+simon (ttgl)
+tachibana kanade
+shana
+futami mami
+makinami mari illustrious
+aoki reika
+harusame (kancolle)
+morgan le fay (fate)
+enterprise (azur lane)
+ethan (pokemon)
+gertrud barkhorn
+kayoko (blue archive)
+takao (azur lane)
+march th (honkai: star rail)
+tippy (gochiusa)
+lyrica prismriver
+yura (kancolle)
+hakui koyori
+ui (blue archive)
+hex maniac (pokemon)
+rosalina
+louise francoise le blanc de la valliere
+irys (hololive)
+toga himiko
+tsukino mito
+ninomae ina'nis (st costume)
+watson amelia (st costume)
+blue oak
+arima kana
+itadori yuuji
+yuuka (track) (blue archive)
+hifumi (blue archive)
+gran (granblue fantasy)
+tamamo cat (fate)
+isuzu hana
+matara okina
+inkling boy
+haguro (kancolle)
+t-head admiral
+mostima (arknights)
+mutsuki (kancolle)
+akagi (azur lane)
+sakurai momoka
+senjougahara hitagi
+hanekawa tsubasa
+ranka lee
+napoleon bonaparte (fate)
+kashiwazaki sena
+re-class battleship
+tsunomaki watame
+u- (kancolle)
+ushiromiya battler
+hilbert (pokemon)
+takodachi (ninomae ina'nis)
+p-head producer
+shinku
+ohtsuki yui
+hino akane (smile precure!)
+neru (blue archive)
+yang xiao long
+kurosawa dia
+matsuura kanan
+piplup
+akizuki (kancolle)
+kyonko
+omaru polka
+ump (girls' frontline)
+jeanne d'arc alter (swimsuit berserker) (fate)
+stelle (honkai: star rail)
+akamatsu kaede
+i- (kancolle)
+kaga (azur lane)
+abukuma (kancolle)
+toshinou kyouko
+tone (kancolle)
+kagari atsuko
+shikinami (kancolle)
+charizard
+wanderer (genshin impact)
+junketsu
+houjou hibiki
+dodoco (genshin impact)
+akuma homura
+inugami korone (st costume)
+kazama iroha
+lum
+asakura toru
+sakamata chloe (st costume)
+futami ami
+akagi miria
+bb (fate/extra)
+touhoku kiritan
+artoria caster (fate)
+kamikaze (kancolle)
+vodka (umamusume)
+kisaragi (kancolle)
+oguri cap (umamusume)
+nonna (girls und panzer)
+ningguang (genshin impact)
+android
+kunikida hanamaru
+ia (vocaloid)
+takanashi rikka
+fushiguro megumi
+adventurer (ff)
+sonia (pokemon)
+baobhan sith (fate)
+saten ruiko
+kochou shinobu
+kousaka tamaki
+aida mana
+mash kyrielight (dangerous beast)
+kujikawa rise
+pola (kancolle)
+bb (swimsuit mooncancer) (fate)
+hachimiya meguru
+lyra (pokemon)
+anastasia (fate)
+saori (blue archive)
+lysithea von ordelia
+panty (psg)
+gambier bay (kancolle)
+phosphophyllite
+amagi yukiko
+fou (fate)
+hilda valentine goneril
+perrine h. clostermann
+morikubo nono
+harukawa maki
+darkness (konosuba)
+charlotte e. yeager
+nero claudius (swimsuit caster) (fate)
+twin turbo (umamusume)
+raising heart
+ikamusume
+tamamo no mae (swimsuit lancer) (fate)
+springfield (girls' frontline)
+lyn (fire emblem)
+kurumi erika
+honda mio
+ise (kancolle)
+mallow (pokemon)
+lucario
+nonomi (blue archive)
+sanji (one piece)
+battleship princess
+shinki (touhou)
+akaza akari
+fukumaru koito
+hoshizora miyuki
+kicchou yachie
+yu mei-ren (fate)
+suiseiseki
+ibaraki douji (fate)
+mihono bourbon (umamusume)
+sessyoin kiara
+sonozaki mion
+jun'you (kancolle)
+kurosawa ruby
+brendan (pokemon)
+lio fotia
+la+ darknesss (st costume)
+hassan of serenity (fate)
+sakura miku
+ryougi shiki
+miyako (blue archive)
+yuzu (blue archive)
+shinjou akane
+makigumo (kancolle)
+yuugumo (kancolle)
+lynette bishop
+i- (kancolle)
+kudamaki tsukasa
+shinomiya kaguya
+shoebill (kemono friends)
+morpeko
+gangut (kancolle)
+nian (arknights)
+higashiyama kobeni
+seiran (touhou)
+neptune (neptunia)
+kasane teto
+specter (arknights)
+momosuzu nene
+hibiki (blue archive)
+miyamoto frederica
+lilith aensland
+satou kazuma
+shima rin
+mayano top gun (umamusume)
+jinx (league of legends)
+mizuno ami
+nachi (kancolle)
+meltryllis (swimsuit lancer) (fate)
+iori (blue archive)
+gotland (kancolle)
+mysterious heroine xx (fate)
+jakuzure nonon
+lucky beast (kemono friends)
+asui tsuyu
+izuna (blue archive)
+albedo (genshin impact)
+vegeta
+seele vollerei
+kaeya (genshin impact)
+kujou sara
+noumi kudryavka
+alhaitham (genshin impact)
+krista lenz
+s (nier:automata)
+ak- (girls' frontline)
+blake belladonna
+lize helesta
+akatsuki kirika
+tedeza rize
+irisviel von einzbern
+endeavor (boku no hero academia)
+orange pekoe (girls und panzer)
+aegis (persona)
+choukai (kancolle)
+angelina (arknights)
+ujimatsu chiya
+aino minako
+leaf (pokemon)
+gengar
+katsuki yuuri
+kinugasa (kancolle)
+mima (touhou)
+tsumiki mikan
+robin (female) (fire emblem)
+suzutsuki (kancolle)
+noshiro (kancolle)
+ushiwakamaru (fate)
+elizabeth bathory (fate/extra ccc)
+hanako (swimsuit) (blue archive)
+javelin (azur lane)
+nekomata okayu (st costume)
+lisa (genshin impact)
+vita (nanoha)
+johnny joestar
+viktor nikiforov
+ashiya douman (fate)
+n (pokemon)
+slime (genshin impact)
+maru-yu (kancolle)
+skadi the corrupting heart (arknights)
+teruzuki (kancolle)
+nanashi mumei (st costume)
+tachibana hibiki (symphogear)
+nagatsuki (kancolle)
+reze (chainsaw man)
+vivio
+chiyoda momo
+jeanne d'arc alter santa lily (fate)
+camilla (fire emblem)
+elira pendora
+yae sakura
+sinon
+shiomi syuko
+index (toaru majutsu no index)
+oda nobunaga (koha-ace)
+shiomi kotone
+st. louis (azur lane)
+bardiche
+last order (toaru majutsu no index)
+monokuma
+katsuragi (kancolle)
+shirase sakuya
+lusamine (pokemon)
+nishizumi shiho
+yuzuriha inori
+oumae kumiko
+andou (girls und panzer)
+levi (shingeki no kyojin)
+saria (arknights)
+nero claudius (bride) (fate)
+pepperoni (girls und panzer)
+kuroshio (kancolle)
+takara miyuki
+asashio kai ni (kancolle)
+azusa (blue archive)
+kenzaki makoto
+yayoi (kancolle)
+tama (kancolle)
+houshou marine (summer)
+horikawa raiko
+dusk (arknights)
+koizumi itsuki
+suzukaze (kancolle)
+selen tatsuki
+shirayuki (kancolle)
+kanroji mitsuri
+komi shouko
+ranma-chan
+artoria pendragon (lancer alter) (fate)
+yowane haku
+misumi nagisa
+arch bishop (ragnarok online)
+asashimo (kancolle)
+ramlethal valentine
+jessie (pokemon)
+curren chan (umamusume)
+palutena
+sakata gintoki
+sakamoto mio
+tracer (overwatch)
+dan heng (honkai: star rail)
+kamiya nao
+hojo karen
+sendai kai ni (kancolle)
+hiroi kikuri
+madotsuki
+admire vega (umamusume)
+morpeko (full)
+matsuno osomatsu
+hiro (darling in the franxx)
+musashi kai ni (kancolle)
+felicia (vampire)
+moroboshi kirari
+chouzetsusaikawa tenshi-chan
+makoto nanaya
+matsuno karamatsu
+hoshino ai (oshi no ko)
+etna (disgaea)
+hanamura yousuke
+takamaki anne
+seiun sky (umamusume)
+sasaki chie
+morino rinze
+hanasaki tsubomi
+himemori luna
+bulma
+sakura futaba
+kemomimi-chan (naga u)
+eternity larva
+yaoyorozu momo
+saren (princess connect!)
+matsuno ichimatsu
+eishin flash (umamusume)
+matsuno jyushimatsu
+signum
+bulbasaur
+arashio (kancolle)
+yuuki setsuna (love live!)
+kurokoma saki
+iroha (blue archive)
+takanashi kiara (st costume)
+kuwayama chiyuki
+hayakawa aki
+tokisaki kurumi
+ringo (touhou)
+kiryu coco (st costume)
+kasumi (doa)
+skyla (pokemon)
+ohara mari
+leonardo da vinci (fate)
+kirigaya suguha
+hoshikawa sara
+kotonoha akane
+kasumi kai ni (kancolle)
+natori sana
+tohru (maidragon)
+noel vermillion
+rosehip (girls und panzer)
+shishiro botan (st costume)
+bloop (gawr gura)
+todoroki shouto
+tiki (fire emblem)
+beidou (genshin impact)
+t-head trainer
+hanyuu
+theresa apocalypse
+trafalgar law
+midna
+japanese crested ibis (kemono friends)
+fujiwara chika
+ryu (street fighter)
+kirino ranmaru
+iizunamaru megumu
+otonashi kotori
+producer (idolmaster cinderella girls anime)
+watatsuki no yorihime
+komano aunn
+nanasaki ai
+noelle (genshin impact)
+ayanami (kancolle)
+hino rei
+saber lily
+mimura kanako
+rotom phone
+agano (kancolle)
+yanfei (genshin impact)
+princess king boo
+tamamo cross (umamusume)
+koyanskaya (fate)
+leafa
+naegi makoto
+minamino kanade
+souseiseki
+oshida (girls und panzer)
+chibi usa
+kizuna ai
+tsukioka kogane
+hoshi syoko
+king halo (umamusume)
+byleth (male) (fire emblem)
+juliana (pokemon)
+matou kariya
+northern white-faced owl (kemono friends)
+shiina yuika
+kishibe rohan
+yukihana lamy (st costume)
+edward elric
+isuzu (kancolle)
+hoshimachi suisei (st costume)
+takane lui
+artoria pendragon (swimsuit ruler) (fate)
+yuffie kisaragi
+kasugano sakura
+sylveon
+oberon (fate)
+lucifer (helltaker)
+silver fox (kemono friends)
+hoshino (swimsuit) (blue archive)
+silver wolf (honkai: star rail)
+tighnari (genshin impact)
+blue poison (arknights)
+haru urara (umamusume)
+le malin (azur lane)
+mimikyu
+ichika (blue archive)
+umbreon
+rensouhou-kun
+elesa (pokemon)
+myoukou (kancolle)
+libeccio (kancolle)
+mei (overwatch)
+honolulu (azur lane)
+tashkent (kancolle)
+bremerton (scorching-hot training) (azur lane)
+noire (neptunia)
+terra branford
+luigi
+purple heart (neptunia)
+i-class destroyer
+widowmaker (overwatch)
+jervis (kancolle)
+hoshiguma (arknights)
+ranni the witch
+martha (fate)
+sendai hakurei no miko
+ushiromiya ange
+uruha rushia (st costume)
+kagura (gintama)
+matikane tannhauser (umamusume)
+scorbunny
+fletcher (kancolle)
+marianne von edmund
+sunazuka akira
+glaceon
+kawakaze (kancolle)
+oshawott
+matsuno choromatsu
+z (azur lane)
+an- (girls' frontline)
+ma (girls' frontline)
+kamio misuzu
+minato aqua (st costume)
+furutaka (kancolle)
+hatsune miku (append)
+mamiya (kancolle)
+elysia (honkai impact)
+adachi rei
+artoria pendragon (alter swimsuit rider) (fate)
+funami yui
+higuchi kaede
+isonami (kancolle)
+commander (girls' frontline)
+gamagoori ira
+peroro (blue archive)
+princess daisy
+fujibayashi kyou
+yuzuki choco
+kino makoto
+konjiki no yami
+sakuma mayu
+grey wolf (kemono friends)
+yang guifei (fate)
+serizawa asahi
+shun (blue archive)
+ezo red fox (kemono friends)
+agnes digital (umamusume)
+marie antoinette (fate)
+scathach skadi (fate)
+rebecca (cyberpunk)
+hirasawa ui
+osaki amana
+wattson (apex legends)
+sonozaki shion
+mikazuki munechika
+furukawa nagisa
+inui toko
+oreki houtarou
+nishi kinuyo
+natsume rin
+hibiki (cheer squad) (blue archive)
+roll (mega man)
+little red riding hood (grimm)
+rika (pokemon)
+grass wonder (umamusume)
+jean pierre polnareff
+piers (pokemon)
+uiharu kazari
+hikawa sayo
+nanami kento
+haniyasushin keiki
+francesca lucchini
+katori (kancolle)
+kamui gakupo
+murakumo kai ni (kancolle)
+melusine (fate)
+kris (pokemon)
+schwarz (arknights)
+amy rose
+cure peace
+ymir (shingeki no kyojin)
+marina (splatoon)
+shihouin yoruichi
+narita brian (umamusume)
+kureiji ollie
+natsuki subaru
+kashuu kiyomitsu
+kero
+tokoyami towa (jirai kei)
+fuwawa abyssgard
+yukishiro honoka
+baltimore (azur lane)
+abigail williams (swimsuit foreigner) (fate)
+ange katrina
+matsuno todomatsu
+hikawa hina
+jeanne d'arc alter (ver. shinjuku ) (fate)
+konno junko
+nekomusume
+kotonoha aoi
+mococo abyssgard
+silver (pokemon)
+tokoyami towa (st costume)
+bayonetta
+helena blavatsky (fate)
+sephiroth
+kamado tanjirou
+enemy aircraft (kancolle)
+sonya (kill me baby)
+g (girls' frontline)
+osakabehime (fate)
+hayashimo (kancolle)
+igarashi futaba (shiromanta)
+inoue orihime
+makaino ririmu
+james (pokemon)
+nagatoro hayase
+tateyama ayano
+jeanne d'arc (swimsuit archer) (fate)
+elsa (frozen)
+tsukumo benben
+reiuji utsuho (bird)
+m sopmod ii (girls' frontline)
+tokino sora
+higashi setsuna
+yuri lowell
+bibi (tokoyami towa)
+bianca (pokemon)
+chongyun (genshin impact)
+kuchiki rukia
+octoling girl
+daidouji tomoyo
+kirijou mitsuru
+tsukikage yuri
+kokona (blue archive)
+popuko
+irida (pokemon)
+saki (blue archive)
+android
+alice margatroid (pc-)
+hatoba tsugu
+dido (azur lane)
+hawks (boku no hero academia)
+tamura yuri
+prisma illya
+yukinoshita yukino
+elio (pokemon)
+mysterious heroine x alter (fate)
+yoru (chainsaw man)
+fubuki (one-punch man)
+rex (xenoblade)
+jigglypuff
+ark royal (kancolle)
+bruno bucciarati
+nakano itsuki
+robin (male) (fire emblem)
+etorofu (kancolle)
+hisakawa hayate
+ragna the bloodedge
+toutetsu yuuma
+xingqiu (genshin impact)
+wraith (apex legends)
+bowser
+ma (girls' frontline)
+sonoda chiyoko
+jumpy dumpty
+failure penguin
+monika (doki doki literature club)
+miyamoto musashi (swimsuit berserker) (fate)
+kamina (ttgl)
+niwatari kutaka
+mr. c.b. (umamusume)
+snivy
+st ar- (girls' frontline)
+kamoi (kancolle)
+uehara ayumu
+yamato-no-kami yasusada
+kugisaki nobara
+yoshikawa chinatsu
+charlotte dunois
+modeus (helltaker)
+komiya kaho
+barghest (fate)
+totoki airi
+umikaze (kancolle)
+pomu rainpuff
+tatsumi kanji
+hagikaze (kancolle)
+nishida satono
+nakano ichika
+joseph joestar (old)
+ninomiya asuka
+sobble
+goldenglow (arknights)
+oyama mihari
+minato aqua (sailor)
+tsukumo sana
+son gohan
+squirtle
+little boy admiral (kancolle)
+su-san
+yuno (hidamari sketch)
+hop (pokemon)
+cyno (genshin impact)
+lopunny
+atalanta (fate)
+tokiko (touhou)
+nerissa ravencroft
+sengoku nadeko
+kagamihara nadeshiko
+siege (arknights)
+kaveh (genshin impact)
+sailor mercury
+elin
+hachikuji mayoi
+getou suguru
+oomuro sakurako
+colorado (kancolle)
+okita souji alter (fate)
+air groove (umamusume)
+tohno akiha
+ike (fire emblem)
+reiner braun
+shouhou (kancolle)
+shantae
+sakura miko (st costume)
+blanc (neptunia)
+hisakawa nagi
+ashido mina
+cagliostro (granblue fantasy)
+rita rossweisse
+teireida mai
+vaporeon
+myoudouin itsuki
+yuigahama yui
+kadotani anzu
+serika (blue archive)
+richelieu (kancolle)
+oyashio (kancolle)
+shiroko terror (blue archive)
+frederica bernkastel
+shinonome ena
+chi-chi (dragon ball)
+araragi koyomi
+murasaki shikibu (fate)
+tanaka mamimi
+tsurumaru kuninaga
+kaguya luna
+kamisato ayato
+diana cavendish
+joutouguu mayumi
+nepgear
+kousaka reina
+riesz
+tsunade (naruto)
+arashi (kancolle)
+tenma tsukasa
+tharja (fire emblem)
+haramura nodoka
+katsuragi misato
+boo (mario)
+kanna (blue archive)
+gladion (pokemon)
+hasumi (track) (blue archive)
+gilles de rais (caster) (fate)
+eyjafjalla (arknights)
+leona heidern
+sakuragi mano
+asagumo (kancolle)
+altera (fate)
+anila (granblue fantasy)
+niijima makoto
+enemy lifebuoy (kancolle)
+mizunashi akari
+alisa ilinichina amiella
+elphelt valentine
+akizuki ryo
+sona (league of legends)
+tamaki iroha
+mari (track) (blue archive)
+tokitarou (fate)
+iris (pokemon)
+akali
+victor (pokemon)
+himeno (chainsaw man)
+caren hortensia
+shun (small) (blue archive)
+oribe yasuna
+tsurumaki maki
+takagi-san
+hakui koyori (st costume)
+eurasian eagle owl (kemono friends)
+pochita (chainsaw man)
+hourai doll
+fubuki kai ni (kancolle)
+ichihara nina
+yamato (one piece)
+abe nana
+angel (kof)
+rias gremory
+high priest (ragnarok online)
+oikawa shizuku
+pod (nier:automata)
+asahina mafuyu
+irene (arknights)
+tennouji rina
+zeta (granblue fantasy)
+hina (swimsuit) (blue archive)
+haro
+gyro zeppeli
+cure marine
+maikaze (kancolle)
+momota kaito
+haruna (blue archive)
+sirius symboli (umamusume)
+ooshio (kancolle)
+moogle
+assam (girls und panzer)
+suou momoko
+alpaca suri (kemono friends)
+marie (girls und panzer)
+tsukino mito (st costume)
+espeon
+kuma (persona )
+ciel (tsukihime)
+matikanefukukitaru (umamusume)
+cyndaquil
+johnston (kancolle)
+maebara keiichi
+magical mirai miku
+ootori emu
+sailor venus
+charmander
+amanogawa kirara
+arlecchino (genshin impact)
+osaki tenka
+kashino (azur lane)
+may (guilty gear)
+minna-dietlinde wilcke
+honma meiko
+kazano hiori
+rydia (ff)
+katou asuka
+hozuki momiji
+hoshino fumina
+caenis (fate)
+shiori novella
+medea (fate)
+namazuo toushirou
+marcille donato
+seia (blue archive)
+jaguar (kemono friends)
+momozono love
+furutani himawari
+hoshimiya ichigo
+alear (fire emblem)
+silica
+boudica (fate)
+smart falcon (umamusume)
+dehya (genshin impact)
+blaze the cat
+murasaki shion (st costume)
+white mage
+shadow the hedgehog
+sailor mars
+armin arlert
+arisugawa natsuha
+akiyama mizuki
+saitama (one-punch man)
+shidare hotaru
+tenkyuu chimata
+hilichurl (genshin impact)
+green (pokemon)
+mountain (arknights)
+nanachi (made in abyss)
+shigure ui (vtuber)
+moona hoshinova
+lucas (pokemon)
+honebami toushirou
+enkidu (fate)
+ivan karelin
+kazama iroha (st costume)
+shinano (azur lane)
+akane (blue archive)
+sprigatito
+meisho doto (umamusume)
+kohaku (tsukihime)
+zara (azur lane)
+kusanagi motoko
+nakamura yuri
+mikuma (kancolle)
+backbeako
+takasaki yuu
+kozakura marry
+rosaria (genshin impact)
+ichikawa hinana
+yuuki haru
+pipimi
+midare toushirou
+bede (pokemon)
+kyouka (princess connect!)
+sabrina (pokemon)
+hatsushimo (kancolle)
+uzaki hana
+reines el-melloi archisorte
+tohsaka tokiomi
+xiangling (genshin impact)
+nagi (kannagi)
+nemoto hina
+sussurro (arknights)
+chitose (kancolle)
+i- (kancolle)
+rabbit yukine
+amane kanata (st costume)
+leafeon
+emperor penguin (kemono friends)
+wakamo (blue archive)
+meowth
+karna (fate)
+zara (kancolle)
+tsukuyomi shirabe
+minamoto sakura
+kururugi suzaku
+sento isuzu
+haruna kai ni (kancolle)
+frisk (undertale)
+minamoto no raikou (swimsuit lancer) (fate)
+sasaki saku
+kawashima momo
+kitazawa shiho
+braixen
+takeba yukari
+ta-class battleship
+ryoumen sukuna (jujutsu kaisen)
+sora harewataru
+tsuruya
+guido mista
+fumizuki (kancolle)
+celestia ludenberg
+eimi (blue archive)
+yui (angel beats!)
+kamikita komari
+sora (kingdom hearts)
+micaiah (fire emblem)
+hatsukaze (kancolle)
+saniwa (touken ranbu)
+mizuno ai
+chikuma (kancolle)
+m (girls' frontline)
+ru-class battleship
+matoba risa
+kongou kai ni (kancolle)
+suzuhara lulu
+watatsuki no toyohime
+fu hua (herrscher of sentience)
+fine motion (umamusume)
+arjuna (fate)
+kazagumo (kancolle)
+vikala (granblue fantasy)
+inuyama aoi
+hayasui (kancolle)
+himari (blue archive)
+nemona (pokemon)
+koharu (swimsuit) (blue archive)
+passionlip (fate)
+yamashiro (azur lane)
+artoria pendragon (alter swimsuit rider) (second ascension) (fate)
+frankenstein's monster (fate)
+kako (kancolle)
+neuvillette (genshin impact)
+kurosaki ichigo
+pearl (splatoon)
+ouro kronii (st costume)
+baiken
+yuuki mikan
+tepig
+kuki shinobu
+leon s. kennedy
+elaina (majo no tabitabi)
+azura (fire emblem)
+tomoe hotaru
+mioda ibuki
+medb (fate)
+popplio
+nonomi (swimsuit) (blue archive)
+dante (devil may cry)
+cure black
+carpaccio (girls und panzer)
+mega man (character)
+jirou kyouka
+nowaki (kancolle)
+lucoa (maidragon)
+caelus (honkai: star rail)
+xuangzang sanzang (fate)
+grookey
+super creek (umamusume)
+mejiro dober (umamusume)
+backbeard
+america (hetalia)
+narita taishin (umamusume)
+yin (darker than black)
+littorio (kancolle)
+sucrose (genshin impact)
+torchic
+squall leonhart
+matsumoto rangiku
+albedo (overlord)
+gwen (league of legends)
+millia rage
+rosmontis (arknights)
+nu-
+lucy (cyberpunk)
+huang baoling
+diona (genshin impact)
+t.m. opera o (umamusume)
+isabelle (animal crossing)
+isekai joucho
+killua zoldyck
+chris redfield
+maizono sayaka
+mochizuki (kancolle)
+tsushima (kancolle)
+nate (pokemon)
+pharah (overwatch)
+kieran (pokemon)
+izumi-no-kami kanesada
+silence (arknights)
+cure sunshine
+medjed (fate)
+lynette (genshin impact)
+kazanari tsubasa
+merlin (fate)
+luo xiaohei
+hoshino ruby
+marth (fire emblem)
+kamukura izuru
+yoroizuka mizore
+miyamizu mitsuha
+kaneki ken
+hayasaka ai
+ceobe (arknights)
+slaine troyard
+takanami (kancolle)
+boa hancock
+fujisaki chihiro
+a (nier:automata)
+eve (elsword)
+berserker (fate/zero)
+cure beauty
+yumi (senran kagura)
+prinz eugen (unfading smile) (azur lane)
+alina gray
+hyakumantenbara salome
+monomi (danganronpa)
+justice (helltaker)
+neru (bunny) (blue archive)
+intrepid (kancolle)
+raphtalia
+florian (pokemon)
+cure blossom
+blaze (arknights)
+goh (pokemon)
+katou megumi
+racing miku
+finana ryugu
+kos-mos
+steven stone
+ifrit (arknights)
+izumi mei
+ib (ib)
+spider-gwen
+sailor jupiter
+jill valentine
+estellise sidos heurassein
+calem (pokemon)
+scathach (swimsuit assassin) (fate)
+nursery rhyme (fate)
+kishinami hakuno (female)
+nia (blade) (xenoblade)
+sajo yukimi
+tsukumo yatsuhashi
+uryuu ryuunosuke
+mitake ran
+platinum (arknights)
+anis (nikke)
+fukuzawa yumi
+winry rockbell
+kars (jojo)
+flareon
+sucy manbavaran
+makabe mizuki
+nagato (azur lane)
+bernadetta von varley
+cheshire (azur lane)
+zidane tribal
+toon link
+tada riina
+hoshino aquamarine
+violet evergarden
+swire (arknights)
+nearl (arknights)
+jirachi
+sorceress (dragon's crown)
+nakasu kasumi
+kula diamond
+lux (league of legends)
+roma (kancolle)
+rachel alucard
+kisaragi shintarou
+eris greyrat
+garchomp
+ferry (granblue fantasy)
+roxy migurdia
+claude von riegan
+abigail williams (traveling outfit) (fate)
+hinaichigo
+trunks (dragon ball)
+astolfo (sailor paladin) (fate)
+okumura haru
+subaru nakajima
+collei (genshin impact)
+zero (mega man)
+nakiri ayame (st costume)
+takeda harumi (shiromanta)
+suzukaze aoba
+ro (girls' frontline)
+clumsy nun (diva)
+daitaku helios (umamusume)
+meta knight
+komaki manaka
+kino (kino no tabi)
+sakurajima mai
+sanageyama uzu
+dorothea arnault
+raven (dc)
+murasame kai ni (kancolle)
+okazaki yumemi
+cheren (pokemon)
+clarisse (granblue fantasy)
+rimuru tempest
+jingei (kancolle)
+horikawa kunihiro
+garnet til alexandros xvii
+kujou karen
+yunyun (konosuba)
+king hassan (fate)
+len (tsukihime)
+slime (dragon quest)
+ushiromiya maria
+sweep tosho (umamusume)
+guts (berserk)
+purah
+protagonist  (housamo)
+crewmate (among us)
+florence nightingale (trick or treatment) (fate)
+pramanix (arknights)
+yamagumo (kancolle)
+tenjouin asuka
+mudkip
+amagi (azur lane)
+kiriya aoi
+akitsushima (kancolle)
+yoisaki kanade
+blade (honkai: star rail)
+dimitri alexandre blaiddyd
+alphonse elric
+kitashirakawa tamako
+jack-o' valentine
+godzilla
+cure happy
+manabe nodoka
+sawa azusa
+taneshima popura
+murata himeko
+ichigo (darling in the franxx)
+new jersey (azur lane)
+ibuki fuuko
+arle nadja
+momo velia deviluke
+yuuki (sao)
+aki rosenthal
+japan (hetalia)
+yukoku kiriko
+pavolia reine
+arataki itto
+chikorita
+araragi karen
+haruka (blue archive)
+rouge the bat
+kuzuha (nijisanji)
+mio (xenoblade)
+cure march
+ryuzaki kaoru
+ousaka shizuku
+miyamoto musashi (swimsuit berserker) (second ascension) (fate)
+cure melody
+miia (monster musume)
+utage (arknights)
+yuna (ff)
+ilulu (maidragon)
+rengoku kyoujurou
+ame-chan (needy girl overdose)
+kooh
+misaka imouto
+pit (kid icarus)
+tails (sonic)
+aozaki aoko
+shirayuki hime
+cu chulainn alter (fate)
+yotsuba alice
+shirogane noel (st costume)
+kusanagi nene
+meltryllis (swimsuit lancer) (first ascension) (fate)
+justice task force member (blue archive)
+yuuki (princess connect!)
+ishmael (project moon)
+tohno shiki
+damian desmond
+kamishiro rui
+hisui (tsukihime)
+tendou akane
+izayoi aki
+employee (project moon)
+yumehara nozomi
+aisha landar
+yuri plisetsky
+lion (kemono friends)
+yui (princess connect!)
+iroha (samurai spirits)
+euryale (fate)
+marie rose
+merlin (fate/prototype)
+lulu (league of legends)
+nanao yuriko
+danua
+hornet (kancolle)
+kasaki nozomi
+nekomusume (gegege no kitarou )
+annie leonhart
+pichu
+spider-man
+shibuya kanon
+miss cloud
+ogata chieri
+cerberus (helltaker)
+enna alouette
+shampoo (ranma /)
+united kingdom (hetalia)
+kohinata miho
+saotome alto
+himejima akeno
+mordred (memories at trifas) (fate)
+y'shtola rhul
+captain (kemono friends)
+magical ruby
+kayneth el-melloi archibald
+mukai takumi
+lyria (granblue fantasy)
+miyako (swimsuit) (blue archive)
+ganondorf
+amagi (kancolle)
+zabaniyya (housamo)
+momoe nagisa
+priest (ragnarok online)
+lucy heartfilia
+narancia ghirga
+maka albarn
+karina lyle
+samuel b. roberts (kancolle)
+gorou (genshin impact)
+arthur pendragon (fate)
+airfield princess
+oktavia von seckendorff
+natsu (blue archive)
+eunie (xenoblade)
+cure white
+sol badguy
+okabe rintarou
+yokoyama nao
+vash the stampede
+katsura hinagiku
+alice zuberg
+commandant teste (kancolle)
+shizuka rin
+wakan tanka
+yozora mel
+ghost (modern warfare )
+asahina mirai
+tsunomaki watame (st costume)
+helltaker (character)
+kondou taeko
+humboldt penguin (kemono friends)
+cinderace
+toudou shimako
+assassin (fate/zero)
+ten'ou haruka
+lenna charlotte tycoon
+type  (girls' frontline)
+allister (pokemon)
+tsubaki (blue archive)
+caitlyn (league of legends)
+thoma (genshin impact)
+ness (mother )
+eva
+gwen stacy
+doujima nanako
+kinu (kancolle)
+sagiri (kancolle)
+shishio chris
+lei lei
+aki (girls und panzer)
+dhole (kemono friends)
+suomi (girls' frontline)
+graf zeppelin (azur lane)
+air shakur (umamusume)
+tony tony chopper
+kageyama shigeo
+corrin (male) (fire emblem)
+sado (kancolle)
+moe (blue archive)
+star platinum
+yuuki juudai
+furudo erika
+hammann (azur lane)
+phoenix wright
+yusa kozue
+alear (female) (fire emblem)
+aragaki ayase
+anjou naruko
+oshino ougi
+vane (granblue fantasy)
+sakura miko (casual)
+mitaka asa
+sugimoto saichi
+litten
+ryugasaki rene
+yorumi rena
+bianca (dq)
+kirlia
+kousaka kyousuke
+sugiura ayano
+reisa (blue archive)
+miyu (swimsuit) (blue archive)
+kanbaru suruga
+aquila (kancolle)
+nadia la arwall
+lala satalin deviluke
+kira yoshikage
+kurokawa eren
+zundamon
+basil (omori)
+aegir (azur lane)
+sister claire
+cleveland (azur lane)
+tomimi (arknights)
+faris scherwiz
+vira (granblue fantasy)
+hau (pokemon)
+ookami mio (rd costume)
+crystalfly (genshin impact)
+sonia nevermind
+hatsuharu (kancolle)
+chocobo
+shindou takuto
+matsuwa (kancolle)
+taihou (enraptured companion) (azur lane)
+galo thymos
+vi (league of legends)
+kazama asuka
+keith goodman
+tiki (adult) (fire emblem)
+himemushi momoyo
+kiss-shot acerola-orion heart-under-blade
+aino megumi
+ingrid brandl galatea
+lord el-melloi ii
+maria cadenzavna eve
+froggy nun (diva)
+revy (black lagoon)
+hotarumaru
+arven (pokemon)
+hunter (bloodborne)
+ogata hyakunosuke
+luma (mario)
+roy (fire emblem)
+kobayakawa sae
+jouga maya
+jill stingray
+alisa (girls und panzer)
+tsurumaki kokoro
+bradamante (fate)
+island fox (kemono friends)
+cu chulainn (caster) (fate)
+mejiro ardan (umamusume)
+eirika (fire emblem)
+natsuiro matsuri (st costume)
+malenia blade of miquella
+tarnished (elden ring)
+la pluma (arknights)
+roboco-san
+pyra (pro swimmer) (xenoblade)
+chiyoda (kancolle)
+konoe kanata
+aris (maid) (blue archive)
+mikazuki (kancolle)
+yumeno himiko
+amami rantaro
+akashi (azur lane)
+iori (swimsuit) (blue archive)
+rx--
+seiren (suite precure)
+takamori aiko
+acerola (pokemon)
+mococo abyssgard (st costume)
+hagoromo lala
+sinclair (project moon)
+diego brando
+sans
+cosmog
+neo politan
+ling (arknights)
+rainbow mika
+shirogane noel (casual)
+nekomata okayu (oversized shirt)
+fuwawa abyssgard (st costume)
+zack fair
+nibutani shinka
+nenohi (kancolle)
+saijo juri
+sukoya kana
+yamagishi fuuka
+chrom (fire emblem)
+kikyou (blue archive)
+kaiou michiru
+nyarlathotep (nyaruko-san)
+yang guifei (second ascension) (fate)
+anna (frozen)
+ibuki (blue archive)
+iwakura lain
+fighter (granblue fantasy)
+alolan vulpix
+sakura chiyo
+feater (arknights)
+eunectes (arknights)
+cure sunny
+usada hikaru
+kaine (nier)
+ookami mio (st costume)
+kasumigaoka utaha
+don quixote (project moon)
+ingo (pokemon)
+kido tsubomi
+mifune miyu
+isshiki iroha
+iruma miu
+yamamura sadako
+izuna (swimsuit) (blue archive)
+kiki (majo no takkyuubin)
+shirabe ako
+nagisa (blue archive)
+grusha (pokemon)
+lambdadelta
+takoluka
+arare (kancolle)
+harukaze (kancolle)
+kirishima touka
+yoshizawa kasumi
+asakaze (kancolle)
+gekota
+kisaragi (azur lane)
+mori calliope (st costume)
+keqing (opulent splendor) (genshin impact)
+araragi tsukihi
+hiyou (kancolle)
+prinny
+bb (swimsuit mooncancer) (second ascension) (fate)
+katsuragi ace (umamusume)
+eva
+natsu megumi
+altaria
+cure peach
+dinergate (girls' frontline)
+natsuki (doki doki literature club)
+utsumi erice
+sirius (azure horizons) (azur lane)
+kohinata miku
+g (girls' frontline)
+ibuki tsubasa
+guzma (pokemon)
+tanikaze (kancolle)
+scathach (piercing bunny) (fate)
+laura bodewig
+cecilia alcott
+yagen toushirou
+zara (poolside coincidence) (azur lane)
+artoria caster (second ascension) (fate)
+amane kanata (work)
+alastor (shakugan no shana)
+ayane (doa)
+chibi miku
+brown bear (kemono friends)
+male doctor (arknights)
+takane lui (st costume)
+rpk- (girls' frontline)
+celes chere
+miyanaga saki
+angela balzac
+reinforce zwei
+nina (fire emblem)
+andira (granblue fantasy)
+fujimaru ritsuka (male) (polar chaldea uniform)
+azki (hololive)
+yuni (princess connect!)
+soap (modern warfare )
+ene (kagerou project)
+kiran (fire emblem)
+cinnamoroll
+mochizuki anna
+senji muramasa (fate)
+atago (stunning speedster) (azur lane)
+projekt red (arknights)
+elesis (elsword)
+lapras
+sakawa (kancolle)
+mohammed avdol
+yamper
+frostnova (arknights)
+natalia (idolmaster)
+tsuchinoko (kemono friends)
+maruyama aya
+akane (bunny) (blue archive)
+ako (dress) (blue archive)
+gon freecss
+maou (maoyuu)
+senkawa chihiro
+kalina (girls' frontline)
+fujimaru ritsuka (female) (polar chaldea uniform)
+kirara (genshin impact)
+leonardo da vinci (rider) (fate)
+navia (genshin impact)
+sayu (genshin impact)
+white rabbit (alice in wonderland)
+homu (honkai impact)
+rhea (fire emblem)
+sunny (omori)
+el condor pasa (umamusume)
+soraka (league of legends)
+achilles (fate)
+chara (undertale)
+lightning farron
+pneuma (xenoblade)
+tanned cirno
+makoto (street fighter)
+pannacotta fugo
+jolteon
+titan (shingeki no kyojin)
+otokura yuuki
+roon (azur lane)
+cheval grand (umamusume)
+toyokawa fuka
+sylphiette (mushoku tensei)
+mew (pokemon)
+erika (pokemon)
+yuudachi (azur lane)
+bismarck (azur lane)
+friend (nanashi mumei)
+tiki (young) (fire emblem)
+asaka karin
+st. louis (luxurious wheels) (azur lane)
+kurapika
+kano shuuya
+fiammetta (arknights)
+hoshimachi suisei (school uniform)
+maruzensky (umamusume)
+meer campbell
+fuecoco
+meowscarada
+biwa hayahide (umamusume)
+inumuta houka
+oozora subaru (st costume)
+omaru polka (st costume)
+koseki bijou
+caracal (kemono friends)
+trish una
+tanya degurechaff
+vert (neptunia)
+garry (ib)
+perth (kancolle)
+mysterious heroine x (fate)
+mega gardevoir
+yuri (doki doki literature club)
+ken masters
+ditto
+mogami shizuka
+seele (alter ego)
+nelson (kancolle)
+abigail williams (swimsuit foreigner) (third ascension) (fate)
+enemy naval mine (kancolle)
+admiral graf spee (azur lane)
+koyama yuzu
+tomioka giyuu
+agatsuma zenitsu
+fennekin
+edmond dantes (fate)
+miyashita ai
+kaf (kamitsubaki studio)
+lina inverse
+cure moonlight
+litwick
+mikko (girls und panzer)
+gawain (fate)
+abigail williams (third ascension) (fate)
+jeanne d'arc alter (avenger) (third ascension) (fate)
+taokaka
+yamabuki inori
+anegasaki nene
+mumei (kabaneri)
+hokko tarumae (umamusume)
+naoe riki
+sawamura spencer eriri
+korra
+morgana (persona )
+moose (kemono friends)
+yi sang (project moon)
+tenjou utena
+magnemite
+yamada elf
+pekomon (usada pekora)
+bronya zaychik (silverwing: n-ex)
+crow (la+ darknesss)
+yumeko (touhou)
+satake minako
+ushizaki urumi
+grecale (kancolle)
+saga (arknights)
+waddle dee
+reisen (touhou bougetsushou)
+hino akane (idolmaster)
+saber alter (ver. shinjuku ) (fate)
+aoyagi touya
+ibuki (street fighter)
+raichu
+female saniwa (touken ranbu)
+ado (utaite)
+mewtwo
+ara haan
+hinatsuru ai
+hoshino ruri
+lance (pokemon)
+brynhildr (fate)
+teana lanster
+jingliu (honkai: star rail)
+snorlax
+shinshuu maru (kancolle)
+shinonome akito
+whislash (arknights)
+le malin (listless lapin) (azur lane)
+filia (skullgirls)
+isobe noriko
+hakos baelz (st costume)
+copano rickey (umamusume)
+latias
+hange zoe
+female protagonist (pokemon go)
+sei shounagon (fate)
+mary (ib)
+oberon (third ascension) (fate)
+elizabeth bathory (brave) (fate)
+penny (pokemon)
+optimus prime
+lyney (genshin impact)
+jeanne d'arc (third ascension) (fate)
+atsuko (blue archive)
+hakurei reimu (pc-)
+aoba moca
+emma verde
+amamiya kokoro
+konpaku youki
+gold city (umamusume)
+akaboshi koume
+beatrix (granblue fantasy)
+blemishine (arknights)
+mejiro palmer (umamusume)
+chandelure
+paul bunyan (fate)
+king dedede
+oomori yuuko
+goutokuji mike
+sailor saturn
+hypno
+angela (project moon)
+suzuka gozen (fate)
+perona
+izayoi liko
+kobayashi (maidragon)
+uzaki tsuki
+kasumi (blue archive)
+small-clawed otter (kemono friends)
+raiden mei (herrscher of thunder)
+shoukaku (azur lane)
+i-no
+kazami yuuka (pc-)
+ichigo hitofuri
+klein moretti
+i- (kancolle)
+bagpipe (arknights)
+mudrock (elite ii) (arknights)
+specter the unchained (arknights)
+carmilla (fate)
+petra gurin
+matoi (pso)
+nagara (kancolle)
+sakura bakushin o (umamusume)
+riza hawkeye
+milla maxwell
+takei hisa
+zooey (granblue fantasy)
+sora ginko
+usa-chan (idolmaster)
+melia antiqua
+yuuri (shoujo shuumatsu ryokou)
+haruno haruka
+hadou nejire
+guoba (genshin impact)
+bazett fraga mcremitz
+platinum the trinity
+magallan (arknights)
+rena erindel
+harime nui
+okinami (kancolle)
+iori rinko
+oozora subaru (work)
+hinata hideki
+takakura himari
+chito (shoujo shuumatsu ryokou)
+naganami kai ni (kancolle)
+razor (genshin impact)
+narita top road (umamusume)
+agrias oaks
+greninja
+manaka laala
+meltryllis (swimsuit lancer) (second ascension) (fate)
+gawr gura (casual)
+blue poison (shoal beat) (arknights)
+shikanoin heizou
+manya (dq)
+rita mordio
+drifloon
+ri-class heavy cruiser
+platelet (hataraku saibou)
+tang keke
+natori (kancolle)
+kishinami (kancolle)
+silverash (arknights)
+char aznable
+sato shin
+hirose koichi
+igarashi kyoko
+zuikaku (azur lane)
+yuri sakazaki
+shinonome nano
+phosphophyllite (ll)
+mizuki (arknights)
+k-b
+yatadera narumi
+crypto (apex legends)
+stark (sousou no frieren)
+lisbeth (sao)
+bianka durandal ataegina
+dan heng (imbibitor lunae) (honkai: star rail)
+saotome ranma
+dead master
+rei (pokemon)
+janus (kancolle)
+gastly
+todo yurika
+heanna sumire
+heracles (fate)
+flygon
+wu zetian (fate)
+stheno (fate)
+enma ai
+taiki shuttle (umamusume)
+milotic
+ky kiske
+jeanne d'arc (swimsuit archer) (first ascension) (fate)
+faust (project moon)
+layla (genshin impact)
+roxie (pokemon)
+absol
+nikka edvardine katajainen
+cure heart
+regina (dokidoki! precure)
+irako (kancolle)
+hong lu (project moon)
+okita sougo
+maya fey
+piccolo
+naomi (girls und panzer)
+fukuda haru
+usopp
+dragonite
+gokotai
+nanami yachiyo
+nikaidou saki
+satanichia kurumizawa mcdowell
+sand cat (kemono friends)
+spicy nun (diva)
+mori calliope (streetwear)
+nijigaoka mashiro
+bartz klauser
+aragaki shinjirou
+kikuzuki (kancolle)
+nakagawa natsuki
+nitocris (swimsuit assassin) (fate)
+maya kai ni (kancolle)
+psyduck
+clefairy
+evelynn (league of legends)
+tokoro megumi
+shokudaikiri mitsutada
+kanae (nijisanji)
+sakura chiyono o (umamusume)
+roll caskett (mega man)
+fukawa toko
+lavinia whateley (fate)
+himeko (honkai: star rail)
+akita neru
+beatrice (re:zero)
+sirius (scorching-hot seirios) (azur lane)
+van gogh (fate)
+kuradoberi jam
+fudou yuusei
+santa claus
+itou kaiji
+yamada anna
+himekawa yuki
+ptilopsis (arknights)
+faruzan (genshin impact)
+portgas d. ace
+cure rhythm
+bb (swimsuit mooncancer) (third ascension) (fate)
+takimoto hifumi
+yonaga angie
+mash kyrielight (swimsuit of perpetual summer)
+takamiya rion
+quanxi (chainsaw man)
+wriothesley (genshin impact)
+texas the omertosa (arknights)
+sf-a miki
+young link
+nijimura okuyasu
+asuka (senran kagura)
+touhoku zunko
+tsuyuri kanao
+sage (dq)
+kogitsunemaru
+julia (fire emblem)
+black heart (neptunia)
+jean bart (azur lane)
+yun jin (genshin impact)
+takumi (fire emblem)
+mercedes von martritz
+angel devil (chainsaw man)
+kaho (blue archive)
+shiori novella (st costume)
+kasuga maru (kancolle)
+ikuno dictus (umamusume)
+seto kousuke
+chomusuke
+elise (fire emblem)
+roy mustang
+otomachi una
+mikumo guynemer
+aubrey (omori)
+katagiri sanae
+carmine (pokemon)
+saigusa haruka
+mordred (swimsuit rider) (fate)
+shigure (blue archive)
+koyuki (blue archive)
+golden snub-nosed monkey (kemono friends)
+viy (fate)
+elizabeth bathory (first ascension) (fate)
+sakata kintoki (fate)
+uchi emiri
+hoshimachi suisei (streetwear)
+wiz (konosuba)
+queen elizabeth (azur lane)
+touwa erio
+cutlass (girls und panzer)
+rosa (tears of themis)
+shigure kai san (kancolle)
+pachirisu
+alena (dq)
+semiramis (fate)
+koizumi mahiru
+negev (girls' frontline)
+error musume
+gray (fate)
+scheherazade (fate)
+tomoe gozen (swimsuit saber) (fate)
+adventurer (ff)
+utsugi yuuki
+hayasaka mirei
+douki-chan (douki-chan)
+myrtle (arknights)
+olimar
+kariya masaki
+freyja wion
+misono karin
+sheffield (azur lane)
+takanashi kiara (casual)
+hatsutori hajime
+bronya rand
+saren (summer) (princess connect!)
+isolated island oni
+aono miki
+yuel (granblue fantasy)
+murosaki miyo
+barry (pokemon)
+asbel lhant
+sophie (tales)
+matsubara kanon
+alcremie
+poring
+ingrid (capcom)
+minazuki karen
+nakiri erina
+kirisawa juuzou (character)
+sora (arknights)
+olga marie animusphere
+minegumo (kancolle)
+mishaguji
+g (girls' frontline)
+sayori (doki doki literature club)
+nemo (fate)
+cheria barnes
+rindou mikoto
+shining (arknights)
+aranara (genshin impact)
+cure sword
+hakozaki serika
+gravel (arknights)
+mifune shioriko
+gladiia (arknights)
+kirishima eijirou
+shiver (splatoon)
+uehara himari
+bubba (watson amelia)
+fuuka (blue archive)
+katarina (league of legends)
+tanigaki genjirou
+astolfo (saber) (fate)
+arezu (pokemon)
+sailor chibi moon
+lain paterson
+kawakami mai
+subaru duck
+ho'olheyak (arknights)
+chocola (nekopara)
+a- (girls' frontline)
+hozuki kaede
+honma himawari
+clorinde (genshin impact)
+himesaka noa
+soldier (dq)
+hasegawa kobato
+wooloo
+volo (pokemon)
+rosa (arknights)
+kama (first ascension) (fate)
+asahina aoi
+uni (neptunia)
+grima (fire emblem)
+vampy
+mysterious heroine x alter (first ascension) (fate)
+okusawa misaki
+imai lisa
+jessica (arknights)
+kagemori michiru
+ayatsuji tsukasa
+puru-see (hoshizuki (seigetsu))
+okada izou (fate)
+tsurugi (blue archive)
+erwin (girls und panzer)
+maki (blue archive)
+ikusaba mukuro
+shirasagi chisato
+morishima haruka
+oda nobukatsu (fate)
+oka asahi
+gavial (arknights)
+mitsumine yuika
+nekomiya hinata
+tenryuu kai ni (kancolle)
+implacable (azur lane)
+shimada chiyo
+uesugi fuutarou
+mr. squeaks (hakos baelz)
+ui (swimsuit) (blue archive)
+romani archaman
+karyl (summer) (princess connect!)
+xianyun (genshin impact)
+tanaka kotoha
+adult neptune
+shiratsuyu kai ni (kancolle)
+okita j. souji (fate)
+laura la mer
+zima (arknights)
+red pikmin
+hoshimiya kate
+akai haato (st costume)
+roger (guilty gear)
+saionji hiyoko
+kureiji ollie (st costume)
+chloe (princess connect!)
+perseus (azur lane)
+wingull
+emmet (pokemon)
+i- (kancolle)
+african wild dog (kemono friends)
+frostleaf (arknights)
+nekomata okayu (rd costume)
+seele (honkai: star rail)
+bertolt hoover
+medusa (lancer) (fate)
+alice cartelet
+vyrn (granblue fantasy)
+vertin (reverse:)
+eldridge (azur lane)
+morinaka kazaki
+skadi (waverider) (arknights)
+kamisato ayaka (springbloom missive)
+siro (dennou shoujo youtuber siro)
+kon kanaho
+sothis (fire emblem)
+nui sociere
+saki (swimsuit) (blue archive)
+hishi amazon (umamusume)
+adaman (pokemon)
+jeanne d'arc (granblue fantasy)
+gilgamesh (caster) (fate)
+minato yukina
+south dakota (kancolle)
+nishino flower (umamusume)
+hacka doll
+falin thorden
+hinata (blue archive)
+yorita yoshino
+aiba yumi
+wakaba (kancolle)
+fuji kiseki (umamusume)
+winning ticket (umamusume)
+xenovia quarta
+kiyohime (swimsuit lancer) (fate)
+tosen jordan (umamusume)
+aurora (arknights)
+baobhan sith (first ascension) (fate)
+midway princess
+yukimura aoi
+chabashira tenko
+apollo justice
+hoshina hikaru
+silva (granblue fantasy)
+annette fantine dominic
+sakurako (blue archive)
+hina (dress) (blue archive)
+jeanne d'arc (swimsuit archer) (second ascension) (fate)
+murasaki shion (gothic lolita)
+serina (blue archive)
+laios thorden
+valkyrie (fate)
+muelsyse (arknights)
+jintsuu kai ni (kancolle)
+bokukawauso
+cure lovely
+wuxian (the legend of luoxiaohei)
+conte di cavour (kancolle)
+asuna (sao-alo)
+muppo
+shirayuki chiyo
+hishi miracle (umamusume)
+hamanami (kancolle)
+uruha rushia (rd costume)
+fuyutsuki (kancolle)
+udagawa tomoe
+junko (blue archive)
+cure sky
+eimi (swimsuit) (blue archive)
+diamond (houseki no kuni)
+neko (minato aqua)
+bottle miku
+kinugasa kai ni (kancolle)
+sakuramori kaori
+nakayama festa (umamusume)
+yoshikawa yuuko
+fujinami (kancolle)
+asirpa
+shuro (blue archive)
+aston machan (umamusume)
+tsujino akari
+uzuki sayaka
+kumada masaru`.toLowerCase().split('\n').map(t => t.trim()).filter(t => t));
+
+    // ========================================================
+    // UTILITY
+    // ========================================================
+    function $(id) { return document.getElementById(id); }
+
+    // ========================================================
+    // UI ELEMENT REFERENCES
+    // ========================================================
+    const UI = {
+      dropArea: $('dropArea'),
+      individualFileInput: $('individualFileInput'),
+      zipFileInput: $('zipFileInput'),
+      datasetSummaryPanel: $('datasetSummaryPanel'),
+      datasetSummary: $('datasetSummary'),
+      fileListDisplay: $('fileListDisplay'),
+      suggestedPromptDetails: $('suggestedPromptDetails'),
+      keywordDetails: $('keywordDetails'),
+
+      suggestedPromptCount: $('suggestedPromptCount'),
+      suggestedPromptFilter: $('suggestedPromptFilter'),
+      suggestedPromptFilterVld: $('suggestedPromptFilterVld'),
+      suggestedPromptFilterMethod: $('suggestedPromptFilterMethod'),
+      suggestedPromptByFolder: $('suggestedPromptByFolder'),
+      suggestedPromptExcludeFilter: $('suggestedPromptExcludeFilter'),
+      suggestedPromptExcludeFilterMethod: $('suggestedPromptExcludeFilterMethod'),
+      suggestedPromptExcludeFilterVld: $('suggestedPromptExcludeFilterVld'),
+      suggestedPromptCharacterFilter: $('suggestedPromptCharacterFilter'),
+
+      tagFrequencyCount: $('tagFrequencyCount'),
+      tagFrequencyFilter: $('tagFrequencyFilter'),
+      tagFrequencyFilterVld: $('tagFrequencyFilterVld'),
+      tagFrequencyFilterMethod: $('tagFrequencyFilterMethod'),
+      tagByFolder: $('tagByFolder'),
+      tagExcludeFilter: $('tagExcludeFilter'),
+      tagExcludeFilterMethod: $('tagExcludeFilterMethod'),
+      tagExcludeFilterVld: $('tagExcludeFilterVld'),
+      tagCharacterFilter: $('tagCharacterFilter'),
+
+      enableSuggestedPrompt: $('enableSuggestedPrompt'),
+      enableTagFrequency: $('enableTagFrequency'),
+      enableCharacterDetection: $('enableCharacterDetection'),
+      characterAnalysisPanel: $('characterAnalysisPanel'),
+      characterAnalysisSummary: $('characterAnalysisSummary'),
+      characterTagFrequency: $('characterTagFrequency'),
+      nonCharacterTagFrequency: $('nonCharacterTagFrequency'),
+
+      themeSelect: $('themeSelect'),
+      themeColorSelect: $('themeColorSelect'),
+      themeColorPicker: $('themeColorPicker'),
+      themeBgColorSelect: $('themeBgColorSelect'),
+      themeBgColorPicker: $('themeBgColorPicker'),
+      themeFont: $('themeFont'),
+
+      clearSettingsBtn: $('clearSettingsBtn'),
+      exportSettingsBtn: $('exportSettingsBtn'),
+      importSettingsBtn: $('importSettingsBtn'),
+      importSettingsFile: $('importSettingsFile'),
+      importSettingsFileName: $('importSettingsFileName'),
+    };
+
+    // ========================================================
+    // TAG TOOLS
+    // ========================================================
+    const tagTools = {
+      aggregateAndSort: (originalObject) => {
+        return Object.fromEntries(
+          Object.entries(
+            Object.values(originalObject).reduce((acc, subObject) => {
+              for (const [key, value] of Object.entries(subObject)) {
+                acc[key] = (acc[key] || 0) + value;
+              }
+              return acc;
+            }, {})
+          ).sort(([, a], [, b]) => b - a)
+        );
+      },
+      sortSubproperties: (originalObject) => {
+        return Object.fromEntries(
+          Object.entries(originalObject).map(([key, subObject]) => [
+            key,
+            Object.fromEntries(
+              Object.entries(subObject).sort(([, a], [, b]) => b - a)
+            ),
+          ])
+        );
+      },
+      filterTopN: (obj, n) => {
+        return Object.fromEntries(Object.entries(obj).slice(0, n));
+      },
+      filterByTag: (obj, regex) => {
+        const filteredObj = {};
+        const pattern = typeof regex === 'string' ? new RegExp(regex) : regex;
+        for (const key in obj) {
+          if (obj.hasOwnProperty(key) && pattern.test(key)) filteredObj[key] = obj[key];
+        }
+        return filteredObj;
+      },
+      removeTags: (obj, regex) => {
+        const pattern = typeof regex === 'string' ? new RegExp(regex) : regex;
+        const result = { ...obj };
+        Object.keys(result).forEach(property => {
+          if (pattern.test(property)) delete result[property];
+        });
+        return result;
+      },
+      isValidRegex: (regexString) => {
+        if (!regexString) return true;
+        try { new RegExp(regexString); return true; } catch (e) { return false; }
+      },
+      applyFiltersToSubproperties: (obj, filterFunction, ...args) => {
+        const filteredObject = {};
+        for (const key in obj) {
+          if (obj.hasOwnProperty(key)) filteredObject[key] = filterFunction({ ...obj[key] }, ...args);
+        }
+        return filteredObject;
+      },
+      listToRegex: (listString, exactMatch = false) => {
+        const valuesArray = listString.split(',').map(value => value.trim()).filter(v => v);
+        if (valuesArray.length === 0) return null;
+        const escapedValues = valuesArray.map(value => value.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
+        const pattern = exactMatch
+          ? `^(${escapedValues.join('|')})$`
+          : `(${escapedValues.join('|')})`;
+        return new RegExp(pattern);
+      },
+      getSuggestedPrompt: (tags) => {
+        if (!tags) return;
+        const keys = Object.keys(tags);
+        if (keys.length === 0) return {};
+        const prompts = {};
+        if (typeof tags[keys[0]] !== 'object')
+          prompts.Prompt = Object.keys(tags).join(', ');
+        else
+          for (let property in tags)
+            if (tags.hasOwnProperty(property))
+              prompts[property] = Object.keys(tags[property]).join(', ');
+        return prompts;
+      },
+      // ===== Character Tag Filtering =====
+      filterCharacterTags: (obj, mode) => {
+        if (mode === 'all') return obj;
+        const result = {};
+        for (const key in obj) {
+          if (obj.hasOwnProperty(key)) {
+            const isChar = CHARACTER_TAGS.has(key.toLowerCase().trim());
+            if ((mode === 'character' && isChar) || (mode === 'noncharacter' && !isChar)) {
+              result[key] = obj[key];
+            }
+          }
+        }
+        return result;
+      },
+    };
+
+    // ========================================================
+    // INITIALIZATION
+    // ========================================================
+    init();
+
+    function init() {
+      updateTheme();
+      initDropArea();
+      initCollapsible();
+      initTabs();
+      initSettingsStorage();
+
+      [UI.themeSelect, UI.themeColorSelect, UI.themeBgColorSelect, UI.themeFont].forEach(e => {
+        e.addEventListener('change', updateTheme);
+      });
+      [UI.themeColorPicker, UI.themeBgColorPicker].forEach(e => {
+        e.addEventListener('input', updateTheme);
+      });
+
+      // Tag frequency filter listeners
+      [UI.tagFrequencyCount, UI.tagFrequencyFilter, UI.tagExcludeFilter, UI.tagExcludeFilterMethod, UI.tagFrequencyFilterMethod, UI.tagCharacterFilter].forEach(e => {
+        e.addEventListener('change', () => renderFiltered(false));
+      });
+      UI.tagByFolder.addEventListener('click', () => renderFiltered(false));
+
+      // Suggested prompt filter listeners
+      [UI.suggestedPromptCount, UI.suggestedPromptFilter, UI.suggestedPromptExcludeFilter, UI.suggestedPromptExcludeFilterMethod, UI.suggestedPromptFilterMethod, UI.suggestedPromptCharacterFilter].forEach(e => {
+        e.addEventListener('change', () => renderFiltered(true));
+      });
+      UI.suggestedPromptByFolder.addEventListener('click', () => renderFiltered(true));
+
+      // Character detection toggle
+      UI.enableCharacterDetection.addEventListener('input', updateCharacterDetectionUI);
+      UI.enableCharacterDetection.addEventListener('click', updateCharacterDetectionUI);
+
+      // Individual .txt file input
+      UI.individualFileInput.addEventListener('change', () => {
+        if (UI.individualFileInput.files.length > 0) {
+          const files = Array.from(UI.individualFileInput.files).map(f => {
+            f._relativePath = f.name;
+            return f;
+          });
+          STATE.source = 'files';
+          processFileList(files);
+        }
+      });
+
+      // .zip file input
+      UI.zipFileInput.addEventListener('change', () => {
+        if (UI.zipFileInput.files.length > 0) {
+          processZipFile(UI.zipFileInput.files[0]);
+        }
+      });
+    }
+
+    // ========================================================
+    // CHARACTER DETECTION UI TOGGLE
+    // ========================================================
+    function updateCharacterDetectionUI() {
+      const enabled = UI.enableCharacterDetection.checked;
+      document.querySelectorAll('.char-filter-row').forEach(el => {
+        el.style.display = enabled ? '' : 'none';
+      });
+      if (STATE.uniqueTags > 0) {
+        UI.characterAnalysisPanel.style.display = enabled ? '' : 'none';
+        if (enabled) {
+          renderCharacterAnalysis();
+        }
+        renderDatasetSummary();
+        renderFiltered(false);
+        renderFiltered(true);
+      }
+    }
+
+    // ========================================================
+    // CHARACTER TAG ANALYSIS
+    // ========================================================
+    function renderCharacterAnalysis() {
+      if (!UI.enableCharacterDetection.checked || STATE.uniqueTags === 0) return;
+
+      const charTags = {};
+      const nonCharTags = {};
+      let charInstances = 0;
+      let nonCharInstances = 0;
+
+      for (const [tag, count] of Object.entries(STATE.tags)) {
+        if (CHARACTER_TAGS.has(tag.toLowerCase().trim())) {
+          charTags[tag] = count;
+          charInstances += count;
+        } else {
+          nonCharTags[tag] = count;
+          nonCharInstances += count;
+        }
+      }
+
+      const charCount = Object.keys(charTags).length;
+      const nonCharCount = Object.keys(nonCharTags).length;
+      const charPct = STATE.uniqueTags > 0 ? ((charCount / STATE.uniqueTags) * 100).toFixed(1) : '0.0';
+      const nonCharPct = STATE.uniqueTags > 0 ? ((nonCharCount / STATE.uniqueTags) * 100).toFixed(1) : '0.0';
+      const charInstPct = STATE.totalInstances > 0 ? ((charInstances / STATE.totalInstances) * 100).toFixed(1) : '0.0';
+
+      const items = [
+        { label: 'Character Tags', value: `${charCount} (${charPct}%)` },
+        { label: 'Non-Character Tags', value: `${nonCharCount} (${nonCharPct}%)` },
+        { label: 'Char Instances', value: `${charInstances} (${charInstPct}%)` },
+        { label: 'Non-Char Instances', value: `${nonCharInstances} (${(100 - parseFloat(charInstPct)).toFixed(1)}%)` },
+        { label: 'Known Tags in DB', value: CHARACTER_TAGS.size },
+      ];
+
+      UI.characterAnalysisSummary.innerHTML = items.map(item =>
+        `<div><div>${item.label}</div><div>${item.value}</div></div>`
+      ).join('');
+
+      formatAndColorizeJSON(charTags, UI.characterTagFrequency, false);
+      formatAndColorizeJSON(nonCharTags, UI.nonCharacterTagFrequency, false);
+    }
+
+    function markCharacterTagsInJSON(html) {
+      return html.replace(/<span class="key">"([^"]+)"([\s]*:)<\/span>/g, (fullMatch, tagName, colon) => {
+        if (CHARACTER_TAGS.has(tagName.toLowerCase().trim())) {
+          return `<span class="key">"${tagName}" <span class="char-indicator" title="Character Tag">★</span>${colon}</span>`;
+        }
+        return fullMatch;
+      });
+    }
+
+    // ========================================================
+    // DROP AREA
+    // ========================================================
+    function initDropArea() {
+      const dropArea = UI.dropArea;
+      const highlight = () => dropArea.classList.add('hover');
+      const unhighlight = () => dropArea.classList.remove('hover');
+      const preventDefaults = (e) => { e.preventDefault(); e.stopPropagation(); };
+
+      ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(eventName, preventDefaults, false);
+        document.body.addEventListener(eventName, preventDefaults, false);
+      });
+      ['dragenter', 'dragover'].forEach(eventName => {
+        dropArea.addEventListener(eventName, highlight, false);
+      });
+      ['dragleave', 'drop'].forEach(eventName => {
+        dropArea.addEventListener(eventName, unhighlight, false);
+      });
+
+      dropArea.addEventListener('drop', async (event) => {
+        dropArea.classList.remove('hover');
+        const droppedFiles = event.dataTransfer.files;
+        for (let i = 0; i < droppedFiles.length; i++) {
+          if (droppedFiles[i].name.toLowerCase().endsWith('.zip')) {
+            await processZipFile(droppedFiles[i]);
+            return;
+          }
+        }
+        const items = event.dataTransfer.items;
+        if (items && items.length > 0) {
+          const files = await getFilesFromDataTransfer(items);
+          if (files.length > 0) {
+            STATE.source = 'folder';
+            processFileList(files);
+          } else {
+            showToast('No .txt files found in dropped content.', 5000, 'warning');
+          }
+        }
+      }, false);
+
+      dropArea.addEventListener('mouseover', highlight);
+      dropArea.addEventListener('mouseout', unhighlight);
+
+      const folderInput = document.createElement('input');
+      folderInput.type = 'file';
+      folderInput.style.display = 'none';
+      folderInput.setAttribute('webkitdirectory', '');
+      folderInput.setAttribute('directory', '');
+      folderInput.multiple = true;
+      document.body.appendChild(folderInput);
+
+      dropArea.addEventListener('click', () => folderInput.click());
+
+      folderInput.addEventListener('change', () => {
+        if (folderInput.files.length > 0) {
+          const files = Array.from(folderInput.files).map(f => {
+            f._relativePath = f.webkitRelativePath || f.name;
+            return f;
+          });
+          STATE.source = 'folder';
+          processFileList(files);
+        }
+      });
+    }
+
+    async function getFilesFromDataTransfer(items) {
+      const files = [];
+      const entries = [];
+      for (let i = 0; i < items.length; i++) {
+        const entry = items[i].webkitGetAsEntry ? items[i].webkitGetAsEntry() : null;
+        if (entry) entries.push(entry);
+        else if (items[i].kind === 'file') {
+          const f = items[i].getAsFile();
+          if (f) { f._relativePath = f.name; files.push(f); }
+        }
+      }
+      for (const entry of entries) {
+        await traverseEntry(entry, files, '');
+      }
+      return files;
+    }
+
+    async function traverseEntry(entry, files, path) {
+      if (entry.isFile) {
+        const file = await new Promise(resolve => entry.file(resolve));
+        file._relativePath = path + file.name;
+        files.push(file);
+      } else if (entry.isDirectory) {
+        const reader = entry.createReader();
+        let allEntries = [];
+        let batch;
+        do {
+          batch = await new Promise(resolve => reader.readEntries(resolve));
+          allEntries = allEntries.concat(Array.from(batch));
+        } while (batch.length > 0);
+        for (const childEntry of allEntries) {
+          await traverseEntry(childEntry, files, path + entry.name + '/');
+        }
+      }
+    }
+
+    // ========================================================
+    // ZIP FILE PROCESSING
+    // ========================================================
+    async function processZipFile(zipFile) {
+      if (!zipFile.name.toLowerCase().endsWith('.zip')) {
+        showToast('Please select a valid .zip file.', 5000, 'error');
+        return;
+      }
+      showToast('Processing zip archive…', 3000, 'info');
+      try {
+        const arrayBuffer = await zipFile.arrayBuffer();
+        const zip = await JSZip.loadAsync(arrayBuffer);
+        const virtualFiles = [];
+        const promises = [];
+        zip.forEach((relativePath, zipEntry) => {
+          if (zipEntry.dir) return;
+          if (relativePath.startsWith('__MACOSX')) return;
+          if (!relativePath.toLowerCase().endsWith('.txt')) return;
+          promises.push(
+            zipEntry.async('string').then(content => {
+              virtualFiles.push({
+                name: relativePath.split('/').pop(),
+                _relativePath: relativePath,
+                _content: content
+              });
+            })
+          );
+        });
+        await Promise.all(promises);
+        if (virtualFiles.length === 0) {
+          showToast('No .txt files found inside the zip archive.', 5000, 'warning');
+          return;
+        }
+        STATE.source = 'zip';
+        processFileList(virtualFiles);
+      } catch (error) {
+        console.error('ZIP processing error:', error);
+        showToast(`Error reading zip file: ${error.message}`, null, 'error');
+      }
+    }
+
+    // ========================================================
+    // FILE LIST PROCESSING
+    // ========================================================
+    async function processFileList(allFiles) {
+      const txtFiles = allFiles.filter(f => {
+        const name = f.name || f._relativePath || '';
+        return name.toLowerCase().endsWith('.txt');
+      });
+
+      if (txtFiles.length === 0) {
+        showToast('No .txt files found. Please select a folder or zip containing caption text files.', 5000, 'warning');
+        return;
+      }
+
+      STATE.tags = {};
+      STATE.tagsByFolder = {};
+      STATE.fileCount = 0;
+      STATE.uniqueTags = 0;
+      STATE.totalInstances = 0;
+      STATE.folders = [];
+      STATE.fileNames = [];
+
+      const tagsByFolder = {};
+
+      for (const file of txtFiles) {
+        const content = file._content != null ? file._content : await readFileAsText(file);
+        if (!content || !content.trim()) continue;
+
+        const relativePath = file._relativePath || file.webkitRelativePath || file.name;
+        const folder = getFolderName(relativePath);
+        const tags = content.split(/[,\n]/).map(t => t.trim()).filter(t => t.length > 0);
+
+        if (!tagsByFolder[folder]) tagsByFolder[folder] = {};
+
+        for (const tag of tags) {
+          tagsByFolder[folder][tag] = (tagsByFolder[folder][tag] || 0) + 1;
+        }
+
+        STATE.fileCount++;
+        STATE.fileNames.push(relativePath);
+      }
+
+      STATE.tagsByFolder = tagTools.sortSubproperties(tagsByFolder);
+      STATE.tags = tagTools.aggregateAndSort(tagsByFolder);
+      STATE.uniqueTags = Object.keys(STATE.tags).length;
+      STATE.totalInstances = Object.values(STATE.tags).reduce((sum, v) => sum + v, 0);
+      STATE.folders = Object.keys(STATE.tagsByFolder);
+
+      const sourceLabel = STATE.source === 'zip' ? ' from zip' : '';
+      showToast(`Loaded ${STATE.fileCount} text file${STATE.fileCount !== 1 ? 's' : ''}${sourceLabel} with ${STATE.uniqueTags} unique tags.`, 5000, 'success');
+
+      renderDatasetSummary();
+      renderFiltered(false);
+      renderFiltered(true);
+
+      // Character analysis
+      if (UI.enableCharacterDetection.checked) {
+        renderCharacterAnalysis();
+        UI.characterAnalysisPanel.style.display = '';
+        autoExpand('character-analysis-content');
+      }
+
+      autoExpand('suggested-prompt-content');
+      autoExpand('tag-frequency-content');
+    }
+
+    function readFileAsText(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(reader.error);
+        reader.readAsText(file);
+      });
+    }
+
+    function getFolderName(relativePath) {
+      const parts = relativePath.replace(/\\/g, '/').split('/');
+      if (parts.length <= 1) return 'Files';
+      if (parts.length === 2) return parts[0];
+      return parts.slice(1, -1).join('/');
+    }
+
+    function autoExpand(targetId) {
+      const content = $(targetId);
+      if (content && content.style.display !== 'block') {
+        const collapsible = document.querySelector(`[data-target="${targetId}"]`);
+        if (collapsible && !collapsible.classList.contains('active')) {
+          collapsible.click();
+        }
+      }
+    }
+
+    // ========================================================
+    // RENDERING: Dataset Summary
+    // ========================================================
+    function renderDatasetSummary() {
+      UI.datasetSummaryPanel.style.display = 'block';
+
+      const sourceLabels = { folder: '📁 Folder', files: '📄 Files', zip: '📦 Zip' };
+      const items = [
+        { label: 'Source', value: sourceLabels[STATE.source] || STATE.source },
+        { label: 'Text Files', value: STATE.fileCount },
+        { label: 'Unique Tags', value: STATE.uniqueTags },
+        { label: 'Total Instances', value: STATE.totalInstances },
+        { label: 'Folders', value: STATE.folders.length },
+      ];
+
+      // Add character tag stats when detection is enabled
+      if (UI.enableCharacterDetection.checked) {
+        let charCount = 0;
+        for (const tag of Object.keys(STATE.tags)) {
+          if (CHARACTER_TAGS.has(tag.toLowerCase().trim())) charCount++;
+        }
+        items.push({ label: '★ Character Tags', value: charCount });
+        items.push({ label: 'Non-Character Tags', value: STATE.uniqueTags - charCount });
+      }
+
+      UI.datasetSummary.innerHTML = items.map(item =>
+        `<div><div>${item.label}</div><div>${item.value}</div></div>`
+      ).join('');
+
+      const folderGroups = {};
+      STATE.fileNames.forEach(name => {
+        const folder = getFolderName(name);
+        if (!folderGroups[folder]) folderGroups[folder] = [];
+        const parts = name.replace(/\\/g, '/').split('/');
+        folderGroups[folder].push(parts[parts.length - 1]);
+      });
+
+      let fileListHtml = '';
+      for (const [folder, files] of Object.entries(folderGroups)) {
+        fileListHtml += `<span class="key">${folder}/</span> <span class="number">(${files.length} file${files.length !== 1 ? 's' : ''})</span>\n`;
+        files.forEach(f => { fileListHtml += `  <span class="string">${f}</span>\n`; });
+      }
+      UI.fileListDisplay.innerHTML = fileListHtml;
+    }
+
+    // ========================================================
+    // RENDERING: Filtered Tags + Suggested Prompt
+    // ========================================================
+    function renderFiltered(isSuggestedPrompt) {
+      try {
+        if (STATE.uniqueTags === 0) return;
+
+        const filterMethod = isSuggestedPrompt ? UI.suggestedPromptFilterMethod : UI.tagFrequencyFilterMethod;
+        const filter = isSuggestedPrompt ? UI.suggestedPromptFilter : UI.tagFrequencyFilter;
+        const excludeFilterMethod = isSuggestedPrompt ? UI.suggestedPromptExcludeFilterMethod : UI.tagExcludeFilterMethod;
+        const excludeFilter = isSuggestedPrompt ? UI.suggestedPromptExcludeFilter : UI.tagExcludeFilter;
+        const filterVld = isSuggestedPrompt ? UI.suggestedPromptFilterVld : UI.tagFrequencyFilterVld;
+        const excludeFilterVld = isSuggestedPrompt ? UI.suggestedPromptExcludeFilterVld : UI.tagExcludeFilterVld;
+        const tagCount = isSuggestedPrompt ? UI.suggestedPromptCount : UI.tagFrequencyCount;
+        const byFolder = isSuggestedPrompt ? UI.suggestedPromptByFolder : UI.tagByFolder;
+        const charFilter = isSuggestedPrompt ? UI.suggestedPromptCharacterFilter : UI.tagCharacterFilter;
+
+        let includeRegex = null;
+        switch (filterMethod.value) {
+          case 'regex': includeRegex = filter.value || null; break;
+          case 'exact': includeRegex = filter.value ? tagTools.listToRegex(filter.value, true) : null; break;
+          case 'partial': includeRegex = filter.value ? tagTools.listToRegex(filter.value) : null; break;
+        }
+
+        let excludeRegex = null;
+        switch (excludeFilterMethod.value) {
+          case 'regex': excludeRegex = excludeFilter.value || null; break;
+          case 'exact': excludeRegex = excludeFilter.value ? tagTools.listToRegex(excludeFilter.value, true) : null; break;
+          case 'partial': excludeRegex = excludeFilter.value ? tagTools.listToRegex(excludeFilter.value) : null; break;
+        }
+
+        if (filterVld) filterVld.innerHTML = (includeRegex && !tagTools.isValidRegex(includeRegex)) ? 'Invalid regex!' : '';
+        if (excludeFilterVld) excludeFilterVld.innerHTML = (excludeRegex && !tagTools.isValidRegex(excludeRegex)) ? 'Invalid regex!' : '';
+        if (includeRegex && !tagTools.isValidRegex(includeRegex)) includeRegex = null;
+        if (excludeRegex && !tagTools.isValidRegex(excludeRegex)) excludeRegex = null;
+
+        // Determine character filter mode
+        const charFilterMode = (UI.enableCharacterDetection.checked && charFilter) ? charFilter.value : 'all';
+
+        let filteredResult;
+        if (byFolder.checked) {
+          filteredResult = JSON.parse(JSON.stringify(STATE.tagsByFolder));
+          if (includeRegex) filteredResult = tagTools.applyFiltersToSubproperties(filteredResult, tagTools.filterByTag, includeRegex);
+          if (excludeRegex) filteredResult = tagTools.applyFiltersToSubproperties(filteredResult, tagTools.removeTags, excludeRegex);
+          if (charFilterMode !== 'all') filteredResult = tagTools.applyFiltersToSubproperties(filteredResult, tagTools.filterCharacterTags, charFilterMode);
+          if (tagCount.value && parseInt(tagCount.value) > 0) filteredResult = tagTools.applyFiltersToSubproperties(filteredResult, tagTools.filterTopN, parseInt(tagCount.value));
+        } else {
+          filteredResult = JSON.parse(JSON.stringify(STATE.tags));
+          if (includeRegex) filteredResult = tagTools.filterByTag(filteredResult, includeRegex);
+          if (excludeRegex) filteredResult = tagTools.removeTags(filteredResult, excludeRegex);
+          if (charFilterMode !== 'all') filteredResult = tagTools.filterCharacterTags(filteredResult, charFilterMode);
+          if (tagCount.value && parseInt(tagCount.value) > 0) filteredResult = tagTools.filterTopN(filteredResult, parseInt(tagCount.value));
+        }
+
+        if (!isSuggestedPrompt) {
+          formatAndColorizeJSON(filteredResult, UI.keywordDetails, true);
+        } else {
+          let prompt = tagTools.getSuggestedPrompt(filteredResult);
+          if (!byFolder.checked) prompt = prompt && prompt.Prompt ? [prompt.Prompt] : [''];
+          renderSuggestedPrompt(prompt, UI.suggestedPromptDetails);
+        }
+      } catch (error) {
+        console.error('Filter error:', error);
+      }
+    }
+
+    // ========================================================
+    // RENDERING: Suggested Prompt Output
+    // ========================================================
+    function renderSuggestedPrompt(prompt, targetElem) {
+      const addRow = (table, key, value) => {
+        const row = document.createElement('tr');
+        if (key !== null) {
+          const keyCell = document.createElement('td');
+          keyCell.textContent = key;
+          row.appendChild(keyCell);
+        }
+        const valueCell = document.createElement('td');
+        valueCell.appendChild(createCopyableTextElem(value));
+        row.appendChild(valueCell);
+        table.appendChild(row);
+      };
+      targetElem.innerHTML = '';
+      if (!prompt) return;
+      const table = document.createElement('table');
+      table.className = 'summary-table';
+      if (Array.isArray(prompt)) prompt.forEach(value => addRow(table, null, value));
+      else Object.entries(prompt).forEach(([key, value]) => addRow(table, key, value));
+      targetElem.appendChild(table);
+    }
+
+    // ========================================================
+    // JSON COLORIZER
+    // ========================================================
+    function colorizeJSON(json) {
+      const formattedJSON = JSON.stringify(json, null, 2);
+      if (!formattedJSON) return '';
+      return formattedJSON.replace(
+        /"(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?/g,
+        function (match) {
+          let cls = 'number';
+          if (/^(null)$/.test(match)) cls = 'null';
+          else if (/^(true|false)$/.test(match)) cls = 'boolean';
+          else if (/^"/.test(match)) cls = /:$/.test(match) ? 'key' : 'string';
+          return `<span class="${cls}">${match}</span>`;
+        }
+      );
+    }
+
+    function formatAndColorizeJSON(json, targetElement, markChars = true) {
+      let html = colorizeJSON(json);
+      if (markChars && UI.enableCharacterDetection.checked) {
+        html = markCharacterTagsInJSON(html);
+        targetElement.innerHTML = '<div class="char-legend">★ = Character Tag</div>' + html;
+      } else {
+        targetElement.innerHTML = html;
+      }
+    }
+
+    // ========================================================
+    // COPYABLE TEXT ELEMENT
+    // ========================================================
+    function createCopyableTextElem(string) {
+      const elem = document.createElement('span');
+      elem.textContent = string;
+      elem.className = 'copyable-item';
+      elem.addEventListener('click', function (event) {
+        navigator.clipboard.writeText(string).then(() => {
+          showTooltip('Copied!', event);
+        }).catch(err => console.error('Failed to copy:', err));
+      });
+      return elem;
+    }
+
+    function copyToClipboard(elementId, event) {
+      const textToCopy = $(elementId);
+      navigator.clipboard.writeText(textToCopy.innerText).then(() => {
+        showTooltip('Copied!', event);
+      }).catch(() => {
+        const textarea = document.createElement('textarea');
+        textarea.value = textToCopy.innerText;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showTooltip('Copied!', event);
+      });
+    }
+
+    // ========================================================
+    // TOOLTIP
+    // ========================================================
+    function showTooltip(message, event, timeout = 1500) {
+      const tooltip = document.createElement('div');
+      tooltip.className = 'tooltip';
+      tooltip.textContent = message;
+      tooltip.style.left = `${event.pageX - 35}px`;
+      tooltip.style.top = `${event.pageY - 30}px`;
+      document.body.appendChild(tooltip);
+      setTimeout(() => tooltip.remove(), timeout);
+    }
+
+    // ========================================================
+    // TOAST NOTIFICATIONS
+    // ========================================================
+    function showToast(message, timeout = null, type = 'info') {
+      const container = $('toast-container');
+      const toast = document.createElement('div');
+      toast.classList.add('toast', type);
+      const messageText = document.createElement('span');
+      messageText.innerHTML = message;
+      toast.appendChild(messageText);
+      const closeBtn = document.createElement('button');
+      closeBtn.classList.add('close-btn');
+      closeBtn.innerHTML = '&times;';
+      closeBtn.onclick = () => container.removeChild(toast);
+      toast.appendChild(closeBtn);
+      container.appendChild(toast);
+      if (timeout && typeof timeout === 'number') {
+        setTimeout(() => { if (toast.parentElement) container.removeChild(toast); }, timeout);
+      }
+    }
+
+    // ========================================================
+    // THEME MANAGEMENT
+    // ========================================================
+    function updateTheme() {
+      const _getColorCss = (selectElem, colorPickerElem, cssVar) => {
+        colorPickerElem.style.setProperty('display', 'none');
+        if (selectElem.value && selectElem.value === 'custom-theme') {
+          colorPickerElem.style.removeProperty('display');
+          return `--${cssVar}: ${colorPickerElem.value};`;
+        } else if (selectElem.value) return `--${cssVar}: ${selectElem.value};`;
+        return '';
+      };
+
+      document.body.className = UI.themeSelect.value === 'default'
+        ? (window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark-theme' : 'light-theme')
+        : UI.themeSelect.value;
+      let css = '';
+
+      UI.themeColorPicker.style.setProperty('display', 'none');
+      if (UI.themeColorSelect.value && UI.themeColorSelect.value === 'default') {
+        document.body.classList.add('default-' + document.body.className);
+      } else if (UI.themeColorSelect.value && UI.themeColorSelect.value === 'custom-theme') {
+        UI.themeColorPicker.style.removeProperty('display');
+        css += `--primary: ${UI.themeColorPicker.value};`;
+      } else if (UI.themeColorSelect.value) {
+        document.body.classList.add(UI.themeColorSelect.value);
+      }
+
+      if (UI.themeFont.value) css += `--font: ${UI.themeFont.value};`;
+      css += _getColorCss(UI.themeBgColorSelect, UI.themeBgColorPicker, 'bg');
+
+      const styleId = "custom-theme-id";
+      let style = document.getElementById(styleId);
+      if (!style) { style = document.createElement("style"); style.id = styleId; document.head.appendChild(style); }
+      style.innerHTML = `.custom-theme { ${css} }`;
+      if (css) document.body.classList.add('custom-theme');
+    }
+
+    // ========================================================
+    // COLLAPSIBLE SECTIONS
+    // ========================================================
+    function initCollapsible() {
+      document.querySelectorAll('.collapsible').forEach(collapsible => {
+        collapsible.addEventListener('click', function () {
+          this.classList.toggle('active');
+          const targetSelector = this.getAttribute('data-target');
+          const content = !targetSelector ? this.nextElementSibling : $(targetSelector);
+          if (!content) return;
+          content.style.display = content.style.display === 'block' ? 'none' : 'block';
+        });
+        const targetSelector = collapsible.getAttribute('data-target');
+        if (targetSelector) {
+          const content = $(targetSelector);
+          if (content) content.classList.add('content');
+        }
+        if (collapsible.classList.contains('expanded')) collapsible.click();
+      });
+
+      const toggleDisplay = e => {
+        const targetId = e.getAttribute('data-display');
+        const targetElement = $(targetId);
+        if (targetElement) targetElement.style.display = e.checked ? 'block' : 'none';
+      };
+      document.querySelectorAll('input[type="checkbox"][data-display]').forEach(checkbox => {
+        checkbox.addEventListener('click', function () { toggleDisplay(this); });
+        window.addEventListener('load', () => toggleDisplay(checkbox));
+      });
+    }
+
+    // ========================================================
+    // TABS
+    // ========================================================
+    function initTabs() {
+      document.querySelectorAll(".tab-container").forEach(container => {
+        const tablinks = container.querySelectorAll("[data-target-tab]");
+        tablinks.forEach(button => {
+          button.addEventListener("click", () => {
+            container.querySelectorAll(".tabcontent").forEach(tab => { tab.style.display = "none"; });
+            tablinks.forEach(tab => { tab.classList.remove("active"); });
+            container.querySelector("#" + button.getAttribute("data-target-tab")).style.display = "block";
+            button.classList.add("active");
+          });
+        });
+        container.querySelector(".tabcontent").style.display = "block";
+        container.querySelector("[data-target-tab]").classList.add("active");
+      });
+    }
+
+    // ========================================================
+    // SETTINGS PERSISTENCE
+    // ========================================================
+    function initSettingsStorage() {
+      const appPrefix = 'dta.';
+
+      const loadSettings = () => {
+        document.querySelectorAll('.settings-field').forEach(element => {
+          const id = element.id ? appPrefix + element.id : null;
+          if (!id) return;
+          let value = localStorage.getItem(id);
+          if (value === null && DEFAULTS[element.id] !== undefined) {
+            value = typeof DEFAULTS[element.id] === 'object' ? JSON.stringify(DEFAULTS[element.id]) : String(DEFAULTS[element.id]);
+            localStorage.setItem(id, value);
+          }
+          if (value !== null) {
+            if (element.type === 'checkbox') element.checked = value === 'true';
+            else element.value = value;
+            element.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+            if (element.tagName.toLowerCase() === 'select')
+              element.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+          }
+        });
+        updateTheme();
+      };
+
+      const saveSettings = () => {
+        document.querySelectorAll('.settings-field').forEach(element => {
+          const id = element.id ? appPrefix + element.id : null;
+          if (!id) return;
+          const value = element.type === 'checkbox' ? element.checked : element.value;
+          localStorage.setItem(id, value.toString());
+        });
+      };
+
+      const exportLocalStorage = () => {
+        const data = {};
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key.startsWith(appPrefix)) data[key] = localStorage.getItem(key);
+        }
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'dta_settings.json'; a.click();
+        URL.revokeObjectURL(url);
+      };
+
+      const importLocalStorage = (file) => {
+        const reader = new FileReader();
+        reader.onload = function (event) {
+          const storageData = JSON.parse(event.target.result);
+          for (let key in storageData) {
+            if (storageData.hasOwnProperty(key)) localStorage.setItem(key, storageData[key]);
+          }
+          location.reload();
+        };
+        reader.readAsText(file);
+      };
+
+      window.addEventListener('load', () => {
+        loadSettings();
+        document.querySelectorAll('.settings-field').forEach(element => {
+          element.addEventListener('input', saveSettings);
+        });
+      });
+
+      UI.exportSettingsBtn.addEventListener('click', exportLocalStorage);
+      UI.importSettingsBtn.addEventListener('click', () => {
+        if (UI.importSettingsFile.files.length > 0) importLocalStorage(UI.importSettingsFile.files[0]);
+        else alert('Please select a file to import.');
+      });
+      UI.importSettingsFile.addEventListener('change', function () {
+        UI.importSettingsFileName.textContent = this.files.length > 0 ? this.files[0].name : 'No file chosen';
+      });
+      UI.clearSettingsBtn.addEventListener('click', () => {
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const key = localStorage.key(i);
+          if (key.startsWith(appPrefix)) localStorage.removeItem(key);
+        }
+        location.reload();
+      });
+    }
+  </script>
+</body>
+</html>

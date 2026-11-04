@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Stat Upgrade Cost Calculator</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    max-width: 900px;
+    margin: 20px auto;
+    padding: 20px;
+    background: #f5f5f7;
+    color: #1d1d1f;
+  }
+  h1 { text-align: center; margin-bottom: 8px; }
+  .subtitle { text-align: center; color: #666; margin-bottom: 24px; }
+  .card {
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+  }
+  .tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+  .tab {
+    flex: 1; padding: 10px; border: none; border-radius: 8px;
+    background: #e5e5ea; cursor: pointer; font-weight: 600;
+    transition: all 0.2s;
+  }
+  .tab.active { background: #007aff; color: white; }
+  .panel { display: none; }
+  .panel.active { display: block; }
+  label { display: block; font-weight: 600; margin: 12px 0 6px; }
+  input[type="number"] {
+    width: 100%; padding: 10px; font-size: 16px;
+    border: 1px solid #d2d2d7; border-radius: 8px;
+  }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; }
+  .row > div { flex: 1; min-width: 140px; }
+  .result {
+    margin-top: 20px; padding: 16px; background: #f0f7ff;
+    border-radius: 8px; font-size: 18px; text-align: center;
+  }
+  .result strong { color: #007aff; font-size: 24px; }
+  .error { color: #d70015; background: #fff0f0; }
+  table.multi { width: 100%; border-collapse: collapse; margin-top: 12px; }
+  table.multi th, table.multi td {
+    padding: 8px; text-align: center; border-bottom: 1px solid #e5e5ea;
+  }
+  table.multi th { background: #f5f5f7; }
+  table.multi input { width: 70px; padding: 6px; text-align: center;
+    border: 1px solid #d2d2d7; border-radius: 6px; }
+  .total-row { font-weight: bold; background: #f0f7ff; }
+  table.chart {
+    width: 100%; border-collapse: collapse; font-size: 13px;
+    margin-top: 12px;
+  }
+  table.chart th, table.chart td {
+    padding: 6px 8px; text-align: center; border: 1px solid #e5e5ea;
+  }
+  table.chart thead th { background: #007aff; color: white; }
+  table.chart tbody tr:nth-child(even) { background: #f5f5f7; }
+  table.chart .row-label { font-weight: 600; background: #e5e5ea !important; }
+  .dash { color: #999; }
+</style>
+</head>
+<body>
+
+<h1>Stat Upgrade Cost Calculator</h1>
+<p class="subtitle">Calculate the cost to raise stats from current → desired values</p>
+
+<div class="card">
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('single', this)">Single Stat</button>
+    <button class="tab" onclick="showTab('multi', this)">Multiple Stats</button>
+    <button class="tab" onclick="showTab('chart', this)">Lookup Chart</button>
+  </div>
+
+  <!-- SINGLE STAT -->
+  <div id="single" class="panel active">
+    <div class="row">
+      <div>
+        <label for="current">Current stat</label>
+        <input type="number" id="current" min="1" max="12" value="1" oninput="calcSingle()">
+      </div>
+      <div>
+        <label for="desired">Desired stat</label>
+        <input type="number" id="desired" min="1" max="12" value="12" oninput="calcSingle()">
+      </div>
+    </div>
+    <div class="result" id="singleResult"></div>
+  </div>
+
+  <!-- MULTIPLE STATS -->
+  <div id="multi" class="panel">
+    <p>Enter current and desired values for each stat. The total cost will appear below.</p>
+    <table class="multi">
+      <thead>
+        <tr><th>Stat</th><th>Current</th><th>Desired</th><th>Cost</th></tr>
+      </thead>
+      <tbody id="multiBody"></tbody>
+      <tfoot>
+        <tr class="total-row">
+          <td colspan="3" style="text-align:right;">Total Cost:</td>
+          <td id="multiTotal">0</td>
+        </tr>
+      </tfoot>
+    </table>
+  </div>
+
+  <!-- CHART -->
+  <div id="chart" class="panel">
+    <p>Find the <em>Desired stat</em> row and <em>Current stat</em> column to read the cost.</p>
+    <div style="overflow-x:auto;">
+      <table class="chart" id="chartTable"></table>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Cost formula: sum of integers from C to D-1
+  function cost(current, desired) {
+    if (desired <= current) return 0;
+    return (desired * (desired - 1) - current * (current - 1)) / 2;
+  }
+
+  function showTab(id, btn) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    btn.classList.add('active');
+  }
+
+  function calcSingle() {
+    const c = parseInt(document.getElementById('current').value);
+    const d = parseInt(document.getElementById('desired').value);
+    const res = document.getElementById('singleResult');
+    if (isNaN(c) || isNaN(d) || c < 1 || d < 1 || c > 12 || d > 12) {
+      res.className = 'result error';
+      res.innerHTML = 'Please enter values between 1 and 12.';
+      return;
+    }
+    if (d < c) {
+      res.className = 'result error';
+      res.innerHTML = 'Desired stat must be ≥ current stat.';
+      return;
+    }
+    res.className = 'result';
+    res.innerHTML = `Cost to upgrade from <strong>${c}</strong> to <strong>${d}</strong>: <strong>${cost(c, d)}</strong>`;
+  }
+
+  // Build multi-stat table (6 stats by default — adjust as needed)
+  function buildMulti() {
+    const body = document.getElementById('multiBody');
+    const stats = ['STR', 'DEX', 'CON', 'INT', 'WIS', 'CHA'];
+    body.innerHTML = stats.map((s, i) => `
+      <tr>
+        <td><strong>${s}</strong></td>
+        <td><input type="number" min="1" max="12" value="1" data-i="${i}" data-k="cur" oninput="calcMulti()"></td>
+        <td><input type="number" min="1" max="12" value="1" data-i="${i}" data-k="des" oninput="calcMulti()"></td>
+        <td id="cost-${i}">0</td>
+      </tr>
+    `).join('');
+  }
+
+  function calcMulti() {
+    let total = 0;
+    document.querySelectorAll('#multiBody tr').forEach((tr, i) => {
+      const inputs = tr.querySelectorAll('input');
+      const c = parseInt(inputs[0].value) || 0;
+      const d = parseInt(inputs[1].value) || 0;
+      const cell = document.getElementById(`cost-${i}`);
+      if (c < 1 || d < 1 || c > 12 || d > 12 || d < c) {
+        cell.textContent = '—';
+        cell.style.color = '#d70015';
+      } else {
+        const k = cost(c, d);
+        cell.textContent = k;
+        cell.style.color = '';
+        total += k;
+      }
+    });
+    document.getElementById('multiTotal').textContent = total;
+  }
+
+  // Build reference chart
+  function buildChart() {
+    const t = document.getElementById('chartTable');
+    let html = '<thead><tr><th>Desired ↓ / Current →</th>';
+    for (let c = 1; c <= 11; c++) html += `<th>${c}</th>`;
+    html += '</tr></thead><tbody>';
+    for (let d = 1; d <= 12; d++) {
+      html += `<tr><td class="row-label">${d}</td>`;
+      for (let c = 1; c <= 11; c++) {
+        if (c >= d) html += '<td class="dash">—</td>';
+        else html += `<td>${cost(c, d)}</td>`;
+      }
+      html += '</tr>';
+    }
+    html += '</tbody>';
+    t.innerHTML = html;
+  }
+
+  // Initialize
+  calcSingle();
+  buildMulti();
+  calcMulti();
+  buildChart();
+</script>
+
+</body>
+</html>

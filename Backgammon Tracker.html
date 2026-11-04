@@ -1,0 +1,846 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Backgammon Tracker → LLM Notation</title>
+<style>
+  :root{
+    --bg:#171717; --panel:#242424; --panel2:#2f2f2f; --text:#f2f2f2; --muted:#bdbdbd;
+    --accent:#79b8ff; --wood:#7b4b2a; --wood-dark:#5b341d;
+    --pt-light:#d6a15d; --pt-dark:#7e2f28; --wpiece:#f4ead8; --bpiece:#151515; --border:#444;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.4}
+  .app{max-width:1320px;margin:0 auto;padding:18px}
+  h1{margin:0 0 6px;font-size:1.5rem}
+  .subtitle{margin:0 0 14px;color:var(--muted)}
+  button,input,textarea{font:inherit}
+  button{border:1px solid #555;background:#343434;color:var(--text);border-radius:8px;padding:8px 11px;cursor:pointer}
+  button:hover{background:#424242}
+  button.primary{border-color:#2f81f7;background:#1f6feb}
+  button.primary:hover{background:#2f81f7}
+  button.danger{border-color:#b34d4d}
+  input[type=number]{width:54px;padding:7px;border-radius:7px;border:1px solid #555;background:#181818;color:var(--text)}
+  textarea{width:100%;min-height:170px;resize:vertical;border-radius:10px;border:1px solid #555;background:#151515;color:var(--text);padding:10px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.86rem}
+  .toolbar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:10px}
+  .status-card{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .turn-badge{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border-radius:999px;background:#333;border:1px solid #555;font-weight:700}
+  .turn-dot{width:15px;height:15px;border-radius:50%;display:inline-block;border:1px solid #777}
+  .turn-dot.W{background:var(--wpiece)} .turn-dot.B{background:var(--bpiece)}
+  .dice-area{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .die{display:inline-flex;justify-content:center;align-items:center;min-width:31px;height:31px;border-radius:7px;border:1px solid #777;background:#f2f2f2;color:#111;font-size:1.25rem;font-weight:700;margin-right:3px}
+  .die.remaining{background:#dceeff;border-color:#79b8ff}
+  .small-muted{color:var(--muted);font-size:.9rem}
+  .warning-box{margin:10px 0 14px;background:#2f2815;border:1px solid #66511a;color:#ffe9a3;border-radius:12px;padding:10px 12px;min-height:42px}
+  .warning-box .ok{color:#7ee787}
+  .board-shell{display:grid;grid-template-columns:130px minmax(700px,1fr) 130px;gap:12px;margin-bottom:16px}
+  .board{background:var(--wood);border:8px solid var(--wood-dark);border-radius:16px;min-height:560px;overflow:hidden;display:grid;grid-template-rows:1fr 44px 1fr;box-shadow:0 6px 24px rgba(0,0,0,.35)}
+  .point-row{display:grid;grid-template-columns:repeat(12,1fr);min-height:245px}
+  .center-strip{background:#3f2415;border-top:3px solid #29160d;border-bottom:3px solid #29160d;display:flex;align-items:center;justify-content:center;color:#d7c2a0;font-weight:700;font-size:.85rem;letter-spacing:.05em}
+  .point{position:relative;border-left:1px solid rgba(0,0,0,.28);display:flex;justify-content:center;overflow:hidden;cursor:pointer}
+  .point::before{content:"";position:absolute;left:9%;right:9%;z-index:0;opacity:.93}
+  .point.light::before{background:var(--pt-light)} .point.dark::before{background:var(--pt-dark)}
+  .point.top::before{top:0;height:92%;clip-path:polygon(0 0,100% 0,50% 100%)}
+  .point.bottom::before{bottom:0;height:92%;clip-path:polygon(50% 0,0 100%,100% 100%)}
+  .point-number{position:absolute;z-index:2;background:rgba(0,0,0,.45);color:#fff;padding:2px 6px;border-radius:999px;font-size:.76rem;user-select:none}
+  .point.top .point-number{top:4px} .point.bottom .point-number{bottom:4px}
+  .checkers{position:absolute;inset:26px 4px;z-index:3;display:flex;flex-direction:column;align-items:center;gap:3px;pointer-events:none}
+  .point.top .checkers{justify-content:flex-start}
+  .point.bottom .checkers{justify-content:flex-end;flex-direction:column-reverse}
+  .checker{pointer-events:auto;width:min(42px,84%);aspect-ratio:1/1;border-radius:50%;border:2px solid rgba(0,0,0,.5);
+    box-shadow:0 2px 5px rgba(0,0,0,.45),inset 0 2px 4px rgba(255,255,255,.35);
+    display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:900;cursor:grab;user-select:none}
+  .checker:active{cursor:grabbing}
+  .checker.W{background:var(--wpiece);color:#111}
+  .checker.B{background:var(--bpiece);color:#fff;border-color:rgba(255,255,255,.35)}
+  .checker.selected{outline:3px solid var(--accent);outline-offset:2px}
+  .checker.dragging{opacity:.55}
+  .dragover{outline:3px dashed var(--accent);outline-offset:-5px}
+  .tray{min-height:560px;background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:10px;display:flex;flex-direction:column;gap:10px}
+  .tray-title{font-weight:800;text-align:center;padding-bottom:8px;border-bottom:1px solid #444}
+  .tray-help{color:var(--muted);font-size:.78rem;text-align:center}
+  .tray-color{background:var(--panel2);border:1px solid #444;border-radius:12px;padding:8px;min-height:180px}
+  .tray-label{display:flex;justify-content:space-between;color:var(--muted);margin-bottom:8px;font-size:.86rem}
+  .tray-stack{display:flex;flex-wrap:wrap;gap:5px;align-content:flex-start}
+  .tray-stack .checker{width:36px}
+  .panels{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);gap:12px}
+  .panel-heading{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:8px}
+  .panel-heading h2{margin:0;font-size:1.05rem}
+  .move-log{max-height:220px;overflow:auto;background:#151515;border:1px solid #555;border-radius:10px;padding:8px 10px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.85rem}
+  .move-log ol{margin:0;padding-left:22px} .move-log li{margin-bottom:4px}
+  .preview-panel{margin-top:10px;background:#26210f;border:1px solid #66511a;border-radius:10px;padding:10px}
+  .preview-panel h3{margin:0 0 8px;font-size:.95rem;color:#ffd166}
+  .preview-list{background:#151515;border:1px solid #555;border-radius:8px;padding:8px 10px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.84rem;max-height:200px;overflow:auto}
+  .pv-move{font-weight:700}
+  .pv-move.ok{color:#7ee787}
+  .pv-move.warn{color:#ffd166}
+  .pv-move.reject{color:#ff8080}
+  .pv-detail{color:#ffe9a3;margin-left:16px}
+  .preview-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  @media (max-width:980px){
+    .board-shell{grid-template-columns:1fr}
+    .tray{min-height:unset}
+    .board{overflow-x:auto} .point-row{min-width:700px}
+    .panels{grid-template-columns:1fr}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <h1>Backgammon Tracker → LLM Notation</h1>
+  <p class="subtitle">Drag checkers (or click a checker, then click a destination). Rule checks are <strong>loose</strong>: illegal moves are warned about but still recorded.</p>
+
+  <div class="toolbar">
+    <div class="card status-card">
+      <span id="turnIndicator" class="turn-badge"></span>
+      <button id="endTurnBtn">End Turn</button>
+      <button id="undoBtn">Undo</button>
+      <button id="resetBtn" class="danger">Reset Board</button>
+    </div>
+    <div class="card dice-area">
+      <button id="rollBtn" class="primary">🎲 Auto Roll</button>
+      <span>Manual:</span>
+      <input id="die1" type="number" min="1" max="6" placeholder="1" />
+      <input id="die2" type="number" min="1" max="6" placeholder="6" />
+      <button id="setDiceBtn">Set Dice</button>
+      <span class="small-muted">Rolled:</span><span id="diceDisplay"></span>
+      <span class="small-muted">Remaining:</span><span id="remainingDisplay"></span>
+    </div>
+  </div>
+
+  <div id="warningBox" class="warning-box"></div>
+
+  <div class="board-shell">
+    <aside id="barTray" class="tray"></aside>
+    <section class="board" aria-label="Backgammon board">
+      <div id="topRow" class="point-row"></div>
+      <div class="center-strip">POINTS 13–24 ABOVE · 12–1 BELOW · WHITE MOVES 24→1 · BLACK MOVES 1→24</div>
+      <div id="bottomRow" class="point-row"></div>
+    </section>
+    <aside id="offTray" class="tray"></aside>
+  </div>
+
+  <div class="panels">
+    <section class="card">
+      <div class="panel-heading">
+        <h2>LLM Export</h2>
+        <div>
+          <button id="exportBtn" class="primary">Export</button>
+          <button id="copyBtn">📋 Copy</button>
+        </div>
+      </div>
+      <textarea id="exportText" spellcheck="false"></textarea>
+    </section>
+
+    <section class="card">
+      <div class="panel-heading">
+        <h2>Paste LLM Response</h2>
+        <button id="applyLlmBtn" class="primary">Preview Moves</button>
+      </div>
+      <textarea id="llmInput" spellcheck="false" placeholder='Paste the LLM reply here. Supported move notation examples:
+MOVE W 13/8 8/5
+MOVE B bar/4 12/15
+White 24/18, 13/11
+B 19/off'></textarea>
+
+      <div id="previewPanel" class="preview-panel" hidden>
+        <h3>Move Preview — nothing has been applied yet</h3>
+        <div id="previewList" class="preview-list"></div>
+        <div class="preview-actions">
+          <button id="confirmMovesBtn" class="primary">✅ Confirm &amp; Apply</button>
+          <button id="cancelMovesBtn" class="danger">✖ Discard</button>
+        </div>
+      </div>
+
+      <h2 style="font-size:1.05rem;margin:14px 0 8px;">Move Log</h2>
+      <div id="moveLog" class="move-log"></div>
+    </section>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+  const STORAGE_KEY = "bg_llm_tracker_v1";
+  const NAME = { W: "White", B: "Black" };
+  const FACE = ["", "⚀","⚁","⚂","⚃","⚄","⚅"];
+  const $ = id => document.getElementById(id);
+
+  let state, undoStack = [], selectedSource = null;
+  let pendingMoves = null, previewSnapshot = null, simulating = false;
+
+  /* ---------- State ---------- */
+  function initialState() {
+    const points = Array.from({length:25}, () => ({W:0, B:0}));
+    // Convention: White moves 24 -> 1 -> off. Black moves 1 -> 24 -> off.
+    points[24].W = 2; points[13].W = 5; points[8].W = 3; points[6].W = 5;
+    points[1].B  = 2; points[12].B = 5; points[17].B = 3; points[19].B = 5;
+    return { points, bar:{W:0,B:0}, off:{W:0,B:0}, turn:"W",
+             dice:[], diceRemaining:[], usedDice:[], turnStartBoard:null, log:[] };
+  }
+  const clone = o => JSON.parse(JSON.stringify(o));
+  const other = c => c === "W" ? "B" : "W";
+
+  function save() {
+    if (simulating) return; // never persist a simulation
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify({ state, undoStack })); }
+    catch (e) { console.warn("LocalStorage save failed:", e); }
+  }
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const p = JSON.parse(raw);
+        if (p && p.state && Array.isArray(p.state.points)) {
+          state = p.state;
+          state.usedDice = state.usedDice || [];
+          state.turnStartBoard = state.turnStartBoard || null;
+          undoStack = Array.isArray(p.undoStack) ? p.undoStack : [];
+          return;
+        }
+      }
+    } catch (e) { console.warn("LocalStorage load failed:", e); }
+    state = initialState(); undoStack = [];
+  }
+  function pushHistory() {
+    undoStack.push(clone(state));
+    if (undoStack.length > 100) undoStack.shift();
+  }
+  function addLog(text) {
+    state.log.push(text);
+    state.log = state.log.slice(-80);
+  }
+
+  /* ---------- Rules (advisory only) ---------- */
+  const isHome = (c, p) => c === "W" ? (p >= 1 && p <= 6) : (p >= 19 && p <= 24);
+
+  // exceptPoint: ignore one checker at that point (a checker mid-combined-move
+  // that will end up home/off doesn't count as "outside home").
+  function allInHome(c, exceptPoint = null) {
+    if (state.bar[c] > 0) return false;
+    for (let i = 1; i <= 24; i++) {
+      let cnt = state.points[i][c];
+      if (exceptPoint === i) cnt--;
+      if (cnt > 0 && !isHome(c, i)) return false;
+    }
+    return true;
+  }
+  function hasFarther(c, p) {
+    if (c === "W") { for (let i = p+1; i <= 6; i++) if (state.points[i][c] > 0) return true; }
+    else           { for (let i = 19; i < p; i++)  if (state.points[i][c] > 0) return true; }
+    return false;
+  }
+  function moveDistance(src, dest, c) {
+    if (src.type === "off" || dest.type === "bar") return null;
+    const from = src.type === "bar" ? (c === "W" ? 25 : 0) : src.point;
+    const to   = dest.type === "off" ? (c === "W" ? 0 : 25) : dest.point;
+    return c === "W" ? from - to : to - from;
+  }
+
+  /* Determine how the remaining dice could produce this move.
+     Returns:
+       { use:[indices into diceRemaining], notes:[advisories] }  playable
+       { use:null, blocked:true }   sum matches dice but every intermediate point is blocked
+       null                         no die or combination matches            */
+  function analyzeDiceUse(src, dest, c) {
+    const d = moveDistance(src, dest, c);
+    if (!Number.isInteger(d) || d <= 0) return null;
+    const dice = state.diceRemaining;
+
+    // 1) exact single die
+    const exact = dice.indexOf(d);
+    if (exact !== -1) return { use:[exact], notes:[] };
+
+    // 2) bear off with a higher die when no farther checker exists
+    if (dest.type === "off" && src.type === "point" && allInHome(c) && !hasFarther(c, src.point)) {
+      let best = -1, bestDie = Infinity;
+      dice.forEach((die, i) => { if (die > d && die < bestDie) { bestDie = die; best = i; } });
+      if (best !== -1) return { use:[best], notes:[] };
+    }
+
+    // 3) combined dice: each die is a separate hop; intermediate points must be open
+    if (src.type !== "bar" && src.type !== "point") return null;
+    const opp = other(c);
+    const startPip = src.type === "bar" ? (c === "W" ? 25 : 0) : src.point;
+    const dir = c === "W" ? -1 : 1;
+    const openAt = p => p >= 1 && p <= 24 && state.points[p][opp] < 2;
+    const blotAt = p => p >= 1 && p <= 24 && state.points[p][opp] === 1;
+
+    const n = dice.length;
+    const subsets = [];
+    (function gen(startI, cur) {
+      if (cur.length >= 2) subsets.push([...cur]);
+      for (let i = startI; i < n; i++) { cur.push(i); gen(i+1, cur); cur.pop(); }
+    })(0, []);
+    const permute = arr => arr.length <= 1 ? [arr] :
+      arr.flatMap((v,i) => permute(arr.filter((_,j) => j !== i)).map(p => [v, ...p]));
+
+    let blockedFound = false;
+    for (const sub of subsets) {
+      if (sub.reduce((s,i) => s + dice[i], 0) !== d) continue;
+      for (const perm of permute(sub)) {
+        let pos = startPip, ok = true;
+        const notes = [];
+        for (let k = 0; k < perm.length; k++) {
+          pos += dir * dice[perm[k]];
+          if (k < perm.length - 1) {
+            if (!openAt(pos)) { ok = false; break; }
+            if (blotAt(pos)) notes.push(`Note: intermediate point ${pos} holds a ${NAME[opp]} blot — in real play it would be hit. Move step-by-step if you want the hit recorded.`);
+          }
+        }
+        if (ok) return { use: perm, notes };
+        blockedFound = true;
+      }
+    }
+    if (blockedFound) return { use: null, blocked: true };
+    return null;
+  }
+
+  function validateMove(src, dest, analysis) {
+    const w = [], c = src.color, opp = other(c);
+    if (c !== state.turn) w.push(`Wrong turn: it is ${NAME[state.turn]}'s turn, but a ${NAME[c]} checker moved.`);
+    if (src.type === "off") w.push("Returning a borne-off checker is a manual correction, not a legal move.");
+    if (dest.type === "bar") w.push("Placing directly on the bar is a manual correction (checkers normally reach the bar only by being hit).");
+    if (src.type === "point" && state.bar[c] > 0) w.push(`${NAME[c]} has ${state.bar[c]} checker(s) on the bar and must enter from the bar first.`);
+    if (dest.type === "point" && state.points[dest.point][opp] >= 2)
+      w.push(`Point ${dest.point} is blocked by ${state.points[dest.point][opp]} ${NAME[opp]} checkers. Recorded anyway.`);
+    if (dest.type === "off" && !allInHome(c, src.type === "point" ? src.point : null))
+      w.push(`${NAME[c]} cannot legally bear off yet — not all checkers are home.`);
+
+    const d = moveDistance(src, dest, c);
+    if (d !== null) {
+      if (d <= 0) w.push(`Move goes backward or zero pips (distance ${d}).`);
+      if (state.dice.length === 0) w.push("No dice have been rolled/set for this turn.");
+      else if (state.diceRemaining.length === 0) w.push("No dice remain this turn.");
+      else if (!analysis) w.push(`Distance ${d} does not match any remaining die or playable combination of dice [${state.diceRemaining.join(", ")}].`);
+      else if (analysis.blocked) w.push(`Distance ${d} combines remaining dice, but every intermediate landing point is blocked by ${NAME[opp]}. Each die is a separate hop and must land on an open point — this combined move is illegal.`);
+      else if (analysis.notes && analysis.notes.length) w.push(...analysis.notes);
+    }
+
+    // Pip-waste advisory: within-home move while an exact bear-off with this die existed
+    if (analysis && analysis.use && analysis.use.length === 1 &&
+        src.type === "point" && dest.type === "point" &&
+        allInHome(c) && isHome(c, src.point) && isHome(c, dest.point)) {
+      const v = state.diceRemaining[analysis.use[0]];
+      const bearPoint = c === "W" ? v : 25 - v;
+      if (bearPoint >= 1 && bearPoint <= 24 && state.points[bearPoint][c] > 0)
+        w.push(`Note: all checkers are home and die ${v} could have borne off a checker from point ${bearPoint}. Playing inside the board is legal only if it doesn't reduce how many dice you can use — the forced-move check runs at End Turn.`);
+    }
+    return w;
+  }
+
+  /* ---------- Legal-play enumerator (for forced-move / higher-die rules) ---------- */
+  function boardClone(b) {
+    return { points: b.points.map(p => ({W:p.W, B:p.B})), bar: {...b.bar}, off: {...b.off} };
+  }
+  function legalSingleMoves(b, c, v) {
+    const opp = other(c), moves = [], dir = c === "W" ? -1 : 1;
+    if (b.bar[c] > 0) {
+      const entry = c === "W" ? 25 - v : v;
+      if (b.points[entry][opp] < 2) moves.push({ from:"bar", to:entry });
+      return moves;
+    }
+    let allHome = true;
+    for (let i = 1; i <= 24; i++) if (b.points[i][c] > 0 && !isHome(c, i)) { allHome = false; break; }
+    for (let i = 1; i <= 24; i++) {
+      if (b.points[i][c] === 0) continue;
+      const t = i + dir * v;
+      if (t >= 1 && t <= 24 && b.points[t][opp] < 2) moves.push({ from:i, to:t });
+      if (allHome) {
+        const pip = c === "W" ? i : 25 - i;
+        if (pip === v) moves.push({ from:i, to:"off" });
+        else if (pip < v) {
+          let farther = false;
+          if (c === "W") { for (let j = i+1; j <= 6; j++) if (b.points[j][c] > 0) { farther = true; break; } }
+          else           { for (let j = 19; j < i; j++)  if (b.points[j][c] > 0) { farther = true; break; } }
+          if (!farther) moves.push({ from:i, to:"off" });
+        }
+      }
+    }
+    return moves;
+  }
+  function applyTo(b, c, mv) {
+    const opp = other(c);
+    let hitAt = null;
+    if (mv.from === "bar") b.bar[c]--; else b.points[mv.from][c]--;
+    if (mv.to === "off") b.off[c]++;
+    else {
+      if (b.points[mv.to][opp] === 1) { b.points[mv.to][opp] = 0; b.bar[opp]++; hitAt = mv.to; }
+      b.points[mv.to][c]++;
+    }
+    return hitAt;
+  }
+  function revertOn(b, c, mv, hitAt) {
+    const opp = other(c);
+    if (mv.to === "off") b.off[c]--;
+    else {
+      b.points[mv.to][c]--;
+      if (hitAt !== null) { b.points[hitAt][opp] = 1; b.bar[opp]--; }
+    }
+    if (mv.from === "bar") b.bar[c]++; else b.points[mv.from][c]++;
+  }
+  // Maximum number of dice playable from a position (tries both die orders for non-doubles).
+  function maxPlayableDice(board, c, dice) {
+    const orders = (dice.length === 2 && dice[0] !== dice[1])
+      ? [[dice[0], dice[1]], [dice[1], dice[0]]] : [dice];
+    let best = 0;
+    for (const seq of orders) {
+      const b = boardClone(board);
+      (function dfs(k) {
+        if (k >= seq.length || best >= dice.length) return;
+        for (const mv of legalSingleMoves(b, c, seq[k])) {
+          const hit = applyTo(b, c, mv);
+          if (k + 1 > best) best = k + 1;
+          dfs(k + 1);
+          revertOn(b, c, mv, hit);
+          if (best >= dice.length) return;
+        }
+      })(0);
+      if (best >= dice.length) break;
+    }
+    return best;
+  }
+  function forcedMoveWarnings() {
+    const msgs = [];
+    if (!state.dice.length || !state.turnStartBoard) return msgs;
+    const c = state.turn;
+    const fullDice = state.dice[0] === state.dice[1] ? Array(4).fill(state.dice[0]) : [...state.dice];
+    const used = fullDice.length - state.diceRemaining.length;
+    const max = maxPlayableDice(state.turnStartBoard, c, fullDice);
+    if (used === 0 && max === 0)
+      msgs.push("No legal moves existed for this roll — turn correctly forfeited.");
+    else if (used < max)
+      msgs.push(`Forced-move rule: ${max} of ${fullDice.length} dice could have been played from this position, but only ${used} ${used === 1 ? "was" : "were"}. In real play you must use as many dice as possible.`);
+    if (max === 1 && used === 1 && state.dice[0] !== state.dice[1]) {
+      const hi = Math.max(...state.dice), lo = Math.min(...state.dice);
+      if ((state.usedDice || [])[0] === lo && legalSingleMoves(state.turnStartBoard, c, hi).length > 0)
+        msgs.push(`Higher-die rule: only one die could be played this turn, and the higher die (${hi}) had a legal play — you must play the ${hi}, not the ${lo}.`);
+    }
+    return msgs;
+  }
+
+  /* ---------- Move execution ---------- */
+  function countAt(src) {
+    if (src.type === "point") return state.points[src.point]?.[src.color] ?? 0;
+    if (src.type === "bar") return state.bar[src.color];
+    if (src.type === "off") return state.off[src.color];
+    return 0;
+  }
+  const locToken = o => o.type === "point" ? String(o.point) : o.type;
+
+  function executeMove(src, dest, quiet = false) {
+    if (!src || !dest || !src.color) return { ok:false, msgs:["Invalid move."], warnings:["Invalid move."] };
+    if (src.type === dest.type && src.point === dest.point) {
+      const m = ["Source and destination are the same — no move made."];
+      return { ok:false, msgs:m, warnings:m };
+    }
+    if (countAt(src) <= 0) {
+      const m = [`No ${NAME[src.color]} checker at ${locToken(src)}.`];
+      return { ok:false, msgs:m, warnings:m };
+    }
+
+    const analysis = analyzeDiceUse(src, dest, src.color);
+    const warnings = validateMove(src, dest, analysis);
+    const consumeIdx = (src.color === state.turn && analysis && analysis.use) ? analysis.use : [];
+    const consumedVals = consumeIdx.map(i => state.diceRemaining[i]);
+
+    pushHistory();
+
+    // remove from source
+    if (src.type === "point") state.points[src.point][src.color]--;
+    else if (src.type === "bar") state.bar[src.color]--;
+    else state.off[src.color]--;
+
+    // handle destination (+ auto-hit)
+    let hitMsg = null;
+    if (dest.type === "point") {
+      const p = state.points[dest.point], opp = other(src.color);
+      if (p[opp] === 1) { p[opp] = 0; state.bar[opp]++; hitMsg = `Hit! ${NAME[opp]} blot on ${dest.point} sent to the bar.`; }
+      p[src.color]++;
+    } else if (dest.type === "bar") state.bar[src.color]++;
+    else state.off[src.color]++;
+
+    // consume dice (descending index order so splices don't shift)
+    state.usedDice = state.usedDice || [];
+    consumedVals.forEach(v => state.usedDice.push(v));
+    [...consumeIdx].sort((a,b) => b - a).forEach(i => state.diceRemaining.splice(i, 1));
+
+    addLog(`${src.color} ${locToken(src)}/${locToken(dest)}${consumedVals.length ? ` (die ${consumedVals.join("+")})` : ""}${warnings.length ? ` ⚠×${warnings.length}` : ""}`);
+
+    const msgs = [...warnings];
+    if (hitMsg) msgs.push(hitMsg);
+    if (consumedVals.length > 1) msgs.push(`Combined move: consumed dice ${consumedVals.join(" + ")}.`);
+    if (!msgs.length) msgs.push("Move accepted — no rule warnings.");
+    if (state.dice.length && state.diceRemaining.length === 0) msgs.push("All dice used. You may End Turn.");
+
+    save();
+    if (!quiet) { selectedSource = null; renderAll(); showMsgs(msgs); }
+    return { ok:true, msgs, warnings };
+  }
+
+  /* ---------- Dice / turn / undo ---------- */
+  function setDice(d1, d2) {
+    const pre = [];
+    if (state.dice.length && state.diceRemaining.length)
+      pre.push(`Improper roll: new dice set while [${state.diceRemaining.join(", ")}] from ${NAME[state.turn]}'s roll were still unplayed. In real play a roll stands until the turn is completed.`);
+    else if (state.dice.length)
+      pre.push(`Note: dice rolled again without ending the turn — ${NAME[state.turn]} rolls twice in a row. Use End Turn to pass play to the opponent.`);
+
+    pushHistory();
+    state.dice = [d1, d2];
+    state.diceRemaining = d1 === d2 ? [d1,d1,d1,d1] : [d1,d2];
+    state.usedDice = [];
+    state.turnStartBoard = { points: clone(state.points), bar: {...state.bar}, off: {...state.off} };
+    addLog(`${state.turn} rolled ${d1}-${d2}${d1===d2 ? " (doubles!)" : ""}`);
+    save(); renderAll();
+
+    const msgs = [...pre, `Dice set for ${NAME[state.turn]}: ${d1}-${d2}.`];
+    if (maxPlayableDice(state.turnStartBoard, state.turn, state.diceRemaining) === 0)
+      msgs.push(`This roll has no legal moves for ${NAME[state.turn]} — you may End Turn to forfeit.`);
+    showMsgs(msgs);
+  }
+  function autoRoll() { setDice(1 + (Math.random()*6|0), 1 + (Math.random()*6|0)); }
+  function manualRoll() {
+    const d1 = +$("die1").value, d2 = +$("die2").value;
+    if (![d1,d2].every(d => Number.isInteger(d) && d >= 1 && d <= 6))
+      return showMsgs(["Manual dice must both be integers from 1 to 6."]);
+    setDice(d1, d2);
+  }
+  function endTurn() {
+    const msgs = forcedMoveWarnings();
+    if (state.diceRemaining.length && !msgs.some(m => m.startsWith("No legal moves")))
+      msgs.push(`Ending turn with unused dice: [${state.diceRemaining.join(", ")}].`);
+    pushHistory();
+    state.turn = other(state.turn);
+    state.dice = []; state.diceRemaining = [];
+    state.usedDice = []; state.turnStartBoard = null;
+    addLog(`— Turn: ${NAME[state.turn]} —`);
+    save(); selectedSource = null; renderAll();
+    msgs.push(`It is now ${NAME[state.turn]}'s turn.`);
+    showMsgs(msgs);
+  }
+  function undo() {
+    if (!undoStack.length) return showMsgs(["Nothing to undo."]);
+    state = undoStack.pop();
+    selectedSource = null; save(); renderAll();
+    showMsgs(["Undo complete."]);
+  }
+  function resetBoard() {
+    if (!confirm("Reset to the standard starting position?")) return;
+    pushHistory();
+    state = initialState();
+    selectedSource = null; save(); renderAll();
+    showMsgs(["Board reset to standard Backgammon setup."]);
+  }
+
+  /* ---------- Rendering ---------- */
+  function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[m]));}
+  function showMsgs(msgs) {
+    const box = $("warningBox");
+    box.innerHTML = (msgs && msgs.length)
+      ? msgs.map(m => `<div>${escapeHtml(m)}</div>`).join("")
+      : `<div class="ok">No warnings.</div>`;
+    if (selectedSource) {
+      box.innerHTML += `<div style="color:var(--accent)">Selected: ${NAME[selectedSource.color]} at ${locToken(selectedSource)} — click a destination point, bar, or off tray.</div>`;
+    }
+  }
+  function makeChecker(source, count, showCount) {
+    const el = document.createElement("div");
+    el.className = `checker ${source.color}`;
+    if (selectedSource && selectedSource.type === source.type &&
+        selectedSource.color === source.color && selectedSource.point === source.point)
+      el.classList.add("selected");
+    if (showCount) el.textContent = count;
+    el.draggable = true;
+    el.title = `${NAME[source.color]} — drag or click to select`;
+    el.addEventListener("dragstart", ev => {
+      selectedSource = null;
+      ev.dataTransfer.setData("application/json", JSON.stringify(source));
+      ev.dataTransfer.effectAllowed = "move";
+      setTimeout(() => el.classList.add("dragging"), 0);
+    });
+    el.addEventListener("dragend", () => el.classList.remove("dragging"));
+    el.addEventListener("click", ev => {
+      ev.stopPropagation();
+      selectedSource = clone(source);
+      renderBoardAndTrays();
+      showMsgs([]);
+    });
+    return el;
+  }
+  function appendCheckers(container, base, color, count) {
+    const show = Math.min(count, 5);
+    for (let i = 0; i < show; i++) {
+      const overflow = i === show - 1 && count > show;
+      container.appendChild(makeChecker({ ...base, color }, count, overflow));
+    }
+  }
+  function wireDrop(el, dest) {
+    el.addEventListener("dragover", ev => { ev.preventDefault(); el.classList.add("dragover"); });
+    el.addEventListener("dragleave", ev => { if (!el.contains(ev.relatedTarget)) el.classList.remove("dragover"); });
+    el.addEventListener("drop", ev => {
+      ev.preventDefault(); el.classList.remove("dragover");
+      let src = null;
+      try { src = JSON.parse(ev.dataTransfer.getData("application/json")); } catch (_) {}
+      if (!src) return;
+      executeMove(src, dest);
+    });
+    el.addEventListener("click", () => {
+      if (!selectedSource) return;
+      const src = selectedSource; selectedSource = null;
+      executeMove(src, dest);
+    });
+  }
+  function renderPoint(n, row, idx) {
+    const el = document.createElement("div");
+    el.className = `point ${row} ${idx % 2 === 0 ? "light" : "dark"}`;
+    const num = document.createElement("div");
+    num.className = "point-number"; num.textContent = n;
+    el.appendChild(num);
+    const zone = document.createElement("div");
+    zone.className = "checkers";
+    appendCheckers(zone, { type:"point", point:n }, "W", state.points[n].W);
+    appendCheckers(zone, { type:"point", point:n }, "B", state.points[n].B);
+    el.appendChild(zone);
+    wireDrop(el, { type:"point", point:n });
+    return el;
+  }
+  function renderTray(id, type, title, help) {
+    const tray = $(id);
+    tray.innerHTML = `<div class="tray-title">${title}</div><div class="tray-help">${help}</div>`;
+    ["W","B"].forEach(color => {
+      const box = document.createElement("div");
+      box.className = "tray-color";
+      box.innerHTML = `<div class="tray-label"><span>${NAME[color]}</span><strong>${state[type][color]}</strong></div>`;
+      const stack = document.createElement("div");
+      stack.className = "tray-stack";
+      appendCheckers(stack, { type }, color, state[type][color]);
+      box.appendChild(stack);
+      tray.appendChild(box);
+    });
+    wireDrop(tray, { type });
+  }
+  function renderBoardAndTrays() {
+    const top = $("topRow"), bot = $("bottomRow");
+    top.innerHTML = ""; bot.innerHTML = "";
+    [13,14,15,16,17,18,19,20,21,22,23,24].forEach((p,i) => top.appendChild(renderPoint(p, "top", i)));
+    [12,11,10,9,8,7,6,5,4,3,2,1].forEach((p,i) => bot.appendChild(renderPoint(p, "bottom", i)));
+    renderTray("barTray", "bar", "BAR", "Hit checkers land here. Drag out to re-enter.");
+    renderTray("offTray", "off", "OFF", "Drop here to bear off.");
+  }
+  function renderTurnAndDice() {
+    $("turnIndicator").innerHTML = `<span class="turn-dot ${state.turn}"></span>${NAME[state.turn]}'s Turn`;
+    $("diceDisplay").innerHTML = state.dice.length
+      ? state.dice.map(d => `<span class="die">${FACE[d]}</span>`).join("")
+      : `<span class="small-muted">none</span>`;
+    $("remainingDisplay").innerHTML = state.diceRemaining.length
+      ? state.diceRemaining.map(d => `<span class="die remaining">${FACE[d]}</span>`).join("")
+      : `<span class="small-muted">none</span>`;
+  }
+  function renderMoveLog() {
+    $("moveLog").innerHTML = state.log.length
+      ? `<ol>${state.log.slice().reverse().map(t => `<li>${escapeHtml(t)}</li>`).join("")}</ol>`
+      : `<span class="small-muted">No moves yet.</span>`;
+  }
+  function renderAll() { renderTurnAndDice(); renderBoardAndTrays(); renderMoveLog(); }
+
+  /* ---------- LLM Export ---------- */
+  function pipCounts() {
+    let W = state.bar.W * 25, B = state.bar.B * 25;
+    for (let i = 1; i <= 24; i++) { W += state.points[i].W * i; B += state.points[i].B * (25 - i); }
+    return { W, B };
+  }
+  function buildExport() {
+    const lines = [];
+    for (let i = 24; i >= 1; i--) {
+      const p = state.points[i], parts = [];
+      if (p.W) parts.push(`W${p.W}`);
+      if (p.B) parts.push(`B${p.B}`);
+      lines.push(`${i}:${parts.length ? parts.join("+") : "-"}`);
+    }
+    const pips = pipCounts();
+    return [
+      "=== BACKGAMMON POSITION (for LLM analysis) ===",
+      "",
+      "CONVENTIONS:",
+      "- Points are numbered 1-24. White moves 24 -> 1 then bears OFF; White's home is points 1-6.",
+      "- Black moves 1 -> 24 then bears OFF; Black's home is points 19-24.",
+      "- 'bar' = checkers hit and awaiting re-entry (White enters on 24-19, Black on 1-6).",
+      "- Board below lists points 24 down to 1 as point:pieces (W=White count, B=Black count, '-'=empty).",
+      "",
+      `TURN: ${NAME[state.turn]}`,
+      `DICE ROLLED: ${state.dice.length ? state.dice.join("-") : "none"}`,
+      `DICE REMAINING: ${state.diceRemaining.length ? state.diceRemaining.join(", ") : "none"}`,
+      `BAR: White ${state.bar.W}, Black ${state.bar.B}`,
+      `BORNE OFF: White ${state.off.W}, Black ${state.off.B}`,
+      `PIP COUNT: White ${pips.W}, Black ${pips.B}`,
+      "",
+      "BOARD (24 -> 1):",
+      lines.join(" "),
+      "",
+      "RECENT MOVES:",
+      state.log.length ? state.log.slice(-10).map(t => "- " + t).join("\n") : "- (none)",
+      "",
+      "INSTRUCTIONS FOR YOU (the LLM):",
+      `Analyze the position and suggest the best play for ${NAME[state.turn]} using the dice shown.`,
+      "Remember: you must play as many dice as legally possible; if only one die can be played, play the higher one.",
+      "Each die is a separate hop — combined moves require an open intermediate point.",
+      "You may explain briefly, but END your reply with your move(s) on one line in EXACTLY this format:",
+      `MOVE ${state.turn} from/to from/to`,
+      "Use point numbers 1-24, 'bar' for entering from the bar, and 'off' for bearing off.",
+      "Examples: MOVE W 13/8 8/5   |   MOVE B bar/4 12/15   |   MOVE W 6/off 5/off"
+    ].join("\n");
+  }
+
+  /* ---------- LLM Response parsing ---------- */
+  function tokenToSource(t, color) {
+    t = t.toLowerCase();
+    if (t === "bar") return { type:"bar", color };
+    if (t === "off") return { type:"off", color };
+    return { type:"point", point:+t, color };
+  }
+  function tokenToDest(t) {
+    t = t.toLowerCase();
+    if (t === "bar") return { type:"bar" };
+    if (t === "off") return { type:"off" };
+    return { type:"point", point:+t };
+  }
+  function inferColor(fromToken, lineColor) {
+    if (lineColor) return lineColor;
+    const t = fromToken.toLowerCase();
+    if (t === "bar") return state.bar[state.turn] > 0 ? state.turn : (state.bar[other(state.turn)] > 0 ? other(state.turn) : state.turn);
+    if (t === "off") return state.turn;
+    const p = state.points[+t];
+    if (p && p[state.turn] > 0) return state.turn;
+    if (p && p[other(state.turn)] > 0) return other(state.turn);
+    return state.turn;
+  }
+  function parseMoves(text) {
+    const moves = [];
+    const coord = "(?:bar|off|2[0-4]|1[0-9]|[1-9])";
+    const re = new RegExp(`\\b(${coord})\\s*(?:->|→|/|\\bto\\b|-)\\s*(${coord})\\b`, "gi");
+    for (const line of text.split(/\n+/)) {
+      const cm = line.match(/\b(white|black|w|b)\b/i);
+      const lineColor = cm ? (cm[1][0].toUpperCase() === "W" ? "W" : "B") : null;
+      let m; re.lastIndex = 0;
+      while ((m = re.exec(line))) {
+        const color = inferColor(m[1], lineColor);
+        moves.push({ src: tokenToSource(m[1], color), dest: tokenToDest(m[2]) });
+      }
+    }
+    return moves;
+  }
+
+  /* ---------- Preview / Confirm flow ---------- */
+  function previewLlmResponse() {
+    const text = $("llmInput").value.trim();
+    hidePreview();
+    if (!text) return showMsgs(["Paste an LLM response first."]);
+    const moves = parseMoves(text);
+    if (!moves.length)
+      return showMsgs(["No move notation found.", "Expected something like: MOVE W 13/8 8/5"]);
+
+    // Dry-run on a CLONE: sequential effects (hits, dice consumption) are
+    // modeled; real state and LocalStorage stay untouched.
+    simulating = true;
+    const realState = state, realUndo = undoStack;
+    state = clone(realState); undoStack = [];
+    const rows = [];
+    let rejects = 0, warns = 0;
+    for (const mv of moves) {
+      const r = executeMove(mv.src, mv.dest, true);
+      const label = `${mv.src.color} ${locToken(mv.src)}/${locToken(mv.dest)}`;
+      const details = [...r.warnings];
+      const hit = r.ok ? r.msgs.find(m => m.startsWith("Hit!")) : null;
+      if (hit) details.push(hit);
+      let cls = "ok", status = "legal";
+      if (!r.ok)                 { cls = "reject"; status = "IMPOSSIBLE — will be skipped"; rejects++; }
+      else if (r.warnings.length){ cls = "warn";   status = `${r.warnings.length} warning(s)`; warns++; }
+      rows.push({ cls, text: `${label} — ${status}`, details });
+    }
+    // Forced-move check on the simulated end position of the LLM's play
+    const forced = forcedMoveWarnings();
+    state = realState; undoStack = realUndo; simulating = false;
+
+    pendingMoves = moves;
+    previewSnapshot = JSON.stringify(state);
+
+    $("previewList").innerHTML = rows.map(r =>
+      `<div class="pv-move ${r.cls}">${r.cls === "ok" ? "✔" : r.cls === "warn" ? "⚠" : "✖"} ${escapeHtml(r.text)}</div>` +
+      r.details.map(d => `<div class="pv-detail">• ${escapeHtml(d)}</div>`).join("")
+    ).join("") + forced.filter(m => !m.startsWith("No legal moves")).map(m =>
+      `<div class="pv-move warn">⚠ Turn total: ${escapeHtml(m)}</div>`).join("");
+    $("previewPanel").hidden = false;
+
+    const clean = moves.length - rejects - warns;
+    const summary = [`Preview: ${moves.length} move(s) parsed — ${clean} clean, ${warns} with warnings, ${rejects} impossible.`];
+    summary.push((rejects || warns || forced.some(m => !m.startsWith("No legal moves")))
+      ? "⚠ The LLM's reply contains illegal or questionable moves. Review the preview below, then Confirm or Discard. Nothing has been applied yet."
+      : "All moves look legal. Click Confirm & Apply to play them.");
+    showMsgs(summary);
+  }
+
+  function confirmLlmMoves() {
+    if (!pendingMoves) return;
+    const moves = pendingMoves;
+    const report = [];
+    if (previewSnapshot !== JSON.stringify(state))
+      report.push("Note: the board changed after this preview was generated — moves were re-validated against the current board.");
+    pendingMoves = null; previewSnapshot = null;
+
+    for (const mv of moves) {
+      const r = executeMove(mv.src, mv.dest, true);
+      report.push(`${mv.src.color} ${locToken(mv.src)}/${locToken(mv.dest)} → ${r.ok ? "applied" : "NOT applied"}`);
+      r.msgs.forEach(w => report.push("   " + w));
+    }
+    report.push("Tip: use Undo if anything looks wrong — each move is its own undo step.");
+    hidePreview();
+    selectedSource = null; save(); renderAll(); showMsgs(report);
+  }
+
+  function cancelLlmMoves() {
+    pendingMoves = null; previewSnapshot = null;
+    hidePreview();
+    showMsgs(["LLM moves discarded — the board is unchanged."]);
+  }
+
+  function hidePreview() {
+    $("previewPanel").hidden = true;
+    $("previewList").innerHTML = "";
+  }
+
+  /* ---------- Clipboard ---------- */
+  async function copyExport() {
+    const text = $("exportText").value || ( $("exportText").value = buildExport() );
+    try {
+      await navigator.clipboard.writeText(text);
+      showMsgs(["Export copied to clipboard."]);
+    } catch (_) {
+      $("exportText").focus(); $("exportText").select();
+      document.execCommand("copy");
+      showMsgs(["Copied using fallback method."]);
+    }
+  }
+
+  /* ---------- Wire up ---------- */
+  $("rollBtn").addEventListener("click", autoRoll);
+  $("setDiceBtn").addEventListener("click", manualRoll);
+  $("endTurnBtn").addEventListener("click", endTurn);
+  $("undoBtn").addEventListener("click", undo);
+  $("resetBtn").addEventListener("click", resetBoard);
+  $("exportBtn").addEventListener("click", () => { $("exportText").value = buildExport(); showMsgs(["Export generated — copy it and paste to your LLM."]); });
+  $("copyBtn").addEventListener("click", copyExport);
+  $("applyLlmBtn").addEventListener("click", previewLlmResponse);
+  $("confirmMovesBtn").addEventListener("click", confirmLlmMoves);
+  $("cancelMovesBtn").addEventListener("click", cancelLlmMoves);
+
+  load();
+  renderAll();
+  $("exportText").value = buildExport();
+  showMsgs(["Ready. Roll dice, then drag a checker (or click checker → click destination). State auto-saves to LocalStorage."]);
+})();
+</script>
+</body>
+</html>

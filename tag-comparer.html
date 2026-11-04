@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Caption Files vs. Danbooru Tag CSV</title>
+<style>
+  body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; max-width: 1100px; margin: 2rem auto; padding: 0 1rem; color: #222; }
+  h1 { font-size: 1.5rem; }
+  fieldset { border: 1px solid #ccc; border-radius: 8px; margin-bottom: 1rem; padding: 1rem; }
+  legend { font-weight: 600; }
+  label { display: block; margin: 0.5rem 0; }
+  input[type="number"] { width: 5rem; }
+  button { padding: 0.5rem 1.2rem; font-size: 1rem; cursor: pointer; margin-right: 0.5rem; }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  table { border-collapse: collapse; width: 100%; margin-top: 1rem; font-size: 0.9rem; }
+  th, td { border: 1px solid #ddd; padding: 0.4rem 0.6rem; text-align: left; vertical-align: top; }
+  th { background: #f4f4f4; }
+  tr.flag { background: #ffe9e9; }
+  .flag-badge { color: #b00020; font-weight: 700; }
+  .ok-badge { color: #2e7d32; font-weight: 600; }
+  .summary { background: #f7f7f7; border-left: 4px solid #555; padding: 0.75rem 1rem; margin-top: 1rem; }
+  .muted { color: #666; font-size: 0.85rem; }
+  code { background: #eee; padding: 0 0.3em; border-radius: 3px; }
+  #status { margin-top: 0.5rem; }
+</style>
+</head>
+<body>
+
+<h1>Caption Files vs. Danbooru Tag CSV</h1>
+<p class="muted">
+  Runs entirely in your browser. CSV columns: <code>tag_id,name,category,count</code>
+  (Danbooru export) or plain <code>tag,category</code>. Documents are flagged when they contain
+  multiple tags from the same category — e.g. two or more <em>character</em> tags in one caption.
+</p>
+
+<fieldset>
+  <legend>1. Inputs</legend>
+  <label>Caption / text files (multi-select): <input type="file" id="docFiles" multiple accept=".txt,.md,.text,.csv,.caption,.tags"></label>
+  <label>…or a whole folder: <input type="file" id="docFolder" webkitdirectory directory multiple></label>
+  <div id="docInfo" class="muted"></div>
+  <label>Tag CSV: <input type="file" id="csvFile" accept=".csv,.txt"></label>
+  <div id="csvInfo" class="muted"></div>
+</fieldset>
+
+<fieldset>
+  <legend>2. Options</legend>
+  <label>Category to check:
+    <select id="categorySelect"><option value="__ALL__">All categories</option></select>
+  </label>
+  <label>Flag a document when it has at least
+    <input type="number" id="threshold" value="2" min="1"> matches in a category
+  </label>
+  <label>Document format:
+    <select id="docMode">
+      <option value="taglist">Comma-separated tag list (exact tag match) — recommended</option>
+      <option value="freetext">Free text (word search)</option>
+    </select>
+  </label>
+  <label>Count mode:
+    <select id="countMode">
+      <option value="distinct">Distinct tags</option>
+      <option value="occurrences">Total occurrences</option>
+    </select>
+  </label>
+  <label><input type="checkbox" id="showAll"> Show unflagged documents too</label>
+</fieldset>
+
+<button id="runBtn" disabled>Run comparison</button>
+<button id="exportBtn" disabled>Download flagged as CSV</button>
+<div id="status" class="muted"></div>
+
+<div id="results"></div>
+
+<script>
+(() => {
+  const TEXT_EXTENSIONS = new Set(['txt','md','markdown','text','csv','tsv','caption','tags','json','log']);
+  const DANBOORU_CATEGORIES = { '0':'General', '1':'Artist', '3':'Copyright', '4':'Character', '5':'Meta' };
+
+  let tags = [];          // [{tag, norm, category}]
+  let docs = [];          // File objects
+  let lastResults = null;
+
+  const $ = id => document.getElementById(id);
+
+  // ---------- Helpers ----------
+  function categoryLabel(c) {
+    return DANBOORU_CATEGORIES[c] ? `${c} – ${DANBOORU_CATEGORIES[c]}` : c;
+  }
+
+  // Normalise a tag so "Hatsune_Miku", "hatsune miku" and "kaga_\(kancolle\)" all line up
+  function normTag(s) {
+    return s.toLowerCase()
+      .replace(/\\([()])/g, '$1')   // un-escape \( \)
+      .replace(/_/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  function escapeRegex(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function isTextFile(name) {
+    return TEXT_EXTENSIONS.has(name.split('.').pop().toLowerCase());
+  }
+
+  // ---------- CSV parsing (handles quotes) ----------
+  function parseCSV(text) {
+    const rows = [];
+    let row = [], field = '', inQuotes = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (inQuotes) {
+        if (c === '"') {
+          if (text[i + 1] === '"') { field += '"'; i++; }
+          else inQuotes = false;
+        } else field += c;
+      } else if (c === '"') inQuotes = true;
+      else if (c === ',') { row.push(field); field = ''; }
+      else if (c === '\n' || c === '\r') {
+        if (c === '\r' && text[i + 1] === '\n') i++;
+        row.push(field); field = '';
+        if (row.some(f => f.trim() !== '')) rows.push(row);
+        row = [];
+      } else field += c;
+    }
+    row.push(field);
+    if (row.some(f => f.trim() !== '')) rows.push(row);
+    return rows;
+  }
+
+  function loadTags(text) {
+    const rows = parseCSV(text).map(r => r.map(f => f.trim()));
+    if (!rows.length) return [];
+
+    const header = rows[0].map(h => h.toLowerCase());
+    const KNOWN = ['tag_id','name','tag','tags','category','count'];
+    const hasHeader = header.some(h => KNOWN.includes(h));
+
+    let tagCol = 0, catCol = 1;
+    if (hasHeader) {
+      tagCol = ['name','tag','tags'].map(k => header.indexOf(k)).find(i => i >= 0) ?? 0;
+      catCol = header.indexOf('category');
+      rows.shift();
+    }
+
+    return rows
+      .filter(r => r[tagCol])
+      .map(r => ({
+        tag: r[tagCol],
+        norm: normTag(r[tagCol]),
+        category: (catCol >= 0 && r[catCol] !== undefined && r[catCol] !== '') ? r[catCol] : 'Uncategorized'
+      }));
+  }
+
+  // ---------- Matching ----------
+  // Tag-list mode: split on commas/newlines, exact match against normalised tag set
+  function matchTagList(text, tagIndex) {
+    const found = {};   // norm -> count
+    for (const raw of text.split(/[,\n\r]+/)) {
+      const t = normTag(raw);
+      if (t && tagIndex.has(t)) found[t] = (found[t] || 0) + 1;
+    }
+    return found;
+  }
+
+  // Free-text mode: whole-word, case-insensitive search for each tag
+  function matchFreeText(text, activeTags) {
+    const found = {};
+    const lower = text.toLowerCase();
+    for (const { norm } of activeTags) {
+      const re = new RegExp(`(?<![\\w])${escapeRegex(norm)}(?![\\w])`, 'g');
+      const m = lower.match(re);
+      if (m) found[norm] = m.length;
+    }
+    return found;
+  }
+
+  // ---------- UI wiring ----------
+  function updateRunState() {
+    $('runBtn').disabled = !(docs.length && tags.length);
+  }
+
+  function setDocs(fileList) {
+    const all = Array.from(fileList);
+    docs = all.filter(f => isTextFile(f.name));
+    const skipped = all.length - docs.length;
+    $('docInfo').textContent = `${docs.length} text file(s) selected` +
+      (skipped ? ` (${skipped} non-text file(s) ignored)` : '');
+    updateRunState();
+  }
+
+  $('docFiles').addEventListener('change', e => setDocs(e.target.files));
+  $('docFolder').addEventListener('change', e => setDocs(e.target.files));
+
+  $('csvFile').addEventListener('change', async e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    tags = loadTags(await file.text());
+    const categories = [...new Set(tags.map(t => t.category))].sort();
+    $('categorySelect').innerHTML = '<option value="__ALL__">All categories</option>' +
+      categories.map(c => `<option value="${escapeHtml(c)}">${escapeHtml(categoryLabel(c))}</option>`).join('');
+    // If there is exactly one category, preselect it
+    if (categories.length === 1) $('categorySelect').value = categories[0];
+    $('csvInfo').textContent = `Loaded ${tags.length} tags. Categories: ` +
+      categories.map(c => `${categoryLabel(c)} (${tags.filter(t => t.category === c).length})`).join(', ');
+    updateRunState();
+  });
+
+  $('runBtn').addEventListener('click', run);
+  $('exportBtn').addEventListener('click', exportCSV);
+
+  // ---------- Main ----------
+  async function run() {
+    const selectedCategory = $('categorySelect').value;
+    const threshold = Math.max(1, parseInt($('threshold').value, 10) || 1);
+    const countMode = $('countMode').value;
+    const docMode = $('docMode').value;
+    const showAll = $('showAll').checked;
+
+    const activeTags = selectedCategory === '__ALL__'
+      ? tags
+      : tags.filter(t => t.category === selectedCategory);
+    const categories = [...new Set(activeTags.map(t => t.category))].sort();
+
+    // norm -> {tag, category}  (first occurrence wins if duplicated)
+    const tagIndex = new Map();
+    for (const t of activeTags) if (!tagIndex.has(t.norm)) tagIndex.set(t.norm, t);
+
+    $('status').textContent = 'Scanning…';
+    $('results').innerHTML = '';
+    $('exportBtn').disabled = true;
+
+    const results = [];
+    let processed = 0;
+
+    for (const file of docs) {
+      const text = await file.text();
+      const name = file.webkitRelativePath || file.name;
+
+      const found = docMode === 'taglist'
+        ? matchTagList(text, tagIndex)
+        : matchFreeText(text, activeTags);
+
+      // perCategory: { category: { displayTag: count } }
+      const perCategory = {};
+      for (const [norm, n] of Object.entries(found)) {
+        const { tag, category } = tagIndex.get(norm);
+        perCategory[category] = perCategory[category] || {};
+        perCategory[category][tag] = (perCategory[category][tag] || 0) + n;
+      }
+
+      const flaggedCategories = [];
+      for (const [cat, tagCounts] of Object.entries(perCategory)) {
+        const score = countMode === 'distinct'
+          ? Object.keys(tagCounts).length
+          : Object.values(tagCounts).reduce((a, b) => a + b, 0);
+        if (score >= threshold) flaggedCategories.push({ cat, score });
+      }
+
+      results.push({ name, perCategory, flaggedCategories });
+      processed++;
+      if (processed % 100 === 0) {
+        $('status').textContent = `Scanned ${processed}/${docs.length}…`;
+        await new Promise(r => setTimeout(r, 0)); // keep UI responsive
+      }
+    }
+
+    lastResults = results;
+    render(results, categories, { threshold, countMode, showAll, totalFiles: docs.length });
+    $('status').textContent = `Done. Scanned ${docs.length} file(s).`;
+    $('exportBtn').disabled = !results.some(r => r.flaggedCategories.length);
+  }
+
+  function render(results, categories, { threshold, countMode, showAll, totalFiles }) {
+    const flagged = results.filter(r => r.flaggedCategories.length);
+    const modeLabel = countMode === 'distinct' ? 'distinct tags' : 'occurrences';
+
+    let html = `
+      <div class="summary">
+        <strong>${flagged.length}</strong> of <strong>${totalFiles}</strong> document(s) flagged
+        (≥ ${threshold} ${modeLabel} in a single category).
+      </div>`;
+
+    const rows = showAll ? results : flagged;
+    if (!rows.length) {
+      $('results').innerHTML = html + '<p class="muted">Nothing to display.</p>';
+      return;
+    }
+
+    html += `<table><thead><tr>
+      <th>Document</th><th>Status</th>
+      ${categories.map(c => `<th>${escapeHtml(categoryLabel(c))}</th>`).join('')}
+    </tr></thead><tbody>`;
+
+    for (const r of rows) {
+      const isFlagged = r.flaggedCategories.length > 0;
+      const flaggedSet = new Set(r.flaggedCategories.map(f => f.cat));
+      html += `<tr class="${isFlagged ? 'flag' : ''}">
+        <td>${escapeHtml(r.name)}</td>
+        <td>${isFlagged
+          ? `<span class="flag-badge">⚠ FLAG</span><br><span class="muted">${r.flaggedCategories.map(f => `${escapeHtml(categoryLabel(f.cat))}: ${f.score}`).join(', ')}</span>`
+          : '<span class="ok-badge">OK</span>'}</td>`;
+      for (const c of categories) {
+        const tagCounts = r.perCategory[c];
+        if (!tagCounts) { html += '<td class="muted">—</td>'; continue; }
+        const list = Object.entries(tagCounts)
+          .map(([t, n]) => escapeHtml(t) + (n > 1 ? ` ×${n}` : ''))
+          .join('<br>');
+        html += `<td${flaggedSet.has(c) ? ' style="font-weight:600"' : ''}>${list}</td>`;
+      }
+      html += '</tr>';
+    }
+    html += '</tbody></table>';
+    $('results').innerHTML = html;
+  }
+
+  // ---------- Export ----------
+  function exportCSV() {
+    if (!lastResults) return;
+    const q = s => `"${String(s).replace(/"/g, '""')}"`;
+    const lines = ['file,category,match_count,matched_tags'];
+    for (const r of lastResults) {
+      for (const f of r.flaggedCategories) {
+        const matched = Object.keys(r.perCategory[f.cat]).join(', ');
+        lines.push([q(r.name), q(categoryLabel(f.cat)), f.score, q(matched)].join(','));
+      }
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'flagged_documents.csv';
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+})();
+</script>
+</body>
+</html>

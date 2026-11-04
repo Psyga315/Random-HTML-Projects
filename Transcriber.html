@@ -1,0 +1,1029 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MP3 Transcriber · OpenRouter + Gemini 3.8</title>
+<style>
+  :root {
+    --bg: #0f1117; --panel: #181b24; --border: #2a2f3d; --text: #e6e8ee;
+    --muted: #8b92a5; --accent: #4f8cff; --accent2: #7c5cff; --ok: #3ecf8e; --err: #ff5c6c; --warn: #ffb454;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    background: var(--bg); color: var(--text); line-height: 1.5;
+  }
+  .wrap { max-width: 900px; margin: 0 auto; padding: 32px 20px 60px; }
+  h1 { margin: 0 0 4px; font-size: 1.6rem; }
+  .sub { color: var(--muted); margin: 0 0 24px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px; margin-bottom: 18px;
+  }
+  .card h2 { font-size: 1rem; margin: 0 0 14px; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  label { display: block; font-size: .9rem; margin-bottom: 6px; color: var(--muted); }
+  input[type=text], input[type=password], select, textarea {
+    width: 100%; padding: 10px 12px; background: #0c0e14; color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px; font-size: .95rem;
+  }
+  textarea { resize: vertical; font-family: inherit; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+  .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .check { display: flex; align-items: center; gap: 8px; color: var(--text); font-size: .93rem; margin: 0; cursor: pointer; }
+  .check input { width: 16px; height: 16px; accent-color: var(--accent); }
+
+  #dropzone {
+    border: 2px dashed var(--border); border-radius: 12px; padding: 34px 16px; text-align: center;
+    cursor: pointer; transition: .15s; color: var(--muted);
+  }
+  #dropzone.drag, #dropzone:hover { border-color: var(--accent); background: rgba(79,140,255,.06); color: var(--text); }
+  #fileInfo { margin-top: 12px; font-size: .9rem; }
+  audio { width: 100%; margin-top: 12px; }
+  progress { width: 100%; height: 8px; margin-top: 12px; accent-color: var(--accent); }
+
+  button {
+    padding: 11px 18px; border: 0; border-radius: 8px; font-size: .95rem; font-weight: 600;
+    cursor: pointer; color: #fff; background: linear-gradient(135deg, var(--accent), var(--accent2));
+  }
+  button.secondary { background: #262b38; color: var(--text); border: 1px solid var(--border); }
+  button.danger { background: var(--err); }
+  button.small { padding: 6px 12px; font-size: .82rem; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+
+  #status { font-size: .9rem; color: var(--muted); }
+  #status.ok { color: var(--ok); } #status.err { color: var(--err); }
+  .warn { color: var(--warn); }
+  .muted { color: var(--muted); }
+  .spinner {
+    width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin .8s linear infinite; display: none;
+  }
+  .spinner.on { display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  #partsBox { margin-top: 18px; border-top: 1px solid var(--border); padding-top: 14px; }
+  .part-row {
+    display: grid; grid-template-columns: 64px 1fr 80px 120px auto; gap: 10px; align-items: center;
+    padding: 7px 0; border-bottom: 1px solid var(--border); font-size: .88rem;
+  }
+  .part-row:last-child { border-bottom: 0; }
+  @media (max-width: 640px) { .part-row { grid-template-columns: 56px 1fr 100px auto; } .part-row .psize { display: none; } }
+  .s-done { color: var(--ok); } .s-failed, .s-cancelled { color: var(--err); }
+  .s-truncated { color: var(--warn); } .s-working { color: var(--accent); } .s-pending { color: var(--muted); }
+
+  details { border: 1px solid var(--border); border-radius: 8px; background: #0c0e14; margin-bottom: 14px; }
+  summary { padding: 10px 14px; cursor: pointer; color: var(--muted); font-size: .9rem; }
+  #reasoningOut {
+    white-space: pre-wrap; padding: 0 14px 14px; font-size: .85rem; color: #b6a8ff;
+    max-height: 280px; overflow-y: auto; font-family: ui-monospace, Menlo, Consolas, monospace;
+  }
+  #transcript { min-height: 260px; font-size: .95rem; line-height: 1.6; }
+  .meta { font-size: .82rem; color: var(--muted); margin-top: 8px; }
+  .hint { font-size: .8rem; color: var(--muted); margin-top: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🎙️ MP3 → Transcript</h1>
+  <p class="sub">Powered by OpenRouter · Gemini 3.8 Flash with reasoning · in-browser compression &amp; auto-splitting</p>
+
+  <!-- SETTINGS -->
+  <div class="card">
+    <h2>Settings</h2>
+    <div class="grid">
+      <div>
+        <label for="apiKey">OpenRouter API Key</label>
+        <input type="password" id="apiKey" placeholder="sk-or-v1-..." autocomplete="off" />
+        <label class="check" style="margin-top:8px"><input type="checkbox" id="rememberKey" /> Remember key in this browser</label>
+      </div>
+      <div>
+        <label for="model">Model ID</label>
+        <input type="text" id="model" value="google/gemini-3.8-flash" />
+        <div class="hint">Any OpenRouter model that accepts audio input will work.</div>
+      </div>
+      <div>
+        <label for="effort">Reasoning / Thinking</label>
+        <select id="effort">
+          <option value="off">Off (hide reasoning)</option>
+          <option value="low">Low effort</option>
+          <option value="medium">Medium effort</option>
+          <option value="high" selected>High effort</option>
+        </select>
+      </div>
+      <div>
+        <label for="language">Language (optional)</label>
+        <input type="text" id="language" placeholder="Auto-detect — e.g. English, Spanish" />
+      </div>
+      <div>
+        <label for="compressMode">Compression</label>
+        <select id="compressMode">
+          <option value="auto" selected>Auto — only if over 20 MB</option>
+          <option value="always">Always compress</option>
+          <option value="never">Never</option>
+        </select>
+      </div>
+      <div>
+        <label for="bitrate">Compressed bitrate (16 kHz mono MP3)</label>
+        <select id="bitrate">
+          <option value="24">24 kbps (~0.18 MB/min)</option>
+          <option value="32" selected>32 kbps (~0.24 MB/min)</option>
+          <option value="48">48 kbps (~0.36 MB/min)</option>
+          <option value="64">64 kbps (~0.48 MB/min)</option>
+        </select>
+      </div>
+      <div>
+        <label for="splitMode">Splitting</label>
+        <select id="splitMode">
+          <option value="auto" selected>Auto — if longer than one part</option>
+          <option value="always">Always split</option>
+          <option value="never">Never</option>
+        </select>
+      </div>
+      <div>
+        <label for="chunkLen">Max part length</label>
+        <select id="chunkLen">
+          <option value="10">10 minutes</option>
+          <option value="15">15 minutes</option>
+          <option value="20">20 minutes</option>
+          <option value="30" selected>30 minutes</option>
+          <option value="45">45 minutes</option>
+          <option value="60">60 minutes</option>
+        </select>
+      </div>
+    </div>
+    <div class="hint">Long audio is cut at a quiet moment near each boundary, transcribed part by part, and joined. Timestamps are shifted to match the full recording.</div>
+    <div class="row" style="margin-top:14px; gap:20px">
+      <label class="check"><input type="checkbox" id="optSpeakers" checked /> Speaker labels</label>
+      <label class="check"><input type="checkbox" id="optTimestamps" /> Timestamps</label>
+      <label class="check"><input type="checkbox" id="optVerbatim" /> Strict verbatim (keep “um”, “uh”)</label>
+      <label class="check"><input type="checkbox" id="optMarkers" /> Part markers in transcript</label>
+    </div>
+    <div style="margin-top:14px">
+      <label for="context">Context / vocabulary hints (optional)</label>
+      <textarea id="context" rows="2" placeholder="e.g. Podcast about Kubernetes. Hosts: Priya and Marcus. Terms: kubectl, etcd."></textarea>
+    </div>
+  </div>
+
+  <!-- UPLOAD -->
+  <div class="card">
+    <h2>Audio</h2>
+    <div id="dropzone">
+      <div style="font-size:2rem">⬆️</div>
+      <div><strong>Click to choose</strong> or drag &amp; drop an MP3</div>
+      <div class="hint">Also accepts WAV, M4A, FLAC, OGG, AAC · up to 200 MB (compressed and split in your browser)</div>
+      <input type="file" id="fileInput" accept=".mp3,audio/mpeg,audio/*" hidden />
+    </div>
+    <div id="fileInfo"></div>
+    <audio id="player" controls hidden></audio>
+    <progress id="progress" max="1" hidden></progress>
+
+    <div class="row" style="margin-top:16px">
+      <button id="goBtn" disabled>Transcribe</button>
+      <button id="compressBtn" class="secondary" disabled>🗜️ Compress only</button>
+      <button id="splitBtn" class="secondary" disabled>✂️ Split only</button>
+      <button id="downloadAudioBtn" class="secondary" hidden>⬇ Download compressed audio</button>
+      <button id="cancelBtn" class="danger" hidden>Cancel</button>
+      <div class="spinner" id="spinner"></div>
+      <span id="status"></span>
+    </div>
+
+    <div id="partsBox" hidden>
+      <div class="row" style="justify-content:space-between; margin-bottom:6px">
+        <strong>Parts</strong>
+        <div class="row">
+          <button id="retryBtn" class="small" hidden>▶ Transcribe unfinished parts</button>
+          <button id="downloadPartsBtn" class="secondary small">⬇ Download all parts</button>
+        </div>
+      </div>
+      <div id="partsList"></div>
+    </div>
+  </div>
+
+  <!-- OUTPUT -->
+  <div class="card">
+    <h2>Transcript</h2>
+    <details id="reasoningBox" hidden>
+      <summary>🧠 Model reasoning (<span id="reasoningCount">0</span> chars)</summary>
+      <div id="reasoningOut"></div>
+    </details>
+    <textarea id="transcript" placeholder="Your transcript will stream in here… (you can edit it before downloading)"></textarea>
+    <div class="meta" id="usage"></div>
+    <div class="row" style="margin-top:12px">
+      <button id="downloadBtn" disabled>⬇ Download .txt</button>
+      <button id="copyBtn" class="secondary" disabled>Copy</button>
+      <button id="downloadReasoningBtn" class="secondary" hidden>Download reasoning</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = (id) => document.getElementById(id);
+  const ENDPOINT = "https://openrouter.ai/api/v1/chat/completions";
+  const MB = 1024 * 1024;
+  const MAX_UPLOAD_MB = 20;      // max size of any single upload (base64 adds ~33% on top)
+  const MAX_INPUT_MB = 200;      // max original file size we'll decode in the browser
+  const TARGET_RATE = 16000;     // Gemini downsamples audio to 16 kHz anyway
+  const LAME_URL = "https://cdn.jsdelivr.net/npm/lamejs@1.2.1/lame.min.js";
+  const AUTO_SPLIT_FACTOR = 1.1; // Auto mode: split only if longer than part length + 10%
+  const SPLIT_SEARCH_SEC = 15;   // look ±15 s around each boundary for the quietest point
+  const TAIL_CHARS = 1500;       // previous-part context passed to the next part
+  const MAX_RETRIES = 2;         // automatic retries per part on network/server errors
+  const TS_RE = /\[(\d{1,3}):(\d{2})(?::(\d{2}))?\]/g;
+  const RETRYABLE = new Set(["pending", "failed", "cancelled"]);
+
+  let currentFile = null;
+  let mediaDuration = NaN;
+  let controller = null;
+  let prepared = null;   // cached compression/split result
+  let job = null;        // current transcription job { file, duration, timestamps, parts[] }
+  let reasoningText = "";
+  let playerUrl = null;
+
+  // ---------- API key persistence ----------
+  const saved = localStorage.getItem("or_key");
+  if (saved) { $("apiKey").value = saved; $("rememberKey").checked = true; }
+  $("rememberKey").addEventListener("change", (e) => {
+    if (e.target.checked) localStorage.setItem("or_key", $("apiKey").value.trim());
+    else localStorage.removeItem("or_key");
+  });
+  $("apiKey").addEventListener("input", () => {
+    if ($("rememberKey").checked) localStorage.setItem("or_key", $("apiKey").value.trim());
+    updateGoBtn();
+  });
+
+  // ---------- File handling ----------
+  const dz = $("dropzone");
+  dz.addEventListener("click", () => $("fileInput").click());
+  dz.addEventListener("dragover", (e) => { e.preventDefault(); dz.classList.add("drag"); });
+  dz.addEventListener("dragleave", () => dz.classList.remove("drag"));
+  dz.addEventListener("drop", (e) => {
+    e.preventDefault(); dz.classList.remove("drag");
+    if (e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]);
+  });
+  $("fileInput").addEventListener("change", (e) => e.target.files[0] && setFile(e.target.files[0]));
+  ["compressMode", "bitrate", "splitMode", "chunkLen"].forEach(id =>
+    $(id).addEventListener("change", () => { renderFileInfo(); updateGoBtn(); }));
+  $("optMarkers").addEventListener("change", () => {
+    if (job && !controller) { renderOutput(); updateOutputButtons(); }
+  });
+
+  function setFile(file) {
+    const mb = file.size / MB;
+    if (mb > MAX_INPUT_MB) {
+      setStatus(`File is ${mb.toFixed(1)} MB — the in-browser processor supports up to ${MAX_INPUT_MB} MB. Please split the file first.`, "err");
+      return;
+    }
+    currentFile = file;
+    mediaDuration = NaN;
+    prepared = null;
+    job = null;
+    $("downloadAudioBtn").hidden = true;
+    renderParts();
+
+    if (playerUrl) URL.revokeObjectURL(playerUrl);
+    playerUrl = URL.createObjectURL(file);
+    const player = $("player");
+    player.onloadedmetadata = () => {
+      if (currentFile !== file) return;
+      mediaDuration = Number.isFinite(player.duration) ? player.duration : NaN;
+      renderFileInfo();
+    };
+    player.src = playerUrl;
+    player.hidden = false;
+    setStatus("");
+    renderFileInfo();
+    updateGoBtn();
+  }
+
+  function willCompress() {
+    if (!currentFile) return false;
+    const mode = $("compressMode").value;
+    return mode === "always" || (mode === "auto" && currentFile.size / MB > MAX_UPLOAD_MB);
+  }
+
+  function shouldAutoSplit(duration, chunkSec) {
+    return duration > chunkSec * AUTO_SPLIT_FACTOR;
+  }
+
+  function plannedParts() {
+    if (!Number.isFinite(mediaDuration) || mediaDuration <= 0) return 1;
+    const chunkSec = Number($("chunkLen").value) * 60;
+    const mode = $("splitMode").value;
+    if (mode === "never") return 1;
+    if (mode === "auto" && !shouldAutoSplit(mediaDuration, chunkSec)) return 1;
+    return Math.max(1, Math.ceil(mediaDuration / chunkSec));
+  }
+
+  function renderFileInfo() {
+    if (!currentFile) { $("fileInfo").innerHTML = ""; return; }
+    const mb = currentFile.size / MB;
+    const known = Number.isFinite(mediaDuration) && mediaDuration > 0;
+    let html = `📄 <strong>${escapeHtml(currentFile.name)}</strong> — ${mb.toFixed(2)} MB${known ? ` · ${fmtClock(mediaDuration)}` : ""}`;
+
+    const prep = prepared && prepared.file === currentFile && !prepared.original ? prepared : null;
+    if (prep) {
+      const total = prep.parts.reduce((a, p) => a + p.blob.size, 0) / MB;
+      const p0 = prep.parts[0];
+      const info = `${p0.format.toUpperCase()}${p0.kbps ? `, ${p0.kbps} kbps` : ""}, 16 kHz mono`;
+      html += prep.parts.length > 1
+        ? `<br>✂️ Split into <strong>${prep.parts.length} parts</strong> · ${total.toFixed(2)} MB total <span class="muted">(${info})</span>`
+        : `<br>🗜️ Compressed: <strong>${total.toFixed(2)} MB</strong> <span class="muted">(${info} · ${fmtClock(prep.duration)})</span>`;
+      if (prep.note) html += ` <span class="warn">${escapeHtml(prep.note)}</span>`;
+    } else {
+      const n = plannedParts();
+      if (n > 1) html += ` <span class="muted">· will be split into ${n} parts of ~${Math.round(mediaDuration / n / 60)} min</span>`;
+      else if (willCompress()) html += ` <span class="muted">· will be compressed before upload</span>`;
+      else if (mb > MAX_UPLOAD_MB) html += ` <span class="warn">· over ${MAX_UPLOAD_MB} MB — set Compression or Splitting to Auto</span>`;
+    }
+    $("fileInfo").innerHTML = html;
+  }
+
+  function getFormat(file) {
+    const ext = (file.name.split(".").pop() || "").toLowerCase();
+    const map = { mp3: "mp3", wav: "wav", m4a: "m4a", flac: "flac", ogg: "ogg", aac: "aac", aiff: "aiff", webm: "webm" };
+    return map[ext] || "mp3";
+  }
+
+  function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result).split(",")[1]); // strip "data:...;base64,"
+      r.onerror = () => reject(r.error);
+      r.readAsDataURL(blob);
+    });
+  }
+
+  function updateGoBtn() {
+    const busy = !!controller;
+    const tooBig = currentFile && currentFile.size / MB > MAX_UPLOAD_MB &&
+                   !willCompress() && $("splitMode").value === "never";
+    $("goBtn").disabled = busy || !(currentFile && $("apiKey").value.trim()) || tooBig;
+    $("compressBtn").disabled = busy || !currentFile;
+    $("splitBtn").disabled = busy || !currentFile;
+  }
+
+  // ---------- Audio processing (decode → 16 kHz mono → split → MP3) ----------
+  const tick = () => new Promise(r => setTimeout(r, 0));
+  const checkAbort = (signal) => { if (signal && signal.aborted) throw new DOMException("Aborted", "AbortError"); };
+
+  let lamePromise = null;
+  function loadLame() {
+    if (window.lamejs) return Promise.resolve();
+    if (!lamePromise) {
+      lamePromise = new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = LAME_URL;
+        s.onload = () => window.lamejs ? resolve() : reject(new Error("lamejs loaded but not available"));
+        s.onerror = () => { lamePromise = null; s.remove(); reject(new Error("Could not load MP3 encoder")); };
+        document.head.appendChild(s);
+      });
+    }
+    return lamePromise;
+  }
+
+  async function decodeToPcm(file, signal, onProgress) {
+    onProgress("Reading file…", null);
+    const arrayBuf = await file.arrayBuffer();
+    checkAbort(signal);
+
+    onProgress("Decoding audio…", null);
+    const Ctx = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+    if (!Ctx) throw new Error("This browser doesn't support the Web Audio API needed for compression/splitting.");
+    const ctx = new Ctx(1, 1, TARGET_RATE); // decodeAudioData resamples to the context's rate
+    let audio;
+    try {
+      audio = await new Promise((res, rej) => {
+        const p = ctx.decodeAudioData(arrayBuf, res, (e) => rej(e || new Error("decode failed")));
+        if (p && p.catch) p.catch(rej);
+      });
+    } catch {
+      throw new Error("Your browser couldn't decode this audio file (unsupported format or corrupted file).");
+    }
+    checkAbort(signal);
+
+    onProgress("Converting to 16 kHz mono…", null);
+    await tick();
+    const len = audio.length, chs = audio.numberOfChannels;
+    const channels = Array.from({ length: chs }, (_, c) => audio.getChannelData(c));
+    const pcm = new Int16Array(len);
+    for (let i = 0; i < len; i++) {
+      let s = 0;
+      for (let c = 0; c < chs; c++) s += channels[c][i];
+      s /= chs;
+      s = s < -1 ? -1 : s > 1 ? 1 : s;
+      pcm[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+    checkAbort(signal);
+    return { pcm, duration: audio.duration };
+  }
+
+  // Split points: evenly sized parts, each boundary nudged to the quietest 100 ms within ±15 s
+  function findSplitPoints(pcm, chunkSec) {
+    const total = pcm.length, rate = TARGET_RATE;
+    const n = Math.max(1, Math.ceil(total / (chunkSec * rate)));
+    const ideal = total / n;
+    const WIN = Math.round(rate * 0.1);
+    const SEARCH = Math.round(rate * SPLIT_SEARCH_SEC);
+    const pts = [0];
+    for (let k = 1; k < n; k++) {
+      const target = Math.round(ideal * k);
+      const lo = Math.max(pts[k - 1] + rate * 30, target - SEARCH);
+      const hi = Math.min(total - rate * 30, target + SEARCH);
+      let best = target, bestE = Infinity;
+      for (let s = lo; s + WIN <= hi; s += WIN >> 1) {
+        let e = 0;
+        for (let j = s; j < s + WIN; j += 4) { const v = pcm[j]; e += v * v; }
+        if (e < bestE) { bestE = e; best = s + (WIN >> 1); }
+      }
+      pts.push(best);
+    }
+    pts.push(total);
+    return pts;
+  }
+
+  async function encodePcm(pcm, kbps, signal, onFrac) {
+    let lameOk = true;
+    try { await loadLame(); } catch { lameOk = false; }
+    if (!lameOk) return { blob: encodeWav(pcm, TARGET_RATE), format: "wav", kbps: null, fallback: true };
+
+    const enc = new lamejs.Mp3Encoder(1, TARGET_RATE, kbps);
+    const out = [];
+    const BLOCK = 1152;
+    let last = performance.now();
+    for (let i = 0; i < pcm.length; i += BLOCK) {
+      const buf = enc.encodeBuffer(pcm.subarray(i, Math.min(i + BLOCK, pcm.length)));
+      if (buf.length) out.push(buf);
+      if (performance.now() - last > 40) {   // yield so the UI stays responsive
+        checkAbort(signal);
+        onFrac(i / pcm.length);
+        await tick();
+        last = performance.now();
+      }
+    }
+    const tail = enc.flush();
+    if (tail.length) out.push(tail);
+    onFrac(1);
+    return { blob: new Blob(out, { type: "audio/mpeg" }), format: "mp3", kbps };
+  }
+
+  function encodeWav(pcm, rate) {
+    const header = new ArrayBuffer(44);
+    const v = new DataView(header);
+    const dataLen = pcm.length * 2;
+    const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
+    w(0, "RIFF"); v.setUint32(4, 36 + dataLen, true); w(8, "WAVE");
+    w(12, "fmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, rate, true); v.setUint32(28, rate * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+    w(36, "data"); v.setUint32(40, dataLen, true);
+    return new Blob([header, pcm], { type: "audio/wav" });
+  }
+
+  // Returns { file, key, original, duration, parts: [{ start, end, blob, format, kbps }] }
+  async function prepareParts(signal, opts = {}) {
+    const file = currentFile;
+    const kbps = Number($("bitrate").value);
+    const chunkSec = Number($("chunkLen").value) * 60;
+    const splitMode = opts.noSplit ? "never" : opts.forceSplit ? "always" : $("splitMode").value;
+    const compress = !!opts.forceCompress || willCompress();
+    const key = [file.name, file.size, file.lastModified, kbps, chunkSec, splitMode, compress].join("|");
+    if (prepared && prepared.file === file && prepared.key === key) return prepared;
+
+    const original = (dur) => ({
+      file, key, original: true, duration: dur || 0,
+      parts: [{ start: 0, end: dur || 0, blob: file, format: getFormat(file), kbps: null }]
+    });
+
+    // Fast path: nothing to do, send the original file as-is
+    const known = Number.isFinite(mediaDuration) && mediaDuration > 0;
+    if (!compress && (splitMode === "never" || (splitMode === "auto" && known && !shouldAutoSplit(mediaDuration, chunkSec)))) {
+      return (prepared = original(known ? mediaDuration : 0));
+    }
+
+    setProgress(null, true);
+    try {
+      const t0 = performance.now();
+      const { pcm, duration } = await decodeToPcm(file, signal, (label, frac) => {
+        setStatus(label); setProgress(frac, true);
+      });
+
+      const split = splitMode === "always" || (splitMode === "auto" && shouldAutoSplit(duration, chunkSec));
+      if (!split && !compress) return (prepared = original(duration));
+
+      const bounds = split ? findSplitPoints(pcm, chunkSec) : [0, pcm.length];
+      const n = bounds.length - 1;
+      const parts = [];
+      let fallback = false;
+      for (let i = 0; i < n; i++) {
+        const slice = pcm.subarray(bounds[i], bounds[i + 1]);
+        const r = await encodePcm(slice, kbps, signal, (f) => {
+          const overall = (bounds[i] + f * slice.length) / pcm.length;
+          setStatus(`Encoding${n > 1 ? ` part ${i + 1}/${n}` : ""}… ${Math.round(overall * 100)}%`);
+          setProgress(overall, true);
+        });
+        if (r.fallback) fallback = true;
+        parts.push({ start: bounds[i] / TARGET_RATE, end: bounds[i + 1] / TARGET_RATE, blob: r.blob, format: r.format, kbps: r.kbps });
+      }
+
+      if (n === 1 && parts[0].blob.size >= file.size && file.size / MB <= MAX_UPLOAD_MB) {
+        setStatus("Original is already smaller than the compressed version — using the original.");
+        return (prepared = original(duration));
+      }
+
+      prepared = {
+        file, key, original: false, duration, parts,
+        secs: (performance.now() - t0) / 1000,
+        note: fallback ? "(MP3 encoder couldn't load from CDN — used 16 kHz WAV, which is larger.)" : ""
+      };
+      return prepared;
+    } finally {
+      setProgress(null, false);
+    }
+  }
+
+  function afterPrepare(prep) {
+    renderFileInfo();
+    $("downloadAudioBtn").hidden = prep.original || prep.parts.length !== 1;
+  }
+
+  $("compressBtn").addEventListener("click", () => runTask(async (signal) => {
+    const prep = await prepareParts(signal, { forceCompress: true, noSplit: true });
+    afterPrepare(prep);
+    if (!prep.original) {
+      setStatus(`✓ Compressed to ${(prep.parts[0].blob.size / MB).toFixed(2)} MB in ${prep.secs.toFixed(1)}s — use “Download compressed audio” to save it.`, "ok");
+    }
+  }));
+
+  $("splitBtn").addEventListener("click", () => runTask(async (signal) => {
+    const prep = await prepareParts(signal, { forceSplit: true });
+    afterPrepare(prep);
+    if (prep.parts.length < 2) {
+      setStatus(`Audio is shorter than one ${$("chunkLen").value}-minute part — no split needed.`, "ok");
+      return;
+    }
+    job = makeJob(prep);
+    setStatus(`✓ Split into ${prep.parts.length} parts — download them below, or click “Transcribe unfinished parts”.`, "ok");
+  }));
+
+  $("downloadAudioBtn").addEventListener("click", () => {
+    if (!prepared || prepared.original) return;
+    const p = prepared.parts[0];
+    downloadBlob(p.blob, `${baseName()}_16k.${p.format}`);
+  });
+
+  $("partsList").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-dl]");
+    if (!b || !job) return;
+    downloadPart(Number(b.dataset.dl));
+  });
+  $("downloadPartsBtn").addEventListener("click", async () => {
+    if (!job) return;
+    for (let i = 0; i < job.parts.length; i++) {
+      downloadPart(i);
+      await new Promise(r => setTimeout(r, 500)); // browsers may ask to allow multiple downloads
+    }
+  });
+  function downloadPart(i) {
+    const p = job.parts[i];
+    downloadBlob(p.blob, `${baseName()}_part${String(i + 1).padStart(2, "0")}.${p.format}`);
+  }
+
+  // ---------- Prompt ----------
+  function buildPrompt(part) {
+    const lines = [
+      "You are a professional transcriptionist. Transcribe the attached audio completely and accurately from start to finish.",
+      "Rules:",
+      "- Output ONLY the transcript text. No preamble, no summary, no commentary, no markdown formatting.",
+      "- Do not skip, summarize, or paraphrase any portion of the audio.",
+      $("optVerbatim").checked
+        ? "- Strict verbatim: keep filler words (um, uh), false starts, repetitions and stutters."
+        : "- Clean verbatim: remove filler words and false starts, but never change meaning or wording otherwise.",
+      $("optSpeakers").checked
+        ? "- Identify distinct speakers and label each turn on a new line, e.g. 'Speaker 1:', 'Speaker 2:'. Use real names only if they are clearly stated in the audio."
+        : "- Do not add speaker labels. Use paragraph breaks at natural pauses or topic changes.",
+      $("optTimestamps").checked
+        ? (part
+            ? "- Begin each paragraph/speaker turn with a timestamp in [MM:SS] format, measured from the START OF THIS CLIP (the clip begins at [00:00])."
+            : "- Begin each paragraph/speaker turn with a timestamp in [MM:SS] format (or [HH:MM:SS] beyond one hour).")
+        : "- Do not include timestamps.",
+      "- Mark unintelligible sections as [inaudible] and significant non-speech sounds in brackets, e.g. [laughter], [music].",
+      "- Use correct punctuation, capitalization and spelling."
+    ];
+    const lang = $("language").value.trim();
+    if (lang) lines.push(`- The audio is in ${lang}. Transcribe in that language (do not translate).`);
+    else lines.push("- Transcribe in the original spoken language (do not translate).");
+
+    if (part) {
+      lines.push(
+        `\nThis clip is part ${part.index + 1} of ${part.count} of a longer recording that was split into pieces.`,
+        "- The clip may begin or end mid-sentence. Transcribe only what is audible in this clip; do not complete cut-off words or sentences and do not add anything that isn't in this clip."
+      );
+      if (part.prevTail) {
+        if ($("optSpeakers").checked) {
+          lines.push("- Keep speaker labels consistent with the previous part: the same person must keep the same label.");
+        }
+        lines.push(`\nEnd of the previous part's transcript, for continuity ONLY — do NOT repeat any of it in your output:\n"""\n${part.prevTail}\n"""`);
+      }
+    }
+
+    const ctx = $("context").value.trim();
+    if (ctx) lines.push(`\nContext to help with names and terminology:\n${ctx}`);
+    return lines.join("\n");
+  }
+
+  function previousTail(i) {
+    for (let j = i - 1; j >= 0; j--) {
+      const raw = job.parts[j].raw;
+      if (raw && raw.trim()) return raw.replace(TS_RE, "").replace(/[ \t]+/g, " ").trim().slice(-TAIL_CHARS);
+    }
+    return "";
+  }
+
+  // ---------- Transcription ----------
+  $("cancelBtn").addEventListener("click", () => controller && controller.abort());
+
+  $("goBtn").addEventListener("click", () => {
+    const apiKey = $("apiKey").value.trim();
+    if (!apiKey || !currentFile) return;
+    runTask(async (signal) => {
+      resetOutput();
+      const prep = await prepareParts(signal);
+      afterPrepare(prep);
+      const big = prep.parts.findIndex(p => p.blob.size / MB > MAX_UPLOAD_MB);
+      if (big !== -1) {
+        const sz = (prep.parts[big].blob.size / MB).toFixed(1);
+        throw new Error(prep.parts.length > 1
+          ? `Part ${big + 1} is ${sz} MB — choose a shorter part length or a lower bitrate.`
+          : `Audio is ${sz} MB — turn on Compression or Splitting, or choose a lower bitrate.`);
+      }
+      job = makeJob(prep);
+      renderParts();
+      await runJob(job.parts.map((_, i) => i), apiKey, signal);
+    });
+  });
+
+  $("retryBtn").addEventListener("click", () => {
+    if (!job || job.file !== currentFile) return;
+    const apiKey = $("apiKey").value.trim();
+    if (!apiKey) { setStatus("Enter your OpenRouter API key first.", "err"); return; }
+    const idx = job.parts.map((_, i) => i).filter(i => RETRYABLE.has(job.parts[i].status));
+    if (!idx.length) return;
+    runTask((signal) => runJob(idx, apiKey, signal));
+  });
+
+  function makeJob(prep) {
+    return {
+      file: prep.file,
+      duration: prep.duration || mediaDuration || 0,
+      timestamps: $("optTimestamps").checked,
+      parts: prep.parts.map((p, i) => ({ ...p, index: i, status: "pending", raw: "", reasoning: "", usage: null, error: "" }))
+    };
+  }
+
+  async function runJob(indices, apiKey, signal) {
+    const cfg = {
+      apiKey, signal,
+      model: $("model").value.trim() || "google/gemini-3.8-flash",
+      effort: $("effort").value
+    };
+    job.timestamps = $("optTimestamps").checked;
+    $("reasoningBox").hidden = cfg.effort === "off" && !reasoningText;
+    $("reasoningBox").open = cfg.effort !== "off";
+    $("downloadReasoningBtn").hidden = true;
+
+    try {
+      for (const i of indices) await transcribePart(i, cfg);
+    } finally {
+      renderOutput();
+      renderUsage();
+      if (reasoningText) { $("downloadReasoningBtn").hidden = false; $("reasoningBox").hidden = false; }
+    }
+
+    const n = job.parts.length;
+    const bad = job.parts.filter(p => RETRYABLE.has(p.status)).length;
+    const cut = job.parts.filter(p => p.status === "truncated").length;
+    if (bad && n === 1) setStatus("Error: " + (job.parts[0].error || "transcription failed"), "err");
+    else if (bad) setStatus(`Finished with ${bad} of ${n} parts not transcribed — click “Transcribe unfinished parts” to retry them.`, "err");
+    else if (cut) setStatus(`Done, but ${cut} part(s) hit the output limit and were cut off — use a shorter part length and transcribe again.`, "err");
+    else setStatus(n > 1 ? `✓ Done — ${n} parts transcribed and joined` : "✓ Done", "ok");
+    $("reasoningBox").open = false;
+  }
+
+  async function transcribePart(i, cfg) {
+    const p = job.parts[i];
+    const n = job.parts.length;
+    const label = n > 1 ? `Part ${i + 1}/${n} · ` : "";
+
+    setStatus(`${label}Preparing upload…`);
+    const base64 = await blobToBase64(p.blob);
+    const prompt = buildPrompt(n > 1 ? { index: i, count: n, prevTail: previousTail(i) } : null);
+
+    for (let attempt = 0; ; attempt++) {
+      p.status = "working"; p.raw = ""; p.reasoning = ""; p.error = ""; p.usage = null;
+      renderParts(); scheduleRender();
+      try {
+        setStatus(`${label}Uploading & waiting for model…`);
+        const res = await fetch(ENDPOINT, {
+          method: "POST",
+          signal: cfg.signal,
+          headers: {
+            "Authorization": `Bearer ${cfg.apiKey}`,
+            "Content-Type": "application/json",
+            "HTTP-Referer": location.origin !== "null" ? location.origin : "http://localhost",
+            "X-Title": "MP3 Transcriber"
+          },
+          body: JSON.stringify({
+            model: cfg.model,
+            stream: true,
+            max_tokens: 65536,
+            messages: [{
+              role: "user",
+              content: [
+                { type: "text", text: prompt },
+                { type: "input_audio", input_audio: { data: base64, format: p.format } }
+              ]
+            }],
+            // OpenRouter's unified reasoning parameter
+            reasoning: cfg.effort === "off" ? { exclude: true } : { effort: cfg.effort, exclude: false }
+          })
+        });
+
+        if (!res.ok) {
+          let msg = `${res.status} ${res.statusText}`;
+          try { const j = await res.json(); msg = j.error?.message || JSON.stringify(j); } catch {}
+          const e = new Error(msg); e.status = res.status; throw e;
+        }
+
+        let started = false;
+        const result = await readStream(res, {
+          reasoning: (t) => { if (!started) setStatus(`${label}Thinking…`); p.reasoning += t; scheduleRender(); },
+          content: (t) => {
+            if (!started) { started = true; setStatus(`${label}Transcribing…`); }
+            p.raw += t; scheduleRender();
+          },
+          usage: (u) => { p.usage = u; renderUsage(); }
+        });
+
+        if (!p.raw.trim()) throw new Error("The model returned an empty transcript.");
+        p.raw = p.raw.trim();
+        p.status = result.truncated ? "truncated" : "done";
+        renderParts(); renderOutput();
+        return;
+      } catch (err) {
+        if (err.name === "AbortError") { p.status = "cancelled"; renderParts(); throw err; }
+        p.error = err.message;
+        const s = err.status;
+        if (s === 401 || s === 402 || s === 403) {        // bad key / no credits: stop the whole job
+          p.status = "failed"; renderParts(); throw err;
+        }
+        const retryable = !s || s === 408 || s === 429 || s >= 500;
+        if (retryable && attempt < MAX_RETRIES) {
+          const wait = 3000 * 2 ** attempt;
+          setStatus(`${label}${err.message} — retrying in ${wait / 1000}s (attempt ${attempt + 2}/${MAX_RETRIES + 1})…`, "err");
+          try { await sleep(wait, cfg.signal); }
+          catch (e) { p.status = "cancelled"; renderParts(); throw e; }
+          continue;
+        }
+        p.status = "failed";
+        renderParts(); renderOutput();
+        return; // move on to the next part
+      }
+    }
+  }
+
+  async function readStream(res, cb) {
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "", finish = null, nativeFinish = null, sawDone = false;
+
+    outer: while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      let nl;
+      while ((nl = buffer.indexOf("\n")) !== -1) {
+        const line = buffer.slice(0, nl).trim();
+        buffer = buffer.slice(nl + 1);
+        if (!line || line.startsWith(":") || !line.startsWith("data:")) continue; // keep-alives etc.
+        const data = line.slice(5).trim();
+        if (data === "[DONE]") { sawDone = true; break outer; }
+
+        let json;
+        try { json = JSON.parse(data); } catch { continue; }
+        if (json.error) throw new Error(json.error.message || "Stream error");
+
+        const choice = json.choices?.[0] || {};
+        if (choice.finish_reason) finish = choice.finish_reason;
+        if (choice.native_finish_reason) nativeFinish = choice.native_finish_reason;
+        const delta = choice.delta || {};
+
+        let r = delta.reasoning || "";
+        if (!r && Array.isArray(delta.reasoning_details)) {
+          r = delta.reasoning_details.map(d => d.text || d.summary || "").join("");
+        }
+        if (r) cb.reasoning(r);
+        if (delta.content) cb.content(delta.content);
+        if (json.usage) cb.usage(json.usage);
+      }
+    }
+    reader.cancel().catch(() => {});
+    if (!sawDone && !finish) throw new Error("Connection dropped before the response finished.");
+    if (finish === "error") throw new Error("The provider reported an error mid-response.");
+    return { truncated: finish === "length" || /max_tokens/i.test(String(nativeFinish || "")) };
+  }
+
+  // ---------- Rendering ----------
+  function shiftTimestamps(text, offset, hours) {
+    return text.replace(TS_RE, (_, a, b, c) => {
+      const s = c != null ? +a * 3600 + +b * 60 + +c : +a * 60 + +b;
+      return `[${fmtClock(s + offset, hours)}]`;
+    });
+  }
+
+  function assembleTranscript() {
+    const multi = job.parts.length > 1;
+    const markers = multi && $("optMarkers").checked;
+    const hours = job.duration >= 3600;
+    const out = [];
+    job.parts.forEach((p, i) => {
+      const range = `${fmtClock(p.start, hours)}–${fmtClock(p.end, hours)}`;
+      let t = p.raw ? (job.timestamps ? shiftTimestamps(p.raw, p.start, hours) : p.raw) : "";
+      if (multi) {
+        if (p.status === "failed" || p.status === "cancelled") {
+          t += (t ? "\n" : "") + `[Part ${i + 1} (${range}) ${t ? "incomplete" : "missing"} — transcription ${p.status}]`;
+        } else if (p.status === "truncated") {
+          t += `\n[Part ${i + 1} was cut off by the output limit — try a shorter part length]`;
+        }
+      }
+      if (!t) return;
+      out.push(markers ? `----- Part ${i + 1} (${range}) -----\n${t}` : t);
+    });
+    return out.join("\n\n");
+  }
+
+  let renderTimer = null;
+  function scheduleRender() {
+    if (renderTimer) return;
+    renderTimer = setTimeout(() => { renderTimer = null; renderOutput(); }, 80);
+  }
+
+  function renderOutput() {
+    if (!job) return;
+    const ta = $("transcript");
+    const stick = ta.scrollTop + ta.clientHeight >= ta.scrollHeight - 40;
+    ta.value = assembleTranscript();
+    if (stick) ta.scrollTop = ta.scrollHeight;
+
+    const multi = job.parts.length > 1;
+    reasoningText = job.parts.filter(p => p.reasoning)
+      .map(p => multi ? `===== Part ${p.index + 1} =====\n${p.reasoning}` : p.reasoning)
+      .join("\n\n");
+    const out = $("reasoningOut");
+    out.textContent = reasoningText;
+    out.scrollTop = out.scrollHeight;
+    $("reasoningCount").textContent = reasoningText.length.toLocaleString();
+  }
+
+  function renderParts() {
+    const box = $("partsBox");
+    if (!job || job.parts.length < 2) { box.hidden = true; return; }
+    box.hidden = false;
+    const hours = job.duration >= 3600;
+    const labels = {
+      pending: "Waiting", working: "⏳ Working…", done: "✓ Done",
+      failed: "✗ Failed", cancelled: "Cancelled", truncated: "⚠ Cut off"
+    };
+    $("partsList").innerHTML = job.parts.map((p, i) => `
+      <div class="part-row">
+        <span><strong>Part ${i + 1}</strong></span>
+        <span class="muted">${fmtClock(p.start, hours)} – ${fmtClock(p.end, hours)}</span>
+        <span class="muted psize">${(p.blob.size / MB).toFixed(2)} MB</span>
+        <span class="s-${p.status}" title="${escapeHtml(p.error || "")}">${labels[p.status]}</span>
+        <button class="secondary small" data-dl="${i}">⬇ Audio</button>
+      </div>`).join("");
+
+    const unfinished = job.parts.filter(p => RETRYABLE.has(p.status)).length;
+    $("retryBtn").hidden = !!controller || !unfinished;
+    $("retryBtn").textContent = `▶ Transcribe unfinished parts (${unfinished})`;
+  }
+
+  function renderUsage() {
+    if (!job) return;
+    const us = job.parts.map(p => p.usage).filter(Boolean);
+    if (!us.length) { $("usage").textContent = ""; return; }
+    const sum = (f) => us.reduce((a, u) => a + (Number(f(u)) || 0), 0);
+    const parts = [
+      `Input: ${sum(u => u.prompt_tokens).toLocaleString()} tok`,
+      `Output: ${sum(u => u.completion_tokens).toLocaleString()} tok`
+    ];
+    const rt = sum(u => u.completion_tokens_details?.reasoning_tokens);
+    if (rt) parts.push(`Reasoning: ${rt.toLocaleString()} tok`);
+    if (us.some(u => u.cost != null)) parts.push(`Cost: $${sum(u => u.cost).toFixed(5)}`);
+    if (job.parts.length > 1) parts.push(`${us.length}/${job.parts.length} parts`);
+    $("usage").textContent = parts.join(" · ");
+  }
+
+  function resetOutput() {
+    reasoningText = "";
+    $("transcript").value = "";
+    $("reasoningOut").textContent = "";
+    $("reasoningCount").textContent = "0";
+    $("usage").textContent = "";
+    $("downloadReasoningBtn").hidden = true;
+  }
+
+  // ---------- Output actions ----------
+  function baseName() {
+    return currentFile ? currentFile.name.replace(/\.[^.]+$/, "") : "audio";
+  }
+  function downloadBlob(blob, filename) {
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+  }
+  function downloadText(text, filename) {
+    downloadBlob(new Blob([text], { type: "text/plain;charset=utf-8" }), filename);
+  }
+  $("downloadBtn").addEventListener("click", () =>
+    downloadText($("transcript").value.trim() + "\n", `${baseName()}_transcript.txt`));
+  $("downloadReasoningBtn").addEventListener("click", () =>
+    downloadText(reasoningText, `${baseName()}_reasoning.txt`));
+  $("copyBtn").addEventListener("click", async () => {
+    await navigator.clipboard.writeText($("transcript").value);
+    $("copyBtn").textContent = "Copied!";
+    setTimeout(() => ($("copyBtn").textContent = "Copy"), 1500);
+  });
+
+  // ---------- Helpers ----------
+  async function runTask(fn) {
+    controller = new AbortController();
+    toggleBusy(true);
+    try {
+      await fn(controller.signal);
+    } catch (err) {
+      setStatus(err.name === "AbortError" ? "Cancelled." : "Error: " + err.message, "err");
+    } finally {
+      controller = null;
+      toggleBusy(false);
+    }
+  }
+
+  function updateOutputButtons() {
+    const hasText = !!$("transcript").value.trim();
+    $("downloadBtn").disabled = !hasText;
+    $("copyBtn").disabled = !hasText;
+  }
+
+  function toggleBusy(on) {
+    ["compressMode", "bitrate", "splitMode", "chunkLen"].forEach(id => ($(id).disabled = on));
+    $("cancelBtn").hidden = !on;
+    $("spinner").classList.toggle("on", on);
+    if (on) {
+      ["goBtn", "compressBtn", "splitBtn", "downloadBtn", "copyBtn"].forEach(id => ($(id).disabled = true));
+      $("retryBtn").hidden = true;
+    } else {
+      updateOutputButtons();
+      updateGoBtn();
+      renderParts();
+    }
+  }
+
+  // Enable Download/Copy when the user types or pastes into the transcript box
+  $("transcript").addEventListener("input", () => {
+    if (controller) return;
+    updateOutputButtons();
+  });
+
+  function sleep(ms, signal) {
+    return new Promise((resolve, reject) => {
+      const t = setTimeout(resolve, ms);
+      signal?.addEventListener("abort", () => { clearTimeout(t); reject(new DOMException("Aborted", "AbortError")); }, { once: true });
+    });
+  }
+  function setProgress(frac, visible) {
+    const p = $("progress");
+    p.hidden = !visible;
+    if (frac == null) p.removeAttribute("value"); // indeterminate
+    else p.value = frac;
+  }
+  function setStatus(msg, cls = "") {
+    const s = $("status"); s.textContent = msg; s.className = cls;
+  }
+  function fmtClock(sec, hours = false) {
+    sec = Math.max(0, Math.round(sec || 0));
+    const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+    const p2 = (x) => String(x).padStart(2, "0");
+    return (hours || h) ? `${p2(h)}:${p2(m)}:${p2(s)}` : `${p2(m)}:${p2(s)}`;
+  }
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c]));
+  }
+})();
+</script>
+</body>
+</html>

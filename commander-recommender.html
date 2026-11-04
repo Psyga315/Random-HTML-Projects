@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>MTG Commander Recommender</title>
+<style>
+  :root {
+    --bg: #1a1a24; --panel: #252535; --accent: #d4a657;
+    --accent-bright: #ffd56b; --text: #e8e8ee; --muted: #9999aa; --gold: #ffd700;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--bg);
+    color: var(--text); margin: 0 auto; padding: 24px; max-width: 1100px; }
+  h1 { color: var(--accent-bright); margin-bottom: 4px; }
+  .subtitle { color: var(--muted); margin-bottom: 24px; }
+  .input-area { display: flex; gap: 16px; flex-wrap: wrap; }
+  textarea { flex: 1; min-width: 320px; min-height: 280px; background: var(--panel);
+    color: var(--text); border: 1px solid #3a3a4a; border-radius: 6px; padding: 12px;
+    font-family: Consolas, monospace; font-size: 13px; resize: vertical; }
+  .controls { display: flex; flex-direction: column; gap: 12px; min-width: 240px; }
+  button { background: var(--accent); color: #1a1a24; border: none; padding: 12px 20px;
+    font-size: 15px; font-weight: 600; border-radius: 6px; cursor: pointer; }
+  button:hover:not(:disabled) { background: var(--accent-bright); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.secondary { background: #3a3a4a; color: var(--text); }
+  label.opt { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  label.opt input[type=number], label.opt select { background: var(--panel); color: var(--text);
+    border: 1px solid #3a3a4a; padding: 4px; border-radius: 4px; }
+  label.opt input[type=number] { width: 60px; }
+  #status { margin: 20px 0; padding: 12px; background: var(--panel); border-radius: 6px;
+    color: var(--muted); min-height: 20px; font-size: 14px; }
+  #status.error { color: #ff7070; border-left: 3px solid #ff5050; }
+  #log { margin-top: 12px; padding: 10px; background: #1a1a24; border-radius: 6px;
+    font-family: Consolas, monospace; font-size: 11px; color: #8aa;
+    max-height: 240px; overflow-y: auto; display: none; white-space: pre-wrap; }
+  #log.visible { display: block; }
+  .pip { display: inline-block; width: 18px; height: 18px; border-radius: 50%;
+    text-align: center; line-height: 18px; font-weight: bold; margin: 0 1px; font-size: 11px; }
+  .pip-W { background: #f8e7b9; color: #444; }
+  .pip-U { background: #b3ceea; color: #1a3a5a; }
+  .pip-B { background: #444; color: #ddd; }
+  .pip-R { background: #eb9f82; color: #5a2a1a; }
+  .pip-G { background: #a3c095; color: #1a4a1a; }
+  .pip-C { background: #999; color: #fff; }
+  .commander-card { background: var(--panel); border-radius: 10px; padding: 16px;
+    margin: 14px 0; display: flex; gap: 18px; border: 1px solid #3a3a4a; }
+  .commander-card.top-pick { border: 2px solid var(--gold);
+    background: linear-gradient(135deg, #2a2535, #252535);
+    box-shadow: 0 0 20px rgba(255,215,0,0.2); }
+  .commander-card.failed { opacity: 0.55; border-style: dashed; }
+  .commander-card img { width: 220px; height: auto; border-radius: 10px; flex-shrink: 0; }
+  .info { flex: 1; }
+  .info h3 { margin: 0 0 4px; color: var(--accent-bright); font-size: 22px; }
+  .info .type { color: var(--muted); font-style: italic; margin: 4px 0 10px; }
+  .info .oracle { font-size: 13px; line-height: 1.5; margin-bottom: 12px; white-space: pre-wrap; }
+  .metrics { display: flex; flex-wrap: wrap; gap: 10px; margin: 10px 0; }
+  .metric { background: rgba(255,255,255,0.05); padding: 6px 10px; border-radius: 4px; font-size: 13px; }
+  .metric strong { color: var(--accent-bright); }
+  .top-badge { display: inline-block; background: var(--gold); color: #1a1a24;
+    padding: 2px 10px; border-radius: 4px; font-size: 12px; font-weight: 700;
+    margin-left: 8px; vertical-align: middle; }
+  details { margin-top: 8px; cursor: pointer; }
+  summary { color: var(--accent); font-size: 13px; }
+  details ul { margin: 8px 0; padding-left: 20px; font-size: 13px; }
+  .err-msg { color: #ff8080; font-size: 13px; }
+  .warn-banner { background: #4a3a1a; color: #ffd56b; padding: 10px; border-radius: 6px;
+    margin: 10px 0; font-size: 13px; border-left: 3px solid var(--accent); }
+  .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #333;
+    color: var(--muted); font-size: 12px; text-align: center; }
+  .footer a { color: var(--accent); }
+  @media (max-width: 700px) {
+    .commander-card { flex-direction: column; }
+    .commander-card img { width: 100%; max-width: 300px; }
+  }
+</style>
+</head>
+<body>
+  <h1>⚔️ MTG Commander Recommender</h1>
+  <p class="subtitle">Paste a Commander decklist and discover which legendary creatures best fit your card choices.
+    Powered by <a href="https://recommander.cards/" style="color:var(--accent)">Recommander</a> and
+    <a href="https://scryfall.com/" style="color:var(--accent)">Scryfall</a>.</p>
+
+  <div class="warn-banner">
+    ⚠️ <strong>Note:</strong> The Recommander API doesn't permit direct browser requests (no CORS headers).
+    This page automatically routes through a public CORS proxy. If that fails too, try the
+    <strong>local proxy</strong> option below (see instructions at bottom).
+  </div>
+
+  <div class="input-area">
+    <textarea id="decklist" placeholder="Paste your decklist here (Moxfield, Archidekt, MTGO formats supported)..."></textarea>
+    <div class="controls">
+      <button id="analyzeBtn" onclick="analyze()">🔮 Recommend Commanders</button>
+      <button class="secondary" onclick="loadExample()">Load Example Deck</button>
+      <label class="opt">Candidates: <input id="candidateCount" type="number" value="6" min="3" max="20"></label>
+      <label class="opt">Proxy:
+        <select id="proxyChoice">
+          <option value="auto">Auto (try each)</option>
+          <option value="corsproxy">corsproxy.io</option>
+          <option value="corsfix">proxy.corsfix.com</option>
+          <option value="corslol">api.cors.lol</option>
+          <option value="corsanywhere">cors-anywhere.com</option>
+          <option value="local">Local (http://localhost:8787)</option>
+          <option value="direct">Direct (no proxy)</option>
+        </select>
+      </label>
+      <label class="opt"><input id="showLog" type="checkbox" checked
+        onchange="document.getElementById('log').classList.toggle('visible',this.checked)"> Show debug log</label>
+    </div>
+  </div>
+
+  <div id="status"></div>
+  <div id="log" class="visible"></div>
+  <div id="results"></div>
+
+  <details style="margin-top: 24px; background: var(--panel); padding: 12px; border-radius: 6px;">
+    <summary style="color: var(--accent-bright); font-size: 15px;">🔧 Setting up a local proxy (most reliable)</summary>
+    <p style="font-size: 13px; line-height: 1.6;">If all public proxies fail or get rate-limited, run this tiny Node.js proxy on your machine:</p>
+    <pre style="background:#1a1a24;padding:12px;border-radius:4px;overflow-x:auto;font-size:12px;">// Save as proxy.js, then run:  node proxy.js
+const http = require('http');
+const https = require('https');
+http.createServer((req, res) =&gt; {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') { res.writeHead(204); return res.end(); }
+  let body = ''; req.on('data', c =&gt; body += c);
+  req.on('end', () =&gt; {
+    const proxyReq = https.request({
+      hostname: 'api.recommander.cards',
+      path: '/public-release/api/decks/recommend/top',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json',
+                 'User-Agent': 'CommanderRecommenderProxy/1.0',
+                 'Accept': 'application/json' }
+    }, pr =&gt; {
+      res.writeHead(pr.statusCode, { 'Content-Type': 'application/json' });
+      pr.pipe(res);
+    });
+    proxyReq.on('error', e =&gt; { res.writeHead(502); res.end(e.message); });
+    proxyReq.write(body); proxyReq.end();
+  });
+}).listen(8787, () =&gt; console.log('Proxy on http://localhost:8787'));</pre>
+    <p style="font-size: 13px;">Then select <strong>Local</strong> in the Proxy dropdown above.</p>
+  </details>
+
+  <div class="footer">Recommendations from Recommander · Card data &amp; images from Scryfall ·
+    Magic: The Gathering © Wizards of the Coast</div>
+
+<script>
+const SCRYFALL = 'https://api.scryfall.com';
+const RECOMMANDER_DIRECT = 'https://api.recommander.cards/public-release/api/decks/recommend/top';
+
+// All proxies — each takes the encoded target URL
+const PROXIES = {
+  direct: () => RECOMMANDER_DIRECT,
+  corsproxy: () => 'https://corsproxy.io/?url=' + encodeURIComponent(RECOMMANDER_DIRECT),
+  corsfix: () => 'https://proxy.corsfix.com/?' + RECOMMANDER_DIRECT,
+  corslol: () => 'https://api.cors.lol/?url=' + encodeURIComponent(RECOMMANDER_DIRECT),
+  corsanywhere: () => 'https://cors-anywhere.com/' + RECOMMANDER_DIRECT,
+  local: () => 'http://localhost:8787/',
+};
+const PROXY_ORDER = ['corsproxy', 'corsfix', 'corslol', 'corsanywhere'];
+
+let activeProxy = null;  // Will be set after first successful test
+
+function log(...args) {
+  const el = document.getElementById('log');
+  const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+  el.textContent += `[${new Date().toLocaleTimeString()}] ${msg}\n`;
+  el.scrollTop = el.scrollHeight;
+  console.log(...args);
+}
+
+// ---------- Decklist Parsing ----------
+function parseDecklist(text) {
+  const lines = text.split('\n');
+  const names = [];
+  const seen = new Set();
+  for (let raw of lines) {
+    let line = raw.trim();
+    if (!line) continue;
+    if (/^(\/\/|#)/.test(line)) continue;
+    if (/^(deck|sideboard|commander|maybeboard|companion|lands|creatures|spells|artifacts|enchantments|planeswalkers|instants|sorceries)\s*:?\s*$/i.test(line)) continue;
+    line = line.replace(/^(SB|CMDR):\s*/i, '');
+    const m = line.match(/^(?:(\d+)x?\s+)?(.+?)(?:\s+\([A-Za-z0-9]{2,6}\)(?:\s+\S+)?)?(?:\s+\*[^*]+\*)?\s*$/);
+    if (!m) continue;
+    let name = m[2].trim();
+    if (!name || /^\d+$/.test(name)) continue;
+    const lookupName = name.split(' // ')[0].trim();
+    const key = lookupName.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    names.push(lookupName);
+  }
+  return names;
+}
+
+// ---------- Scryfall ----------
+async function fetchCardData(names, onProgress) {
+  const results = {};
+  const notFound = [];
+  for (let i = 0; i < names.length; i += 75) {
+    const batch = names.slice(i, i + 75);
+    onProgress?.(`Fetching card data: ${Math.min(i + 75, names.length)} / ${names.length}`);
+    const resp = await fetch(`${SCRYFALL}/cards/collection`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ identifiers: batch.map(n => ({ name: n })) })
+    });
+    if (!resp.ok) throw new Error(`Scryfall failed: ${resp.status}`);
+    const data = await resp.json();
+    for (const card of (data.data || [])) {
+      results[card.name.toLowerCase()] = card;
+      if (card.card_faces) for (const f of card.card_faces)
+        if (f.name) results[f.name.toLowerCase()] = card;
+    }
+    if (data.not_found) for (const nf of data.not_found) notFound.push(nf.name);
+    if (i + 75 < names.length) await new Promise(r => setTimeout(r, 200));
+  }
+  return { results, notFound };
+}
+
+function computeColorIdentity(cardData) {
+  const id = new Set();
+  const unique = new Map();
+  for (const card of Object.values(cardData)) unique.set(card.id, card);
+  for (const card of unique.values())
+    for (const c of (card.color_identity || [])) id.add(c);
+  return ['W','U','B','R','G'].filter(c => id.has(c));
+}
+
+function colorPips(colors) {
+  if (!colors || !colors.length) return '<span class="pip pip-C">C</span>';
+  return colors.map(c => `<span class="pip pip-${c}">${c}</span>`).join('');
+}
+
+async function findCandidateCommanders(colorIdentity, n) {
+  const colorStr = colorIdentity.length ? colorIdentity.join('') : 'C';
+  const q = `is:commander legal:commander id<=${colorStr} -is:digital`;
+  log('Scryfall query:', q);
+  const resp = await fetch(`${SCRYFALL}/cards/search?q=${encodeURIComponent(q)}&order=edhrec&unique=cards`,
+    { headers: { 'Accept': 'application/json' } });
+  if (!resp.ok) throw new Error(`Commander search failed: ${resp.status}`);
+  const data = await resp.json();
+  log(`Found ${data.total_cards || 0} candidates; using top ${n}`);
+  return (data.data || []).slice(0, n);
+}
+
+// ---------- Try a single proxy ----------
+async function tryRecommanderViaProxy(proxyKey, commander, deck) {
+  const url = PROXIES[proxyKey]();
+  let resp;
+  try {
+    resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        card_format: 'name', commander, partner: null, deck
+      })
+    });
+  } catch (e) {
+    return { ok: false, error: `network: ${e.message}`, proxyKey };
+  }
+  if (!resp.ok) return { ok: false, error: `HTTP ${resp.status}`, proxyKey };
+  let json;
+  try { json = await resp.json(); }
+  catch (e) { return { ok: false, error: 'invalid JSON response', proxyKey }; }
+  return { ok: true, json, proxyKey };
+}
+
+// ---------- Pick a working proxy by testing once ----------
+async function selectWorkingProxy(testCommander, testDeck) {
+  const choice = document.getElementById('proxyChoice').value;
+  const tryOrder = choice === 'auto' ? PROXY_ORDER : [choice];
+  for (const key of tryOrder) {
+    log(`Probing proxy: ${key} ...`);
+    const result = await tryRecommanderViaProxy(key, testCommander, testDeck);
+    if (result.ok) {
+      // Even error responses from the API (like error_invalid_deck) count as "proxy works"
+      log(`✓ ${key} reachable. Sample response: ${result.json.result_code}`);
+      return key;
+    }
+    log(`✗ ${key} failed: ${result.error}`);
+  }
+  return null;
+}
+
+async function getRecommendations(commander, deck, attempt = 1) {
+  const result = await tryRecommanderViaProxy(activeProxy, commander, deck);
+  if (!result.ok) return { ok: false, error: result.error };
+  const json = result.json;
+  if ((json.result_code === 'error_booting' || json.result_code === 'error_model_loading' ||
+       json.result_code === 'error_rate_limited') && attempt < 3) {
+    log(`${commander}: ${json.result_code}, waiting 4s and retrying...`);
+    await new Promise(r => setTimeout(r, 4000));
+    return getRecommendations(commander, deck, attempt + 1);
+  }
+  return { ok: true, json };
+}
+
+// ---------- Main ----------
+async function analyze() {
+  const btn = document.getElementById('analyzeBtn');
+  const status = document.getElementById('status');
+  const results = document.getElementById('results');
+  document.getElementById('log').textContent = '';
+  results.innerHTML = '';
+  status.classList.remove('error');
+  btn.disabled = true;
+
+  try {
+    const text = document.getElementById('decklist').value;
+    const numCandidates = Math.min(20, Math.max(3, parseInt(document.getElementById('candidateCount').value) || 6));
+
+    status.textContent = 'Parsing decklist...';
+    const names = parseDecklist(text);
+    if (!names.length) throw new Error('No cards detected in decklist.');
+    log(`Parsed ${names.length} unique card names`);
+
+    status.textContent = `Detected ${names.length} cards. Fetching card data from Scryfall...`;
+    const { results: cardData, notFound } = await fetchCardData(names, m => status.textContent = m);
+    log(`Scryfall recognized ${Object.keys(cardData).length} entries, ${notFound.length} not found`);
+    if (notFound.length) log('Not found:', notFound.slice(0, 8).join(', '));
+
+    const colorIdentity = computeColorIdentity(cardData);
+    const deckCanonical = Array.from(new Set(Object.values(cardData).map(c => c.name)));
+    log(`Color identity: ${colorIdentity.join('') || 'C'}; deck size: ${deckCanonical.length}`);
+
+    status.innerHTML = `Color identity: ${colorPips(colorIdentity)} &middot;
+      ${deckCanonical.length} cards recognized. Finding candidate commanders...`;
+    const candidates = await findCandidateCommanders(colorIdentity, numCandidates);
+    if (!candidates.length) throw new Error('No commanders found matching color identity.');
+
+    // Test which proxy works using the first candidate as a probe
+    status.innerHTML = `Probing API proxies (the Recommander API doesn't allow direct browser access)...`;
+    activeProxy = await selectWorkingProxy(candidates[0].name, deckCanonical);
+    if (!activeProxy) {
+      throw new Error(
+        'All proxies failed. The Recommander API is not reachable from your browser. ' +
+        'Please set up the local proxy (instructions at bottom of page) and select "Local" in the Proxy dropdown.'
+      );
+    }
+    log(`Using proxy: ${activeProxy}`);
+
+    const deckNamesLower = new Set(deckCanonical.map(n => n.toLowerCase()));
+    const evaluations = [];
+
+    for (let i = 0; i < candidates.length; i++) {
+      const cmd = candidates[i];
+      const okCount = evaluations.filter(e => e.success).length;
+      const failCount = evaluations.length - okCount;
+      status.innerHTML = `Evaluating ${i + 1}/${candidates.length} via <code>${activeProxy}</code>: ` +
+        `<em>${escapeHtml(cmd.name)}</em>... (${okCount} ok, ${failCount} failed)`;
+      const filteredDeck = deckCanonical.filter(n => n.toLowerCase() !== cmd.name.toLowerCase());
+      const result = await getRecommendations(cmd.name, filteredDeck);
+
+      if (!result.ok) {
+        log(`✗ ${cmd.name}: ${result.error}`);
+        evaluations.push({ commander: cmd, success: false, error: result.error,
+          avgScore: 0, topScore: 0, recCount: 0, recommendations: [],
+          inDeck: deckNamesLower.has(cmd.name.toLowerCase()) });
+      } else {
+        const json = result.json;
+        if (json.result_code === 'success' && json.data?.recommendations) {
+          const recs = json.data.recommendations;
+          const avgScore = recs.length ? recs.reduce((s, r) => s + r.score, 0) / recs.length : 0;
+          const topScore = recs.length ? Math.max(...recs.map(r => r.score)) : 0;
+          log(`✓ ${cmd.name}: ${recs.length} recs, avg ${avgScore.toFixed(3)}, top ${topScore.toFixed(3)}`);
+          evaluations.push({
+            commander: cmd, success: true, recCount: recs.length,
+            avgScore, topScore, recommendations: recs.slice(0, 8),
+            inDeck: deckNamesLower.has(cmd.name.toLowerCase())
+          });
+        } else {
+          const errMsg = json.error?.messages?.join('; ') || json.result_code;
+          log(`✗ ${cmd.name}: API ${json.result_code} — ${errMsg}`);
+          evaluations.push({
+            commander: cmd, success: false, error: errMsg,
+            avgScore: 0, topScore: 0, recCount: 0, recommendations: [],
+            inDeck: deckNamesLower.has(cmd.name.toLowerCase())
+          });
+        }
+      }
+      await new Promise(r => setTimeout(r, 350));
+    }
+
+    const successCount = evaluations.filter(e => e.success).length;
+    if (successCount === 0) {
+      throw new Error(`All ${evaluations.length} Recommander calls failed. Check the debug log.`);
+    }
+
+    evaluations.sort((a, b) => {
+      if (a.success !== b.success) return a.success ? -1 : 1;
+      const composite = ev => ev.avgScore * 0.5 + ev.topScore * 0.3 + Math.min(ev.recCount, 20) / 20 * 0.2;
+      return composite(b) - composite(a);
+    });
+
+    status.innerHTML = `<strong>Done!</strong> Color identity: ${colorPips(colorIdentity)} &middot;
+      ${successCount}/${evaluations.length} commanders evaluated successfully via <code>${activeProxy}</code>. ⬇`;
+    renderResults(evaluations);
+
+  } catch (err) {
+    status.classList.add('error');
+    status.innerHTML = `<strong>Error:</strong> ${escapeHtml(err.message)}`;
+    log('FATAL:', err.message);
+    console.error(err);
+    document.getElementById('log').classList.add('visible');
+    document.getElementById('showLog').checked = true;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderResults(evaluations) {
+  const div = document.getElementById('results');
+  let html = '<h2>🏆 Recommended Commanders</h2>';
+  let topShown = false;
+  evaluations.forEach((ev, i) => {
+    const c = ev.commander;
+    const img = c.image_uris?.normal
+      || c.card_faces?.[0]?.image_uris?.normal
+      || 'https://errors.scryfall.com/missing.jpg';
+    const oracle = c.oracle_text
+      || c.card_faces?.map(f => f.oracle_text).filter(Boolean).join('\n//\n') || '';
+    const isTop = ev.success && !topShown;
+    if (isTop) topShown = true;
+    html += `
+      <div class="commander-card ${isTop ? 'top-pick' : ''} ${!ev.success ? 'failed' : ''}">
+        <img src="${img}" alt="${escapeHtml(c.name)}" loading="lazy">
+        <div class="info">
+          <h3>#${i + 1} &middot; ${escapeHtml(c.name)}
+            ${isTop ? '<span class="top-badge">★ BEST MATCH</span>' : ''}
+            ${ev.inDeck ? '<span class="top-badge" style="background:#5a9">IN DECK</span>' : ''}
+            ${!ev.success ? '<span class="top-badge" style="background:#a55">FAILED</span>' : ''}
+          </h3>
+          <p class="type">${escapeHtml(c.type_line)} &middot; ${colorPips(c.color_identity)}</p>
+          <div class="oracle">${escapeHtml(oracle)}</div>
+          ${ev.success ? `
+            <div class="metrics">
+              <div class="metric"><strong>Avg Rec Score:</strong> ${ev.avgScore.toFixed(3)}</div>
+              <div class="metric"><strong>Top Rec Score:</strong> ${ev.topScore.toFixed(3)}</div>
+              <div class="metric"><strong>Recs Returned:</strong> ${ev.recCount}</div>
+              <div class="metric"><strong>EDHREC Rank:</strong> ${c.edhrec_rank ?? 'N/A'}</div>
+            </div>
+            ${ev.recommendations.length ? `
+              <details>
+                <summary>Top cards Recommander would add for this commander</summary>
+                <ul>${ev.recommendations.map(r =>
+                  `<li><strong>${escapeHtml(r.name)}</strong> — score ${r.score.toFixed(3)}</li>`
+                ).join('')}</ul>
+              </details>` : '<p class="err-msg">No recommendations met the model\'s confidence threshold.</p>'}
+          ` : `<p class="err-msg">⚠️ Could not evaluate: ${escapeHtml(ev.error || 'unknown')}</p>`}
+        </div>
+      </div>`;
+  });
+  div.innerHTML = html;
+}
+
+function escapeHtml(s) {
+  return String(s ?? '').replace(/[&<>"']/g, c =>
+    ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+function loadExample() {
+  document.getElementById('decklist').value = `1 Arbor Elf
+1 Beast Within
+1 Cultivate
+1 Eidolon of Blossoms
+1 Heliod's Pilgrim
+1 Jukai Naturalist
+1 Kor Spiritdancer
+1 Mesa Enchantress
+1 Sanctum Weaver
+1 Sythis, Harvest's Hand
+1 Utopia Sprawl
+1 Argothian Enchantress
+1 Setessan Champion
+1 Sigil of the Empty Throne
+1 Sterling Grove
+1 Verduran Enchantress
+1 Karametra's Acolyte
+1 Destiny Spinner
+1 Smothering Tithe
+1 Enlightened Tutor`;
+}
+</script>
+</body>
+</html>

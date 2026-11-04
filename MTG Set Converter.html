@@ -1,0 +1,1696 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MSE → Forge card compiler</title>
+<style>
+  :root{--bg:#15171c;--panel:#1e2128;--line:#333844;--fg:#e6e8ee;--acc:#7aa2f7;--warn:#e0af68;--err:#f7768e;--ok:#9ece6a;--mid:#bb9af7}
+  *{box-sizing:border-box}
+  body{margin:0;padding:24px;background:var(--bg);color:var(--fg);font:14px/1.5 system-ui,Segoe UI,sans-serif}
+  .wrap{max-width:1180px;margin:0 auto}
+  h1{font-size:20px;margin:0 0 4px}.sub{color:#9aa1b1;margin-bottom:16px}
+  fieldset{border:1px solid var(--line);border-radius:8px;background:var(--panel);margin:0 0 14px;padding:12px 14px}
+  legend{padding:0 6px;color:var(--acc);font-weight:600}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 16px}
+  label{display:block;font-size:12px;color:#9aa1b1;margin-bottom:3px}
+  input[type=text],select,textarea{width:100%;padding:6px 8px;background:#12141a;color:var(--fg);border:1px solid var(--line);border-radius:5px;font:inherit}
+  textarea{font-family:ui-monospace,Consolas,monospace;font-size:12px}
+  .chk{display:flex;align-items:center;gap:7px;margin:5px 0;font-size:13px}
+  .chk input{width:16px;height:16px;accent-color:var(--acc)}
+  button{padding:8px 16px;border-radius:6px;border:1px solid var(--line);background:#262b36;color:var(--fg);font:inherit;font-weight:600;cursor:pointer}
+  button.primary{background:var(--acc);color:#0b1020;border-color:var(--acc)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0}
+  #drop{border:2px dashed var(--line);border-radius:10px;padding:26px;text-align:center;color:#9aa1b1;cursor:pointer;background:#191c23}
+  #drop.hot{border-color:var(--acc);color:var(--fg);background:#1d2431}
+  #pick{display:inline-block;margin-top:10px;padding:8px 16px;border-radius:6px;background:var(--acc);color:#0b1020;font-weight:700;font-size:13px;cursor:pointer}
+  #pick:hover{filter:brightness(1.1)}
+  #log{height:210px;overflow:auto;background:#0f1116;border:1px solid var(--line);border-radius:6px;padding:8px;font:12px/1.45 ui-monospace,Consolas,monospace;white-space:pre-wrap}
+  .w{color:var(--warn)}.e{color:var(--err)}.o{color:var(--ok)}.d{color:#6d7385}.m{color:var(--mid)}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{text-align:left;padding:5px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:#9aa1b1;font-size:12px;position:sticky;top:0;background:var(--panel)}
+  tbody tr:hover{background:#232733;cursor:pointer}
+  .tag{display:inline-block;padding:1px 7px;border-radius:99px;font-size:11px;font-weight:700}
+  .t-full{background:#2a3b22;color:var(--ok)}.t-part{background:#3d3520;color:var(--warn)}
+  .t-none{background:#3d2229;color:var(--err)}.t-tok{background:#22323d;color:#7dcfff}
+  .scroll{max-height:340px;overflow:auto}
+  code{background:#12141a;padding:1px 4px;border-radius:3px}
+  .stat{display:flex;gap:18px;flex-wrap:wrap;margin:6px 0;font-size:13px}
+  summary{cursor:pointer;color:var(--acc);font-size:13px}
+</style>
+</head>
+<body><div class="wrap">
+<h1>Magic Set Editor&nbsp;→&nbsp;Forge</h1>
+<div class="sub">Compiles a <code>.mse-set</code> into Forge card scripts, an edition file, and token scripts. Everything runs locally.</div>
+
+<fieldset>
+  <legend>1 · Input</legend>
+  <input type="file" id="file" style="position:absolute;left:-9999px;opacity:0;width:1px;height:1px">
+  <div id="drop">
+    Drop a <b>.mse-set</b> file here (or a plain MSE <b>set</b> text file)<br>
+    <label for="pick-proxy" id="pick">Choose file…</label>
+  </div>
+  <div id="fileinfo" class="d" style="margin-top:8px">No file loaded.</div>
+  <details style="margin-top:10px">
+    <summary>Fallback — paste the MSE <code>set</code> text instead</summary>
+    <p class="d" style="font-size:12px;margin:6px 0">Open the .mse-set with 7-Zip (or rename it to <code>.zip</code>), open the file named <code>set</code> — no extension — in <b>Notepad</b>, and paste all of it here.</p>
+    <textarea id="paste" rows="6" spellcheck="false" placeholder="mse version: 0.3.8&#10;game: magic&#10;card:&#10;&#9;name: …"></textarea>
+    <div class="row"><button id="loadpaste">Load pasted text</button></div>
+  </details>
+</fieldset>
+
+<fieldset>
+  <legend>2 · Edition</legend>
+  <div class="grid">
+    <div><label>Set name</label><input type="text" id="setname" placeholder="My Custom Set"></div>
+    <div><label>Set code (folder name, no spaces)</label><input type="text" id="setcode" placeholder="MYSET"></div>
+    <div><label>Release date (YYYY-MM-DD)</label><input type="text" id="setdate" value=""></div>
+    <div><label>Default artist (used when MSE has none)</label><input type="text" id="artist" value=""></div>
+  </div>
+  <div class="chk"><input type="checkbox" id="incartist" checked><span>Write <code>@Artist</code> into edition entries</span></div>
+  <div class="chk"><input type="checkbox" id="suffix"><span>Append set tag to every card name (e.g. <code>Bolt (MYSET)</code>) to avoid clashes with real cards</span></div>
+</fieldset>
+
+<fieldset>
+  <legend>3 · Compilation</legend>
+  <div class="grid">
+    <div><label>Unrecognized rules text</label>
+      <select id="unres">
+        <option value="todo" selected>#TODO comment + Text: field (card loads, shows text, does nothing)</option>
+        <option value="comment">#TODO comment only (card loads as vanilla)</option>
+        <option value="skip">Skip the card entirely</option>
+      </select></div>
+    <div><label>Two-face mode when undetectable</label>
+      <select id="dfc"><option value="Transform" selected>Transform</option><option value="Modal">Modal</option><option value="Split">Split</option><option value="Adventure">Adventure</option><option value="Flip">Flip</option></select></div>
+    <div><label>Hand-drawn token cards in the set</label>
+      <select id="tokmode">
+        <option value="tokens" selected>Route to custom/tokens/ (keep out of [cards])</option>
+        <option value="cards">Treat as normal cards</option>
+        <option value="drop">Discard entirely</option>
+      </select></div>
+  </div>
+  <div class="grid">
+    <div><label>Card script subfolders</label>
+      <select id="folders"><option value="letter" selected>By first letter (a/, b/, …) like Forge</option><option value="flat">All in one folder</option></select></div>
+  </div>
+  <div class="chk"><input type="checkbox" id="numbered" checked><span>Read numbered ability fields — <code>level_1_text</code>, <code>loyalty cost 1</code>, <code>special_text</code> (spaces or underscores) — required for planeswalkers &amp; levelers</span></div>
+  <div class="chk"><input type="checkbox" id="secondface" checked><span>Read in-block second faces from <code>" 2"</code>-suffixed fields — how MSE stores DFCs</span></div>
+  <div class="chk"><input type="checkbox" id="dotokens" checked><span>Generate token scripts from “create a … token” text, including abilities granted with <code>It has "…"</code></span></div>
+  <div class="chk"><input type="checkbox" id="dotypes" checked><span>Declare non-standard subtypes in the edition file (<code>[CreatureTypes]</code> etc.)</span></div>
+  <div class="chk"><input type="checkbox" id="doart" checked><span>Include MSE art crops in an <code>art/</code> folder (reference only)</span></div>
+  <div class="chk"><input type="checkbox" id="basicmana"><span>Emit explicit mana abilities on basic lands</span></div>
+  <div class="chk"><input type="checkbox" id="stubback" checked><span>Auto-generate a stub back face only if a card says “Transform CARDNAME” and no real back face was found</span></div>
+  <div class="chk"><input type="checkbox" id="partialchain"><span><b>Risky:</b> emit abilities whose later sentences failed (the missing clause is simply absent — can create broken/OP cards)</span></div>
+  <details style="margin-top:8px"><summary>Manual face pairs — only for faces stored as <i>separate</i> card blocks</summary>
+    <p class="d" style="font-size:12px;margin:6px 0">One per line, <code>Front Name =&gt; Back Name</code>; <code>-&gt;</code> and <code>//</code> also work. Leave empty if your DFCs use in-block <code>" 2"</code> fields.</p>
+    <textarea id="pairs" rows="3" spellcheck="false" placeholder="(usually empty)"></textarea>
+  </details>
+  <details style="margin-top:8px"><summary>Force token / force card — one name per line</summary>
+    <p class="d" style="font-size:12px;margin:6px 0">Overrides auto-detection. Prefix with <code>!</code> to force a name to stay a normal card.</p>
+    <textarea id="forcetok" rows="3" spellcheck="false" placeholder="Djinn&#10;Elf&#10;!Vanguard Djinn"></textarea>
+  </details>
+  <details style="margin-top:8px"><summary>Extra user rules (JSON) — applied before the built-ins</summary>
+    <textarea id="userrules" rows="6" spellcheck="false" placeholder='[
+  {"match":"^Regenerate$","flags":"i","emit":["A:AB$ Regenerate | Cost$ B | Defined$ Self | SpellDescription$ Regenerate CARDNAME."]}
+]'></textarea>
+  </details>
+</fieldset>
+
+<div class="row">
+  <button id="inspect">Inspect fields</button>
+  <button id="names">List card names</button>
+  <button class="primary" id="go" disabled>Compile</button>
+  <button id="dl" disabled>Download package (.zip)</button>
+</div>
+<div id="log" class="d">Waiting for a file.</div>
+<div class="stat" id="stat"></div>
+
+<fieldset>
+  <legend>Results — click a row to inspect the generated script</legend>
+  <div class="row" style="margin:0 0 8px">
+    <label style="margin:0"><input type="checkbox" id="onlyprob" style="width:14px;height:14px"> show only partial/unscripted</label>
+  </div>
+  <div class="scroll"><table><thead><tr><th style="width:26%">Card</th><th style="width:12%">Status</th><th>Unresolved lines</th></tr></thead><tbody id="rows"></tbody></table></div>
+  <label style="margin-top:10px">Selected script</label>
+  <textarea id="prev" rows="18" spellcheck="false" readonly></textarea>
+</fieldset>
+</div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const ENC = new TextEncoder(), DEC = new TextDecoder("utf-8");
+const logEl = $("#log");
+function log(m,c){const s=document.createElement("span");if(c)s.className=c;s.textContent=m+"\n";logEl.appendChild(s);logEl.scrollTop=logEl.scrollHeight;}
+function clearLog(){logEl.textContent="";}
+window.addEventListener("error",e=>log("UNCAUGHT: "+e.message+"  (line "+e.lineno+")","e"));
+window.addEventListener("unhandledrejection",e=>log("UNCAUGHT PROMISE: "+((e.reason&&e.reason.message)||e.reason),"e"));
+
+/* ═══════════════════════════════════════════ ZIP write ═════════════════════ */
+const CRC=new Uint32Array(256);
+for(let i=0;i<256;i++){let c=i;for(let k=0;k<8;k++)c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1);CRC[i]=c>>>0;}
+function crc32(u){let c=0xFFFFFFFF;for(let i=0;i<u.length;i++)c=CRC[(c^u[i])&0xFF]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+function makeZip(entries){
+  const d=new Date(), time=(d.getHours()<<11)|(d.getMinutes()<<5)|(d.getSeconds()>>1);
+  const date=((d.getFullYear()-1980)<<9)|((d.getMonth()+1)<<5)|d.getDate();
+  const parts=[],cen=[];let off=0;
+  for(const e of entries){
+    const nm=ENC.encode(e.name),cr=crc32(e.data),ln=e.data.length;
+    const lh=new Uint8Array(30+nm.length),v=new DataView(lh.buffer);
+    v.setUint32(0,0x04034b50,true);v.setUint16(4,20,true);v.setUint16(10,time,true);v.setUint16(12,date,true);
+    v.setUint32(14,cr,true);v.setUint32(18,ln,true);v.setUint32(22,ln,true);v.setUint16(26,nm.length,true);
+    lh.set(nm,30);parts.push(lh,e.data);
+    const cd=new Uint8Array(46+nm.length),w=new DataView(cd.buffer);
+    w.setUint32(0,0x02014b50,true);w.setUint16(4,20,true);w.setUint16(6,20,true);w.setUint16(12,time,true);w.setUint16(14,date,true);
+    w.setUint32(16,cr,true);w.setUint32(20,ln,true);w.setUint32(24,ln,true);w.setUint16(28,nm.length,true);w.setUint32(42,off,true);
+    cd.set(nm,46);cen.push(cd);off+=lh.length+ln;
+  }
+  let cs=0;for(const c of cen)cs+=c.length;
+  const e=new Uint8Array(22),ev=new DataView(e.buffer);
+  ev.setUint32(0,0x06054b50,true);ev.setUint16(8,entries.length,true);ev.setUint16(10,entries.length,true);
+  ev.setUint32(12,cs,true);ev.setUint32(16,off,true);
+  return new Blob([...parts,...cen,e],{type:"application/zip"});
+}
+
+/* ═══════════════════════════════════════════ ZIP read ══════════════════════ */
+async function unzip(buf){
+  const u8=new Uint8Array(buf), dv=new DataView(buf);
+  try{ return await viaCentral(u8,dv); }
+  catch(err){
+    log("Central directory unreadable ("+err.message+") — scanning local headers…","w");
+    return await viaScan(u8,dv);
+  }
+  async function viaCentral(u8,dv){
+    let eo=-1;
+    for(let i=u8.length-22;i>=0;i--) if(dv.getUint32(i,true)===0x06054b50){eo=i;break;}
+    if(eo<0) throw new Error("no end-of-central-directory record");
+    if(dv.getUint16(eo+4,true)!==0||dv.getUint16(eo+6,true)!==0) throw new Error("multi-part archive");
+    const n=dv.getUint16(eo+10,true); let p=dv.getUint32(eo+16,true);
+    if(n===0) throw new Error("archive reports 0 entries");
+    const out=[];
+    for(let i=0;i<n;i++){
+      if(dv.getUint32(p,true)!==0x02014b50) throw new Error("bad signature at entry "+i);
+      const method=dv.getUint16(p+10,true), csz=dv.getUint32(p+20,true);
+      const nl=dv.getUint16(p+28,true), el=dv.getUint16(p+30,true), cl=dv.getUint16(p+32,true);
+      const lho=dv.getUint32(p+42,true);
+      const name=DEC.decode(u8.subarray(p+46,p+46+nl));
+      const lnl=dv.getUint16(lho+26,true), lel=dv.getUint16(lho+28,true);
+      const ds=lho+30+lnl+lel;
+      out.push({name,data:await expand(u8.subarray(ds,ds+csz),method,name)});
+      p+=46+nl+el+cl;
+    }
+    return out;
+  }
+  async function viaScan(u8,dv){
+    const out=[];
+    for(let i=0;i+30<u8.length;i++){
+      if(dv.getUint32(i,true)!==0x04034b50) continue;
+      const flags=dv.getUint16(i+6,true), method=dv.getUint16(i+8,true);
+      let csz=dv.getUint32(i+18,true);
+      const nl=dv.getUint16(i+26,true), el=dv.getUint16(i+28,true);
+      if(nl===0||nl>512) continue;
+      const name=DEC.decode(u8.subarray(i+30,i+30+nl));
+      const ds=i+30+nl+el;
+      if((flags&8)&&!csz){
+        let j=ds;
+        while(j+4<u8.length){
+          const s=dv.getUint32(j,true);
+          if(s===0x08074b50||s===0x04034b50||s===0x02014b50) break;
+          j++;
+        }
+        csz=j-ds;
+      }
+      if(csz<=0||ds+csz>u8.length) continue;
+      try{ out.push({name,data:await expand(u8.subarray(ds,ds+csz),method,name)}); }
+      catch(e){ log("  entry '"+name+"' unreadable: "+e.message,"w"); }
+      i=ds+csz-1;
+    }
+    if(!out.length) throw new Error("no readable entries found — the file may be corrupt or not a ZIP");
+    return out;
+  }
+  async function expand(slice,method,name){
+    if(method===0) return slice.slice();
+    if(method!==8) throw new Error("compression method "+method+" unsupported ("+name+")");
+    if(typeof DecompressionStream==="undefined")
+      throw new Error("this browser has no DecompressionStream — use the paste fallback");
+    const st=new Blob([slice]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
+    return new Uint8Array(await new Response(st).arrayBuffer());
+  }
+}
+function pickSetEntry(files){
+  let e=files.find(f=>/(^|\/)set$/i.test(f.name)); if(e) return e;
+  e=files.find(f=>/(^|\/)set\.(txt|mse-set)$/i.test(f.name)); if(e) return e;
+  for(const f of files){
+    if(f.data.length>8e6) continue;
+    const head=DEC.decode(f.data.subarray(0,300));
+    if(/mse\s*version/i.test(head)||/^\s*game:\s*magic/im.test(head)) return f;
+  }
+  return null;
+}
+function normalizeIndent(t){
+  t=t.replace(/^\uFEFF/,"").replace(/\r\n?/g,"\n");
+  if(/^\t/m.test(t)) return t;
+  const widths=[...t.matchAll(/^( +)\S/gm)].map(m=>m[1].length);
+  if(!widths.length) return t;
+  const unit=Math.min(...widths);
+  log("No tabs found; treating "+unit+" spaces as one indent level.","w");
+  return t.replace(/^( +)/gm,m=>"\t".repeat(Math.round(m.length/unit)));
+}
+
+/* ═══════════════════════════════════════════ MSE set parser ════════════════ */
+const CONTAINERS=new Set(["","card","set info","styling","version control","keyword","pack type","card list"]);
+function parseMSE(text){
+  text=text.replace(/\r\n?/g,"\n");
+  const raw=text.split("\n");
+  const root={key:"",value:"",children:[]};
+  const stack=[{node:root,depth:-1}];
+  for(let i=0;i<raw.length;i++){
+    const line=raw[i];
+    const depth=(line.match(/^\t*/)||[""])[0].length;
+    const body=line.slice(depth);
+    if(!body.trim()) continue;
+    while(stack.length>1 && depth<=stack[stack.length-1].depth) stack.pop();
+    const parent=stack[stack.length-1].node;
+    const m=body.match(/^([^:]+):[ \t]?([\s\S]*)$/);
+    if(!m || !CONTAINERS.has(parent.key)) continue;
+    const key=m[1].trim(), val=m[2];
+    const node={key,value:val,children:[]};
+    parent.children.push(node);
+    if(val===""){
+      if(CONTAINERS.has(key)){ stack.push({node,depth}); }
+      else{
+        const buf=[]; let j=i+1;
+        for(;j<raw.length;j++){
+          const d=(raw[j].match(/^\t*/)||[""])[0].length;
+          const b=raw[j].slice(d);
+          if(!b.trim()){ buf.push(""); continue; }
+          if(d<=depth) break;
+          buf.push(raw[j].slice(depth+1));
+        }
+        while(buf.length && buf[buf.length-1]==="") buf.pop();
+        node.value=buf.join("\n");
+        i=j-1;
+      }
+    }
+    if(key==="card") stack.push({node,depth});
+  }
+  return root;
+}
+function get(node,key){const c=node.children.find(x=>x.key===key);return c?c.value:"";}
+
+/* ═══════════════════════════════════════════ MSE markup → plain ═══════════ */
+const SYMRE=/^(\d+|H\/[WUBRG]|[WUBRG]\/P|[WUBRG2C]\/[WUBRG]|phi|chaos|snow|half|inf|[WUBRGCXYZSTQEP])/i;
+function mseSymbols(run){
+  let s=String(run).replace(/\s+/g,""),out=[];
+  while(s.length){
+    const m=s.match(SYMRE);
+    if(!m){out.push(s[0]);s=s.slice(1);continue;}
+    let t=m[1];
+    if(/^H\/[WUBRG]$/i.test(t)) t=t[2].toUpperCase()+"/P";
+    else if(/^phi$/i.test(t)) t="P";
+    else if(/^(chaos|snow|half|inf)$/i.test(t)) t=t.toUpperCase()==="SNOW"?"S":t.toUpperCase();
+    else if(t.length<=3) t=t.toUpperCase();
+    out.push("{"+t+"}");
+    s=s.slice(m[1].length);
+  }
+  return out.join("");
+}
+function clean(s){
+  if(!s) return "";
+  s=String(s);
+  s=s.replace(/<sym(?:-auto)?>([\s\S]*?)<\/sym(?:-auto)?>/gi,(m,i)=>mseSymbols(i));
+  s=s.replace(/<\/?[a-z][^<>]*>/gi,"");
+  s=s.replace(/&lt;/g,"<").replace(/&gt;/g,">").replace(/&amp;/g,"&");
+  s=s.replace(/\u2212/g,"-").replace(/[\u2018\u2019]/g,"'").replace(/[\u201C\u201D]/g,'"').replace(/\u2026/g,"...");
+  return s.replace(/[ \t]+$/gm,"").trim();
+}
+function forgeCost(mseCost){
+  const b=mseSymbols(clean(mseCost));
+  return [...b.matchAll(/\{([^}]+)\}/g)].map(m=>m[1]).join(" ");
+}
+function bracesToForgeCost(braces){
+  return [...String(braces).matchAll(/\{([^}]+)\}/g)].map(m=>m[1]).join(" ");
+}
+
+/* ═══════════════════════════════════════════ helpers ══════════════════════ */
+const COLORWORD={white:"white",blue:"blue",black:"black",red:"red",green:"green"};
+const COLORLET={white:"w",blue:"u",black:"b",red:"r",green:"g"};
+const NUMW={a:1,an:1,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,eight:8,nine:9,ten:10};
+function num(w){if(w==null)return null;if(/^\d+$/.test(String(w)))return String(w);const k=String(w).toLowerCase();if(k==="x")return "X";return NUMW[k]!==undefined?String(NUMW[k]):null;}
+function scriptName(name){
+  return String(name).normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/æ/gi,"ae")
+    .toLowerCase().replace(/[^a-z0-9 ]+/g," ").trim().replace(/\s+/g,"_");
+}
+function sd(t){return String(t).replace(/\|/g,",").replace(/\s+/g," ").trim();}
+function cap(s){s=String(s).trim().toLowerCase();return s.charAt(0).toUpperCase()+s.slice(1);}
+function nk(k){return String(k).toLowerCase().replace(/[^a-z0-9]/g,"");}
+function keyName(s){return String(s).toLowerCase().replace(/[^a-z0-9]/g,"");}
+function singular(w){
+  w=String(w).toLowerCase();
+  if(/ies$/.test(w)) return w.replace(/ies$/,"y");
+  if(/(ch|sh|ss|x|z)es$/.test(w)) return w.replace(/es$/,"");
+  if(/ves$/.test(w)) return w.replace(/ves$/,"f");
+  if(/s$/.test(w)&&!/ss$/.test(w)) return w.replace(/s$/,"");
+  return w;
+}
+const RARITY={"common":"C","uncommon":"U","rare":"R","mythic rare":"M","mythic":"M","special":"S","basic land":"L","land":"L","masterpiece":"S"};
+function colorsFromCost(cost){
+  const set=[];
+  for(const [w,l] of Object.entries(COLORLET)){const L=l.toUpperCase();if(new RegExp("\\b"+L+"\\b").test(String(cost).toUpperCase()))set.push(w);}
+  return set;
+}
+const STD_CREATURE=new Set(("advisor aetherborn alien ally angel antelope ape archer archon armadillo army artificer assassin assembly-worker astartes atog aurochs avatar azra badger balloon barbarian bard basilisk bat bear beast beaver beeble beholder berserker bird blinkmoth boar bringer brushwagg camarid camel capybara caribou carrier cat centaur cephalid child chimera citizen cleric cockatrice construct coward coyote crab crocodile ctan custodes cyberman cyclops dalek dauthi demigod demon deserter detective devil dinosaur djinn dog dragon drake dreadnought drone druid dryad dwarf efreet egg elder eldrazi elemental elephant elf elk employee eye faerie ferret fish flagbearer fox fractal frog fungus gamer gargoyle germ giant gith gnoll gnome goat goblin god golem gorgon graveborn gremlin griffin guest hag halfling hamster harpy hellion hippo hippogriff homarid homunculus horror horse human hydra hyena illusion imp incarnation inkling inquisitor insect jackal jellyfish juggernaut kavu kirin kithkin knight kobold kor kraken llama lamia lammasu leech leviathan lhurgoyf licid lizard manticore masticore mercenary merfolk metathran minion minotaur mite mole monger mongoose monk monkey moonfolk mount mouse mutant myr mystic naga nautilus necron nephilim nightmare nightstalker ninja noble noggle nomad nymph octopus ogre ooze orb orc orgg otter ouphe ox oyster pangolin peasant pegasus pentavite performer pest phelddagrif phoenix phyrexian pilot pincher pirate plant porcupine possum praetor primarch prism processor rabbit raccoon ranger rat rebel reflection rhino rigger robot rogue sable salamander samurai sand saproling satyr scarecrow scientist scion scorpion scout sculpture serf serpent servo shade shaman shapeshifter shark sheep siren skeleton skunk slith sliver sloth slug snail snake soldier soltari spawn specter spellshaper sphinx spider spike spirit splinter sponge squid squirrel starfish surrakar survivor synth tentacle tetravite thalakos thopter thrull tiefling time toy treefolk trilobite triskelavite troll turtle tyranid unicorn vampire varmint vedalken viashino volver wall walrus warlock warrior weasel weird werewolf whale wizard wolf wolverine wombat worm wraith wurm yeti zombie zubera").split(" "));
+const STD_OTHER=new Set(("equipment aura vehicle fortification food clue treasure blood gold incubator junk map powerstone shard bobblehead contraption saga class adventure background attraction cartouche curse rune shrine role case room lesson desert gate lair locus mine sphere tower urza's forest island mountain plains swamp cave planeswalker siege").split(" "));
+let SET_SUBTYPES=new Set(), SET_STYLE="";
+
+const BASETYPE={creature:"Creature",artifact:"Artifact",enchantment:"Enchantment",land:"Land",permanent:"Permanent",
+  planeswalker:"Planeswalker",instant:"Instant",sorcery:"Sorcery",player:"Player",opponent:"Opponent",
+  spell:"Card",token:"Permanent.token",battle:"Battle",aura:"Aura",equipment:"Equipment",card:"Card"};
+const ADJ={attacking:"attacking",blocking:"blocking",tapped:"tapped",untapped:"untapped",nonland:"nonLand",
+  legendary:"Legendary",nontoken:"nonToken",token:"token",white:"White",blue:"Blue",black:"Black",red:"Red",green:"Green",
+  colorless:"Colorless",multicolored:"MultiColor",nonwhite:"nonWhite",nonblue:"nonBlue",nonblack:"nonBlack",
+  nonred:"nonRed",nongreen:"nonGreen",nonartifact:"nonArtifact",noncreature:"nonCreature","non-land":"nonLand",
+  other:"Other",basic:"Basic",snow:"Snow",enchanted:"enchanted",equipped:"equipped",colored:"nonColorless"};
+function validFromPhrase(ph){
+  let s=String(ph).toLowerCase().replace(/\.$/,"").trim();
+  if(/^any target$/.test(s)||/^creature or player$/.test(s)) return {v:"Any",prompt:"Select any target"};
+  const alts=s.split(/,\s*or\s+|,\s*and\s+|,\s*|\s+or\s+/), outs=[];
+  for(let a of alts){
+    if(!a.trim()) continue;
+    let ctrl="";
+    a=a.replace(/\s+you control$/,()=>{ctrl="YouCtrl";return "";})
+       .replace(/\s+(?:an\s+)?opponent controls$/,()=>{ctrl="OppCtrl";return "";})
+       .replace(/\s+you don't control$/,()=>{ctrl="OppCtrl";return "";})
+       .replace(/\s+they control$/,()=>{ctrl="";return "";})
+       .replace(/\s+(?:another player|a player) controls$/,()=>{ctrl="OppCtrl";return "";});
+    a=a.replace(/^(?:target|a|an|the)\s+/,"").trim();
+    const words=a.split(/\s+/).filter(Boolean);
+    if(!words.length) return null;
+    const last=singular(words.pop());
+    let base=BASETYPE[last]||BASETYPE[last+"e"];
+    if(!base){
+      if(STD_CREATURE.has(last)||SET_SUBTYPES.has(nk(last))) base="Creature."+cap(last);
+      else if(STD_OTHER.has(last)) base="Permanent."+cap(last);
+      else return null;
+    }
+    const rest=[];
+    for(const w of words){ if(!ADJ[w]) return null; rest.push(ADJ[w]); }
+    if(ctrl) rest.push(ctrl);
+    if(!rest.length) outs.push(base);
+    else outs.push(base.includes(".")?base+"+"+rest.join("+"):base+"."+rest.join("+"));
+  }
+  if(!outs.length) return null;
+  return {v:outs.join(","),prompt:"Select "+String(ph).replace(/^target\s+/,"target ")};
+}
+
+/* ═══════════════════════════════════════════ keyword tables ═══════════════ */
+const SIMPLE=["Flying","First Strike","Double Strike","Deathtouch","Defender","Reach","Trample","Vigilance","Haste",
+"Hexproof","Indestructible","Lifelink","Menace","Prowess","Shroud","Flash","Fear","Intimidate","Wither","Infect",
+"Persist","Undying","Exalted","Battle Cry","Devoid","Changeling","Cascade","Convoke","Delve","Dethrone","Extort",
+"Ingest","Melee","Mentor","Myriad","Improvise","Riot","Skulk","Soulbond","Split second","Storm","Sunburst",
+"Totem armor","Training","Undaunted","Unleash","Banding","Horsemanship","Shadow","Phasing","Flanking","Provoke",
+"Rebound","Retrace","Epic","Evolve","Exploit","Embalm","Eternalize","Living weapon","Hideaway","Ascend","Boast",
+"Daybound","Nightbound","Decayed","Disturb","Casualty","Compleated","Blitz","Cleave","Connive","Enlist","Prototype",
+"Read ahead","Backup","Bargain","Toxic","Squad","Vanishing","For Mirrodin!","Job select","Freerunning","Plot",
+"Offspring","Gift","Impending","Max speed","Start your engines!","Warp","Umbra armor"];
+const SIMPLE_MAP=new Map(SIMPLE.map(k=>[k.toLowerCase(),k]));
+const PARAM_KW=[
+  [/^(equip|cycling|flashback|kicker|madness|evoke|dash|prowl|unearth|bestow|entwine|echo|ninjutsu|outlast|multikicker|transmute|replicate|scavenge|reinforce|overload|surge|emerge|spectacle|escape|foretell|fortify|adapt|monstrosity|awaken|embalm|eternalize|encore|blitz|disturb|miracle|morph|megamorph|transfigure|recover|forecast|aftermath|level up|ward|reconfigure|craft|freerunning)\s*[—-]?\s*((?:\{[^}]+\})+)$/i,
+    m=>[cap(m[1])+":"+bracesToForgeCost(m[2])], true],
+  [/^(annihilator|afterlife|afflict|bushido|modular|rampage|renown|toxic|soulshift|devour|dredge|fading|vanishing|graft|poisonous|amplify|bloodthirst|crew|ripple|tribute|absorb|frenzy|squad|amass|training|casualty|offspring)\s+(\d+)$/i,
+    m=>[cap(m[1])+":"+m[2]]],
+  [/^ward\s*[—-]\s*pay (\d+) life\.?$/i, m=>["Ward:PayLife<"+m[1]+">"], true],
+  [/^protection from (\w+)$/i, m=>["Protection:Card."+cap(m[1])+":"+m[1].toLowerCase()], true],
+  [/^hexproof from (\w+)$/i, m=>["Hexproof:Card."+cap(m[1])+":"+m[1].toLowerCase()], true],
+  [/^enchant ([\w ]+)$/i, m=>["Enchant "+m[1].toLowerCase()], true],
+  [/^cumulative upkeep\s*((?:\{[^}]+\})+)$/i, m=>["Cumulative upkeep:"+bracesToForgeCost(m[1])+":"+bracesToForgeCost(m[1])], true],
+  [/^suspend (\d+)\s*[—-]\s*((?:\{[^}]+\})+)$/i, m=>["Suspend:"+m[1]+":"+bracesToForgeCost(m[2])], true],
+  [/^([a-z]+)cycling\s*((?:\{[^}]+\})+)$/i, m=>["TypeCycling:"+cap(m[1])+":"+bracesToForgeCost(m[2])], true],
+  [/^(\w+)walk$/i, m=>[cap(m[1])+"walk"]],
+];
+const PLAINTEXT=[
+  /^CARDNAME can't attack or block alone\.$/i,/^CARDNAME can't block alone\.$/i,
+  /^CARDNAME attacks each combat if able\.$/i,/^CARDNAME must be blocked if able\.$/i,
+  /^You may choose not to untap CARDNAME during your untap step\.$/i,
+  /^CARDNAME doesn't untap during your untap step\.$/i,
+  /^CARDNAME can't block unless a creature with greater power also blocks\.$/i,
+  /^CARDNAME enters tapped\.$/i,/^CARDNAME enters the battlefield tapped\.$/i
+];
+
+/* ═══════════════════════════════════════════ text decomposition ═══════════ */
+function sentences(t){
+  const out=[]; let buf="", q=false, br=0;
+  for(let i=0;i<t.length;i++){
+    const ch=t[i];
+    if(ch==='"') q=!q;
+    if(ch==="{") br++; else if(ch==="}") br--;
+    buf+=ch;
+    if(ch==="." && !q && br<=0 && (i+1>=t.length || /\s/.test(t[i+1]))){ out.push(buf.trim()); buf=""; }
+  }
+  if(buf.trim()) out.push(buf.trim());
+  return out.filter(Boolean);
+}
+const CTR={"+1/+1":"P1P1","-1/-1":"M1M1","+1/+0":"P1P0","+0/+1":"P0P1","-1/-0":"M1M0","-0/-1":"M0M1",
+  charge:"CHARGE",time:"TIME",ice:"ICE",quest:"QUEST",level:"LEVEL",lore:"LORE",oil:"OIL",blood:"BLOOD",
+  poison:"POISON",loyalty:"LOYALTY",fade:"FADE",age:"AGE",spore:"SPORE",divinity:"DIVINITY",shield:"SHIELD",
+  stun:"STUN",flying:"FLYING",ki:"KI",experience:"EXPERIENCE",verse:"VERSE",pressure:"PRESSURE",arrow:"ARROW",
+  arrowhead:"ARROWHEAD",feather:"FEATHER",gold:"GOLD",hoofprint:"HOOFPRINT",lucky:"LUCKY",muster:"MUSTER",
+  petal:"PETAL",wish:"WISH",study:"STUDY",bounty:"BOUNTY",corpse:"CORPSE",depletion:"DEPLETION",
+  devotion:"DEVOTION",egg:"EGG",fate:"FATE",fungus:"FUNGUS",growth:"GROWTH",hatchling:"HATCHLING",
+  healing:"HEALING",hunger:"HUNGER",incubation:"INCUBATION",infection:"INFECTION",javelin:"JAVELIN",
+  magnet:"MAGNET",matrix:"MATRIX",net:"NET",omen:"OMEN",ore:"ORE",page:"PAGE",pain:"PAIN",plague:"PLAGUE",
+  polyp:"POLYP",pupa:"PUPA",rust:"RUST",shell:"SHELL",shred:"SHRED",sleep:"SLEEP",slime:"SLIME",soot:"SOOT",
+  storage:"STORAGE",strife:"STRIFE",tide:"TIDE",tower:"TOWER",trap:"TRAP",treasure:"TREASURE",
+  velocity:"VELOCITY",vitality:"VITALITY",wage:"WAGE",wind:"WIND",winter:"WINTER"};
+function kwList(s){
+  const out=[];
+  for(let k of String(s).split(/,\s*|\s+and\s+/).map(x=>x.trim()).filter(Boolean)){
+    k=k.replace(/^and\s+/i,"").replace(/\.$/,"");
+    const simple=SIMPLE_MAP.get(k.toLowerCase());
+    if(simple){ out.push(simple); continue; }
+    let m=k.match(/^protection from (\w+)$/i);
+    if(m){ out.push("Protection from "+m[1].toLowerCase()); continue; }
+    m=k.match(/^(\w+)walk$/i);
+    if(m){ out.push(cap(m[1])+"walk"); continue; }
+    return null;
+  }
+  return out.length?out:null;
+}
+function extractActMods(t){
+  const mods=[];
+  t=String(t);
+  t=t.replace(/\s*Activate only as a sorcery\.?/i,()=>{mods.push("SorcerySpeed$ True");return "";});
+  t=t.replace(/\s*Activate only once each turn\.?/i,()=>{mods.push("ActivationLimit$ 1");return "";});
+  t=t.replace(/\s*Activate only twice each turn\.?/i,()=>{mods.push("ActivationLimit$ 2");return "";});
+  t=t.replace(/\s*Activate only during your turn\.?/i,()=>{mods.push("PlayerTurn$ True");return "";});
+  return {text:t.trim(),mods};
+}
+function manaEffect(braces,defined){
+  const syms=[...String(braces).matchAll(/\{([^}]+)\}/g)].map(m=>m[1]);
+  if(!syms.length) return null;
+  const uniq=[...new Set(syms)], p=[];
+  if(defined) p.push(["Defined",defined]);
+  if(uniq.length===1){ p.push(["Produced",uniq[0]]); if(syms.length>1) p.push(["Amount",String(syms.length)]); }
+  else p.push(["Produced",syms.join(" ")]);
+  return {api:"Mana",p,verify:(uniq.length>1||defined)?1:0};
+}
+const RIDERS=[
+  /^lands? put onto the battlefield this way enters? tapped\.?$/i,
+  /^those tokens? .+\.?$/i, /^that (?:card|creature|permanent) .+\.?$/i,
+  /^they enters? (?:the battlefield )?tapped\.?$/i,
+  /^activate only .+\.?$/i
+];
+const IT_HAS=/^(?:it|they) (?:has|have) "(.+?)"\.?$/i;
+
+/* ═══════════════════════════════════════════ effect resolver ══════════════ */
+const EFFECTS=[
+ [/^each player sacrifices an? ([\w', -]+)\.?$/i,
+  m=>{const v=validFromPhrase(m[1]); return v?{api:"Sacrifice",p:[["Defined","Player"],["SacValid",v.v],
+      ["SacMessage",sd(m[1])],["Amount","1"]],verify:1}:null;}],
+ [/^each player may put an? ([\w', -]+) card from their hand onto the battlefield( tapped)?\.?$/i,
+  m=>{const v=validFromPhrase(m[1]); if(!v) return null;
+      const p=[["Defined","Player"],["Origin","Hand"],["Destination","Battlefield"],["ChangeType",v.v],
+               ["ChangeNum","1"],["Hidden","True"],["Optional","True"]];
+      if(m[2]) p.push(["Tapped","True"]);
+      return {api:"ChangeZone",p,verify:1};}],
+ [/^that player adds ((?:\{[^}]+\})+)\.?$/i, m=>manaEffect(m[1],"TriggeredPlayer")],
+ [/^(target [\w' -]+) gains? protection from a colou?r of your choosing until end of turn\.?$/i,
+  m=>{const v=validFromPhrase(m[1]); if(!v) return null;
+      return {multi:[
+        {api:"ChooseColor",p:[["Defined","You"],["ValidTgts",v.v],["TgtPrompt",v.prompt]],verify:1},
+        {api:"Pump",p:[["Defined","Targeted"],["KW","Protection:Card.ChosenColor:chosen color"]],verify:1}
+      ]};}],
+ [/^create (?:a|one) (\w+) creature token that's (.+?)\.?$/i,
+  m=>{const col=COLORWORD[m[1].toLowerCase()]; if(!col) return null;
+      const opts=m[2].split(/,\s*or\s+|,\s*|\s+or\s+/).map(s=>s.trim()).filter(Boolean);
+      if(opts.length<2) return null;
+      const toks=[];
+      for(const o of opts){
+        const mm=o.match(/^(?:an?\s+)?(\d+)\/(\d+)\s+([A-Za-z][\w'-]*(?:\s+[A-Za-z][\w'-]*)*?)(?:\s+with\s+(.+))?$/);
+        if(!mm) return null;
+        const kws=mm[4]?kwList(mm[4]):[];
+        if(mm[4]&&!kws) return null;
+        const types=mm[3].split(/\s+/).map(cap);
+        const script=[COLORLET[col],mm[1],mm[2],types.map(t=>t.toLowerCase()).join("_"),
+          ...kws.map(k=>k.toLowerCase().replace(/\s+/g,""))].join("_");
+        toks.push({script,name:types.join(" ")+" Token",colors:[col],types:"Creature "+types.join(" "),
+          pt:mm[1]+"/"+mm[2],kws,desc:mm[1]+"/"+mm[2]+" "+types.join(" ")+(mm[4]?" with "+mm[4]:"")});
+      }
+      return {api:"GenericChoice",p:[],choices:toks,tokens:toks,verify:1};}],
+ [/^transform CARDNAME\.?$/i, ()=>({api:"SetState",p:[["Defined","Self"],["Mode","Transform"]],needsBack:true})],
+ [/^put (\S+) ([+-]\d+\/[+-]\d+|\w+) counters? on (CARDNAME|it|target [\w' -]+)\.?$/i,
+  m=>{const n0=num(m[1]), ct=CTR[m[2].toLowerCase()]; if(!n0||!ct) return null;
+      const tgt=m[3].toLowerCase();
+      if(tgt==="cardname") return {api:"PutCounter",p:[["Defined","Self"],["CounterType",ct],["CounterNum",n0]]};
+      if(tgt==="it") return {api:"PutCounter",p:[["Defined","TriggeredCard"],["CounterType",ct],["CounterNum",n0]],verify:1};
+      const v=validFromPhrase(m[3]); if(!v) return null;
+      return {api:"PutCounter",p:[["ValidTgts",v.v],["TgtPrompt",v.prompt],["CounterType",ct],["CounterNum",n0]]};}],
+ [/^remove (\S+) ([+-]\d+\/[+-]\d+|\w+) counters? from (CARDNAME|target [\w' -]+)\.?$/i,
+  m=>{const n0=num(m[1]), ct=CTR[m[2].toLowerCase()]; if(!n0||!ct) return null;
+      if(/^cardname$/i.test(m[3])) return {api:"RemoveCounter",p:[["Defined","Self"],["CounterType",ct],["CounterNum",n0]]};
+      const v=validFromPhrase(m[3]); if(!v) return null;
+      return {api:"RemoveCounter",p:[["ValidTgts",v.v],["TgtPrompt",v.prompt],["CounterType",ct],["CounterNum",n0]]};}],
+ [/^(it|CARDNAME) gains? (.+?)(\s+until end of turn)?\.?$/i,
+  m=>{const kws=kwList(m[2]); if(!kws) return null;
+      const it=/^it$/i.test(m[1]);
+      const def=it?"TriggeredCard":"Self";
+      if(m[3]) return {api:"Pump",p:[["Defined",def],["KW",kws.join(" & ")]],verify:it?1:0};
+      return {api:"Animate",p:[["Defined",def],["Keywords",kws.join(" & ")],["Permanent","True"]],verify:1};}],
+ [/^add one mana of any colou?r\.?$/i, ()=>({api:"Mana",p:[["Produced","Any"]]})],
+ [/^add (\S+) mana of any one colou?r\.?$/i,
+  m=>{const n0=num(m[1]); return n0?{api:"Mana",p:[["Produced","Any"],["Amount",n0]]}:null;}],
+ [/^CARDNAME deals damage equal to its power to (any target|target [\w' -]+)\.?$/i,
+  m=>{const v=validFromPhrase(m[1]); return v?{api:"DealDamage",p:[["ValidTgts",v.v],["TgtPrompt",v.prompt],["NumDmg","X"]],svars:[["X","Count$CardPower"]]}:null;}],
+ [/^(?:CARDNAME |it )?deals? (\d+|x|\w+) damage to (any target|target [\w' -]+|each opponent|each creature|each player)\.?$/i,
+  m=>{const n0=num(m[1]);if(!n0)return null;const t=m[2].toLowerCase();
+      if(t==="each opponent")return{api:"DealDamage",p:[["Defined","Player.Opponent"],["NumDmg",n0]]};
+      if(t==="each player")return{api:"DealDamage",p:[["Defined","Player"],["NumDmg",n0]]};
+      if(t==="each creature")return{api:"DamageAll",p:[["ValidCards","Creature"],["NumDmg",n0]]};
+      const v=validFromPhrase(t);if(!v)return null;
+      return{api:"DealDamage",p:[["ValidTgts",v.v],["TgtPrompt",v.prompt],["NumDmg",n0]]};}],
+ [/^(?:you )?draw (\S+) cards?\.?$/i, m=>{const n0=num(m[1]);return n0?{api:"Draw",p:[["NumCards",n0]]}:null;}],
+ [/^target player draws (\S+) cards?\.?$/i, m=>{const n0=num(m[1]);return n0?{api:"Draw",p:[["ValidTgts","Player"],["NumCards",n0]]}:null;}],
+ [/^each player draws (\S+) cards?\.?$/i, m=>{const n0=num(m[1]);return n0?{api:"Draw",p:[["Defined","Player"],["NumCards",n0]]}:null;}],
+ [/^you gain (\S+) life\.?$/i, m=>{const n0=num(m[1]);return n0?{api:"GainLife",p:[["LifeAmount",n0]]}:null;}],
+ [/^target player gains (\S+) life\.?$/i, m=>{const n0=num(m[1]);return n0?{api:"GainLife",p:[["ValidTgts","Player"],["LifeAmount",n0]]}:null;}],
+ [/^(?:you )?lose (\S+) life\.?$/i, m=>{const n0=num(m[1]);return n0?{api:"LoseLife",p:[["LifeAmount",n0]]}:null;}],
+ [/^target player loses (\S+) life\.?$/i, m=>{const n0=num(m[1]);return n0?{api:"LoseLife",p:[["ValidTgts","Player"],["LifeAmount",n0]]}:null;}],
+ [/^target opponent loses (\S+) life\.?$/i,
+  m=>{const n0=num(m[1]);return n0?{api:"LoseLife",p:[["ValidTgts","Opponent"],["TgtPrompt","Select target opponent"],["LifeAmount",n0]]}:null;}],
+ [/^each opponent loses (\S+) life\.?$/i, m=>{const n0=num(m[1]);return n0?{api:"LoseLife",p:[["Defined","Player.Opponent"],["LifeAmount",n0]]}:null;}],
+ [/^destroy (target [\w' -]+)\.?$/i, m=>{const v=validFromPhrase(m[1]);return v?{api:"Destroy",p:[["ValidTgts",v.v],["TgtPrompt",v.prompt]]}:null;}],
+ [/^destroy all ([\w', -]+)\.?$/i, m=>{const v=validFromPhrase(m[1]);return v?{api:"DestroyAll",p:[["ValidCards",v.v]]}:null;}],
+ [/^exile (target [\w' -]+)\.?$/i, m=>{const v=validFromPhrase(m[1]);return v?{api:"ChangeZone",p:[["Origin","Battlefield"],["Destination","Exile"],["ValidTgts",v.v],["TgtPrompt",v.prompt]]}:null;}],
+ [/^counter target spell\.?$/i, ()=>({api:"Counter",p:[["TargetType","Spell"],["ValidTgts","Card"],["TgtPrompt","Select target spell"]]})],
+ [/^(target [\w' -]+) gets ([+-]\d+)\/([+-]\d+) until end of turn\.?$/i,
+  m=>{const v=validFromPhrase(m[1]);return v?{api:"Pump",p:[["ValidTgts",v.v],["TgtPrompt",v.prompt],["NumAtt",m[2]],["NumDef",m[3]]]}:null;}],
+ [/^CARDNAME gets ([+-]\d+)\/([+-]\d+) until end of turn\.?$/i,
+  m=>({api:"Pump",p:[["Defined","Self"],["NumAtt",m[1]],["NumDef",m[2]]]})],
+ [/^(?:each )?creatures? you control gets? ([+-]\d+)\/([+-]\d+) until end of turn\.?$/i,
+  m=>({api:"PumpAll",p:[["ValidCards","Creature.YouCtrl"],["NumAtt",m[1]],["NumDef",m[2]]]})],
+ [/^(target [\w' -]+) gains? ([\w ]+) until end of turn\.?$/i,
+  m=>{const kw=SIMPLE_MAP.get(m[2].trim().toLowerCase());const v=validFromPhrase(m[1]);
+      return (kw&&v)?{api:"Pump",p:[["ValidTgts",v.v],["TgtPrompt",v.prompt],["KW",kw]]}:null;}],
+ [/^tap (target [\w' -]+)\.?$/i, m=>{const v=validFromPhrase(m[1]);return v?{api:"Tap",p:[["ValidTgts",v.v],["TgtPrompt",v.prompt]]}:null;}],
+ [/^untap (target [\w' -]+)\.?$/i, m=>{const v=validFromPhrase(m[1]);return v?{api:"Untap",p:[["ValidTgts",v.v],["TgtPrompt",v.prompt]]}:null;}],
+ [/^untap CARDNAME\.?$/i, ()=>({api:"Untap",p:[["Defined","Self"]]})],
+ [/^tap CARDNAME\.?$/i, ()=>({api:"Tap",p:[["Defined","Self"]]})],
+ [/^scry (\d+)\.?$/i, m=>({api:"Scry",p:[["ScryNum",m[1]]]})],
+ [/^(?:target player |each opponent )?mills? (\S+) cards?\.?$/i, m=>{const n0=num(m[1]);return n0?{api:"Mill",p:[["NumCards",n0]]}:null;}],
+ [/^return (target [\w' -]+) from your graveyard to your hand\.?$/i,
+  m=>{const v=validFromPhrase(m[1]);return v?{api:"ChangeZone",p:[["Origin","Graveyard"],["Destination","Hand"],["TgtZone","Graveyard"],["ValidTgts",v.v+".YouOwn"],["TgtPrompt",v.prompt]]}:null;}],
+ [/^return (target [\w' -]+) to (?:its owner's|their owner's) hand\.?$/i,
+  m=>{const v=validFromPhrase(m[1]);return v?{api:"ChangeZone",p:[["Origin","Battlefield"],["Destination","Hand"],["ValidTgts",v.v],["TgtPrompt",v.prompt]]}:null;}],
+ [/^return CARDNAME to (?:its owner's|your) hand\.?$/i, ()=>({api:"ChangeZone",p:[["Origin","Battlefield"],["Destination","Hand"],["Defined","Self"]]})],
+ [/^add ((?:\{[^}]+\})+) or ((?:\{[^}]+\})+)\.?$/i,
+  m=>({api:"Mana",p:[["Produced",bracesToForgeCost(m[1])+" "+bracesToForgeCost(m[2])]],
+      verify:1,note:"dual mana — consider two separate A: lines"})],
+ [/^add ((?:\{[^}]+\})+)\.?$/i, m=>manaEffect(m[1],null)],
+ [/^(?:you )?discard (\S+) cards?\.?$/i, m=>{const n0=num(m[1]);return n0?{api:"Discard",p:[["Defined","You"],["NumCards",n0],["Mode","TgtChoose"]]}:null;}],
+ [/^each opponent discards (\S+) cards?\.?$/i, m=>{const n0=num(m[1]);return n0?{api:"Discard",p:[["Defined","Player.Opponent"],["NumCards",n0],["Mode","TgtChoose"]]}:null;}],
+ [/^sacrifice CARDNAME\.?$/i, ()=>({api:"Sacrifice",p:[["Defined","Self"],["SacValid","Card.Self"]]})],
+ [/^create (\S+) (\d+)\/(\d+) ([\w ]+?) (?:creature )?tokens?(?: with ([\w ,and]+))?\.?$/i,
+  m=>{const amt=num(m[1]);if(!amt)return null;
+      const words=m[4].trim().split(/\s+/), cols=[], types=[];
+      for(const w of words){const lw=w.toLowerCase();if(COLORWORD[lw])cols.push(lw);else if(lw!=="and"&&lw!=="colorless")types.push(cap(w));}
+      if(!types.length)return null;
+      const kws=[];
+      if(m[5]) for(const k of m[5].split(/,|\band\b/)){const kk=SIMPLE_MAP.get(k.trim().toLowerCase());if(kk)kws.push(kk);else return null;}
+      const letters=cols.length?["white","blue","black","red","green"].filter(c=>cols.includes(c)).map(c=>COLORLET[c]).join(""):"c";
+      const script=[letters,m[2],m[3],types.map(t=>t.toLowerCase()).join("_"),...kws.map(k=>k.toLowerCase().replace(/\s+/g,""))].join("_");
+      return {api:"Token",p:[["TokenAmount",amt],["TokenScript",script]],
+              tokens:[{script,name:types.join(" ")+" Token",colors:cols,types:"Creature "+types.join(" "),pt:m[2]+"/"+m[3],kws}]};}],
+];
+function resolveEffect(text){
+  let t=String(text).trim();
+  const uet=t.match(/^until end of turn,\s*([\s\S]+?)\.?$/i);
+  if(uet) t=uet[1].replace(/\.$/,"")+" until end of turn.";
+  t=t.replace(/^CARDNAME creates\b/i,"Create").replace(/\s+on the battlefield(?=\.?$)/i,"");
+  for(const [re,fn] of EFFECTS){ const m=t.match(re); if(m){ const r=fn(m); if(r) return r; } }
+  return null;
+}
+function paramStr(p){return p.map(([k,v])=>k+"$ "+v).join(" | ");}
+let ALLOW_PARTIAL=false;
+function resolveAll(text){
+  const parts=sentences(text), res=[], bad=[];
+  for(const s of parts){
+    const one=s.replace(/^(?:then|and)\s+/i,"");
+    const ih=one.match(IT_HAS);
+    if(ih){
+      const owner=res.filter(r=>r.tokens).pop();
+      if(owner){ for(const t of owner.tokens) (t.abils=t.abils||[]).push(clean(ih[1])); continue; }
+    }
+    if(RIDERS.some(re=>re.test(one))){ bad.push(s); continue; }
+    let r=resolveEffect(one);
+    if(!r && /\sand\s/i.test(one)){
+      const halves=one.replace(/\.$/,"").split(/\s+and\s+/);
+      if(halves.length===2){
+        const a=resolveEffect(halves[0]+"."), b=resolveEffect(halves[1]+".");
+        if(a&&b){ res.push(a,b); continue; }
+      }
+    }
+    if(r){ if(r.multi) res.push(...r.multi); else res.push(r); }
+    else bad.push(s);
+  }
+  if(!res.length) return null;
+  if(bad.length && !ALLOW_PARTIAL && !bad.every(b=>RIDERS.some(re=>re.test(b)))) return null;
+  return {list:res,bad};
+}
+function resolveOptional(text){
+  let m=String(text).match(/^you may pay ((?:\{[^}]+\})+)\.\s*if you do,\s*([\s\S]+)$/i);
+  if(m){ const l=resolveAll(m[2]); return l?{list:l.list,bad:l.bad,payCost:bracesToForgeCost(m[1])}:null; }
+  m=String(text).match(/^you may (sacrifice [\w' -]+|discard a card|pay \d+ life)\.\s*if you do,\s*([\s\S]+)$/i);
+  if(m){ const c=parseCost(m[1]), l=resolveAll(m[2]); return (c&&l)?{list:l.list,bad:l.bad,payCost:c}:null; }
+  m=String(text).match(/^you may ([\s\S]+)$/i);
+  if(m){ const l=resolveAll(m[1]); return l?{list:l.list,bad:l.bad,optional:true}:null; }
+  const l=resolveAll(text);
+  return l?{list:l.list,bad:l.bad}:null;
+}
+function parseCost(text){
+  const parts=String(text).split(/,\s*/), out=[];
+  for(let raw of parts){
+    const p=raw.trim(); if(!p) continue;
+    if(/^(?:\{[^}]+\})+$/.test(p)){
+      for(const s of bracesToForgeCost(p).split(" ")){
+        if(s==="E") out.push("Exert<1/CARDNAME>"); else out.push(s);
+      } continue;
+    }
+    let m;
+    if(/^sacrifice CARDNAME$/i.test(p)){out.push("Sac<1/CARDNAME>");continue;}
+    if((m=p.match(/^sacrifice (?:a|an|another) ([\w' -]+?) with mana value x$/i))){
+      const v=validFromPhrase(m[1]); if(!v)return null; out.push("Sac<1/"+v.v+".cmcEQX>");continue;}
+    if((m=p.match(/^sacrifice (?:a|an|another) ([\w' -]+)$/i))){const v=validFromPhrase(m[1]);if(!v)return null;out.push("Sac<1/"+v.v+">");continue;}
+    if(/^discard (?:a|one) card$/i.test(p)){out.push("Discard<1/Card>");continue;}
+    if((m=p.match(/^discard (\S+) cards$/i))){const n0=num(m[1]);if(!n0)return null;out.push("Discard<"+n0+"/Card>");continue;}
+    if((m=p.match(/^pay (\d+) life$/i))){out.push("PayLife<"+m[1]+">");continue;}
+    if((m=p.match(/^remove (\S+) ([+-]\d+\/[+-]\d+|\w+) counters? from CARDNAME$/i))){
+      const n0=num(m[1]), ct=CTR[m[2].toLowerCase()]; if(!n0||!ct)return null;
+      out.push("SubCounter<"+n0+"/"+ct+">");continue;}
+    if(/^exile CARDNAME$/i.test(p)){out.push("ExileSelf");continue;}
+    if(/^tap CARDNAME$/i.test(p)){out.push("T");continue;}
+    if(/^untap CARDNAME$/i.test(p)){out.push("Q");continue;}
+    if((m=p.match(/^return a ([\w' -]+) you control with mana value x to its owner's hand$/i))){
+      const v=validFromPhrase(m[1]); if(!v)return null; out.push("Return<1/"+v.v+".YouCtrl+cmcEQX>");continue;}
+    return null;
+  }
+  return out.join(" ")||"0";
+}
+
+/* ═══════════════════════════════════════════ the compiler ════════════════ */
+function compileFace(face,opt,ctx){
+  const K=[],A=[],T=[],S=[],SV=[],todo=[],verify=[];
+  const name=face.name;
+  const types=(face.superType+" "+face.subType).trim().replace(/\s+/g," ");
+  const isLand=/\bLand\b/.test(types);
+  const isPW=/\bPlaneswalker\b/.test(types);
+  const isInstantSorcery=/\b(Instant|Sorcery)\b/.test(types);
+  let trigN=0, svN=0, needsBack=false;
+
+  let rt=face.rules;
+  if(name){
+    const esc=name.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+    rt=rt.replace(new RegExp(esc,"g"),"CARDNAME");
+    const short=name.split(/,| \/\/ /)[0].trim();
+    if(short&&short!==name&&short.length>3)
+      rt=rt.replace(new RegExp("\\b"+short.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\b","g"),"CARDNAME");
+  }
+  rt=rt.replace(/\bthis creature\b/gi,"CARDNAME").replace(/\bthis permanent\b/gi,"CARDNAME")
+       .replace(/\bthis spell\b/gi,"CARDNAME").replace(/~/g,"CARDNAME");
+
+  function collect(r){
+    if(!r.tokens) return;
+    for(const t of r.tokens){
+      t._key=t.script+((t.abils&&t.abils.length)?"|"+t.abils.join("|"):"");
+      if(!ctx.tokens.has(t._key)) ctx.tokens.set(t._key,t);
+    }
+    if(r.api==="Token"){
+      const pp=r.p.find(x=>x[0]==="TokenScript");
+      if(pp) pp[1]="%%TOK:"+r.tokens[0]._key+"%%";
+    }
+  }
+  function chain(list){
+    for(const r of list){
+      collect(r);
+      if(r.needsBack) needsBack=true;
+      if(r.verify) verify.push(r.note||(r.api+" syntax"));
+      if(r.svars) for(const [k,v] of r.svars) SV.push(k+":"+v);
+      if(r.choices){
+        const names=[];
+        for(const t of r.choices){
+          const nm="DBTok"+(++svN); names.push(nm);
+          SV.push(nm+":DB$ Token | TokenAmount$ 1 | TokenScript$ %%TOK:"+t._key+"%% | SpellDescription$ "+sd(t.desc));
+        }
+        r.p.push(["Choices",names.join(",")]);
+      }
+    }
+    for(let i=list.length-1;i>=1;i--){
+      const nm="DB"+list[i].api+(++svN);
+      SV.push(nm+":DB$ "+list[i].api+" | "+paramStr(list[i].p));
+      list[i-1].p.push(["SubAbility",nm]);
+    }
+    return list[0];
+  }
+  function pushLine(l){
+    if(/^K:/.test(l))K.push(l.slice(2));
+    else if(/^A:/.test(l))A.push(l.slice(2));
+    else if(/^T:/.test(l))T.push(l.slice(2));
+    else if(/^S:/.test(l))S.push(l.slice(2));
+    else if(/^SVar:/.test(l))SV.push(l.slice(5));
+    else todo.push(l.replace(/^#TODO:?\s*/,""));
+  }
+  function tryBit(b){
+    for(const ur of ctx.userRules){
+      const m=b.match(ur.re);
+      if(m){ for(const e of ur.emit) pushLine(e.replace(/\$(\d)/g,(x,d)=>m[+d]||"")); return true; }
+    }
+    const s=SIMPLE_MAP.get(b.toLowerCase());
+    if(s){ K.push(s); return true; }
+    for(const [re,fn,vfy] of PARAM_KW){
+      const m=b.match(re);
+      if(m){ const r=fn(m); if(r){ r.forEach(x=>K.push(x)); if(vfy)verify.push(b); return true; } }
+    }
+    return false;
+  }
+
+  for(const para of rt.split(/\n+/).map(x=>x.trim()).filter(Boolean)){
+    const line=para.replace(/\s*\([^()]*\)\s*$/,"").trim();
+    if(!line) continue;
+    let done=false;
+
+    for(const ur of ctx.userRules){
+      const m=line.match(ur.re);
+      if(m){ for(const e of ur.emit) pushLine(e.replace(/\$(\d)/g,(x,d)=>m[+d]||"")); done=true; break; }
+    }
+    if(done) continue;
+
+    const bits=line.replace(/\.$/,"").split(/,\s*/).map(b=>b.trim()).filter(Boolean);
+
+    if(bits.length && bits.every(b=>SIMPLE_MAP.has(b.toLowerCase()))){
+      for(const b of bits) K.push(SIMPLE_MAP.get(b.toLowerCase()));
+      continue;
+    }
+    let kwHit=false;
+    for(const b of bits){
+      let hit=false;
+      for(const [re,fn,vfy] of PARAM_KW){
+        const m=b.match(re);
+        if(m){ const r=fn(m); if(r){ r.forEach(x=>K.push(x)); if(vfy)verify.push(b); hit=true; break; } }
+      }
+      if(!hit){ kwHit=false; break; }
+      kwHit=true;
+    }
+    if(kwHit) continue;
+    if(PLAINTEXT.some(re=>re.test(line))){ K.push(line); continue; }
+
+    let m;
+    /* planeswalker loyalty abilities — bracket forms tolerated */
+    if(isPW && (m=line.match(/^[\[({]?\s*([+-]?\d+|[+-]?X)\s*[\])}]?\s*:\s*(.+)$/))){
+      const c=m[1];
+      const em=extractActMods(m[2]);
+      let cost;
+      if(/^\+/.test(c)) cost="AddCounter<"+c.slice(1)+"/LOYALTY>";
+      else if(/^-/.test(c)) cost="SubCounter<"+c.slice(1)+"/LOYALTY>";
+      else cost="0";
+      const R=resolveOptional(em.text);
+      if(R){ const main=chain(R.list);
+        A.push("AB$ "+main.api+" | Cost$ "+cost+(R.payCost?" "+R.payCost:"")+" | Planeswalker$ True | "+
+               paramStr(main.p)+(R.optional?" | Optional$ True":"")+
+               (em.mods.length?" | "+em.mods.join(" | "):"")+" | SpellDescription$ "+sd(em.text));
+        for(const b of R.bad||[]) todo.push(b); }
+      else todo.push(line);
+      continue;
+    }
+
+    /* granted-ability static — must precede the activated branch (colon inside quotes) */
+    if((m=line.match(/^([\w' -]+) have "([^"]+)"\.?$/i))){
+      const v=validFromPhrase(m[1]), inner=m[2].match(/^([^:]+):\s*(.+)$/);
+      if(v&&inner){
+        const ic=parseCost(inner[1]), ie=resolveEffect(inner[2]);
+        if(ic!==null&&ie){
+          collect(ie);
+          const nm="ABGrant"+(++svN);
+          SV.push(nm+":AB$ "+ie.api+" | Cost$ "+ic+" | "+paramStr(ie.p)+" | SpellDescription$ "+sd(inner[2]));
+          S.push("Mode$ Continuous | Affected$ "+v.v+" | AddAbility$ "+nm+" | Description$ "+sd(para));
+          verify.push("AddAbility grant: "+sd(para).slice(0,45));
+          continue;
+        }
+      }
+    }
+
+    /* activated abilities */
+    if((m=line.match(/^([^:]{1,90}):\s*(.+)$/)) && !/^(?:when|whenever|at the beginning)/i.test(line)){
+      const cost=parseCost(m[1]);
+      const em=extractActMods(m[2]);
+      const R=cost!==null?resolveOptional(em.text):null;
+      if(cost!==null && R){
+        const main=chain(R.list);
+        A.push("AB$ "+main.api+" | Cost$ "+cost+(R.payCost?" "+R.payCost:"")+" | "+paramStr(main.p)+
+               (R.optional?" | Optional$ True":"")+(em.mods.length?" | "+em.mods.join(" | "):"")+
+               " | SpellDescription$ "+sd(em.text));
+        if(em.mods.length) verify.push(em.mods.join(" "));
+        for(const b of R.bad||[]) todo.push(b);
+        continue;
+      }
+      todo.push(line); continue;
+    }
+
+    /* triggers */
+    const TRIG=[
+      [/^at the beginning of each player's first main phase, (.+)$/i, "Mode$ Phase | Phase$ Main1 | ValidPlayer$ Player | TriggerZones$ Battlefield"],
+      [/^at the beginning of each player's upkeep, (.+)$/i, "Mode$ Phase | Phase$ Upkeep | ValidPlayer$ Player | TriggerZones$ Battlefield"],
+      [/^at the beginning of your precombat main phase, (.+)$/i, "Mode$ Phase | Phase$ Main1 | ValidPlayer$ You | TriggerZones$ Battlefield"],
+      [/^whenever you cast a spell, (.+)$/i, "Mode$ SpellCast | ValidCard$ Card | ValidActivatingPlayer$ You | TriggerZones$ Battlefield"],
+      [/^whenever a creature you control enters(?: the battlefield)?, (.+)$/i, "Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield"],
+      [/^whenever another creature you control dies, (.+)$/i, "Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Creature.Other+YouCtrl | TriggerZones$ Battlefield"],
+      [/^whenever a creature you control dies, (.+)$/i, "Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Creature.YouCtrl | TriggerZones$ Battlefield"],
+      [/^whenever CARDNAME becomes tapped, (.+)$/i, "Mode$ BecomesTapped | ValidCard$ Card.Self"],
+      [/^whenever CARDNAME deals damage to a player, (.+)$/i, "Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player"],
+      [/^when CARDNAME enters(?: the battlefield)?, (.+)$/i, "Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Card.Self"],
+      [/^when CARDNAME dies, (.+)$/i, "Mode$ ChangesZone | Origin$ Battlefield | Destination$ Graveyard | ValidCard$ Card.Self"],
+      [/^when CARDNAME leaves the battlefield, (.+)$/i, "Mode$ ChangesZone | Origin$ Battlefield | Destination$ Any | ValidCard$ Card.Self"],
+      [/^whenever CARDNAME attacks, (.+)$/i, "Mode$ Attacks | ValidCard$ Card.Self"],
+      [/^whenever CARDNAME blocks, (.+)$/i, "Mode$ Blocks | ValidCard$ Card.Self"],
+      [/^whenever CARDNAME deals combat damage to a player, (.+)$/i, "Mode$ DamageDone | ValidSource$ Card.Self | ValidTarget$ Player | CombatDamage$ True"],
+      [/^at the beginning of your upkeep, (.+)$/i, "Mode$ Phase | Phase$ Upkeep | ValidPlayer$ You | TriggerZones$ Battlefield"],
+      [/^at the beginning of your end step, (.+)$/i, "Mode$ Phase | Phase$ End of Turn | ValidPlayer$ You | TriggerZones$ Battlefield"],
+      [/^at the beginning of each upkeep, (.+)$/i, "Mode$ Phase | Phase$ Upkeep | TriggerZones$ Battlefield"],
+      [/^whenever another creature enters(?: the battlefield)? under your control, (.+)$/i, "Mode$ ChangesZone | Origin$ Any | Destination$ Battlefield | ValidCard$ Creature.Other+YouCtrl | TriggerZones$ Battlefield"],
+      [/^whenever you cast an? ([\w ]+) spell, (.+)$/i, null]
+    ];
+    let trigged=false;
+    for(const [re,mode] of TRIG){
+      const mm=line.match(re); if(!mm) continue;
+      let modeStr=mode, eff=mm[1];
+      if(mode===null){
+        const v=validFromPhrase(mm[1]); if(!v) break;
+        modeStr="Mode$ SpellCast | ValidCard$ "+v.v+" | ValidActivatingPlayer$ You | TriggerZones$ Battlefield";
+        eff=mm[2];
+      }
+      const R=resolveOptional(eff); if(!R) break;
+      const main=chain(R.list);
+      const sv="Trig"+main.api+(++trigN);
+      if(R.payCost) SV.push(sv+":AB$ "+main.api+" | Cost$ "+R.payCost+" | "+paramStr(main.p));
+      else SV.push(sv+":DB$ "+main.api+" | "+paramStr(main.p));
+      T.push(modeStr+" | Execute$ "+sv+(R.optional?" | OptionalDecider$ You":"")+" | TriggerDescription$ "+sd(para));
+      if(R.payCost) verify.push("optional-cost trigger: "+sd(para).slice(0,45));
+      for(const b of R.bad||[]) todo.push(b);
+      trigged=true; break;
+    }
+    if(trigged) continue;
+
+    /* statics */
+    if((m=line.match(/^(other )?creatures you control get \+(\d+)\/\+(\d+)\.?$/i))){
+      S.push("Mode$ Continuous | Affected$ Creature.YouCtrl"+(m[1]?"+Other":"")+" | AddPower$ "+m[2]+" | AddToughness$ "+m[3]+" | Description$ "+sd(para));
+      continue;
+    }
+    if((m=line.match(/^(other )?([\w' -]+) you control have ([\w ,and]+)\.?$/i))){
+      const v=validFromPhrase(m[2]+" you control"), kws=kwList(m[3]);
+      if(v&&kws){ S.push("Mode$ Continuous | Affected$ "+v.v+(m[1]?"+Other":"")+" | AddKeyword$ "+kws.join(" & ")+" | Description$ "+sd(para)); continue; }
+    }
+    if(/^CARDNAME can't block\.?$/i.test(line)){ S.push("Mode$ CantBlock | ValidCard$ Card.Self | Description$ CARDNAME can't block."); continue; }
+    if(/^CARDNAME can't attack\.?$/i.test(line)){ S.push("Mode$ CantAttack | ValidCard$ Card.Self | Description$ CARDNAME can't attack."); continue; }
+
+    if(isInstantSorcery){
+      const R=resolveOptional(line);
+      if(R){ const main=chain(R.list);
+        A.push("SP$ "+main.api+" | "+paramStr(main.p)+(R.optional?" | Optional$ True":"")+" | SpellDescription$ "+sd(para));
+        for(const b of R.bad||[]) todo.push(b);
+        continue; }
+    }
+
+    /* LAST RESORT: scavenge keyword-ish comma pieces from an otherwise unknown line. */
+    if(bits.length>1 && !/[:"]/.test(line) &&
+       !/\b(gains?|have|has|gets?|target|you may|whenever|when|at the beginning|create|destroy|deals?|sacrifices?|adds?)\b/i.test(line)){
+      const left=[]; let got=0;
+      for(const b of bits){ if(tryBit(b)) got++; else left.push(b); }
+      if(got){ if(left.length) todo.push(left.join(", ")); continue; }
+    }
+    todo.push(para);
+  }
+
+  if(isLand && opt.basicmana){
+    const BL={Plains:"W",Island:"U",Swamp:"B",Mountain:"R",Forest:"G"};
+    for(const [t,c] of Object.entries(BL))
+      if(new RegExp("\\b"+t+"\\b").test(face.subType)) A.push("AB$ Mana | Cost$ T | Produced$ "+c);
+  }
+  if(/Cost\$[^|]*\bX\b/.test(A.join(" ")) && !SV.some(v=>/^X:/.test(v))) SV.push("X:Count$xPaid");
+
+  return {K,A,T,S,SV,todo,verify,types,isLand,isPW,needsBack};
+}
+
+function buildFaceText(face,c,opt,isBack,frontColors){
+  const L=[];
+  L.push("Name:"+face.name);
+  L.push("ManaCost:"+(face.mana?face.mana:"no cost"));
+  L.push("Types:"+(c.types||"Artifact"));
+  if(!c.types) L.push("#TODO EMPTY TYPE LINE — MSE type field not found; fix Types: by hand");
+  if(!face.mana && !c.isLand){
+    const cols=face.colors.length?face.colors:(isBack?frontColors:[]);
+    if(cols.length) L.push("Colors:"+cols.join(","));
+  }
+  if(face.power!=="" && face.toughness!=="") L.push("PT:"+face.power+"/"+face.toughness);
+  if(c.isPW && face.loyalty!=="") L.push("Loyalty:"+face.loyalty);
+  for(const k of c.K) L.push("K:"+k);
+  for(const a of c.A) L.push("A:"+a);
+  for(const t of c.T) L.push("T:"+t);
+  for(const s of c.S) L.push("S:"+s);
+  for(const v of c.SV) L.push("SVar:"+v);
+  if(face._stub) L.push("#TODO STUB back face auto-generated — replace with the real face.");
+  if(c.todo.length){
+    for(const t of c.todo) L.push("#TODO not scripted: "+t.replace(/\n/g," / "));
+    if(opt.unres==="todo") L.push("Text:"+c.todo.join("\\n").replace(/\n/g,"\\n"));
+  }
+  return L;
+}
+
+/* ═══════════════════════════════════════════ field aliases ═══════════════ */
+const FIELD_ALIASES={
+  name:["name","card name","title"],
+  cost:["casting cost","mana cost","cost","manacost","casting_cost"],
+  supertype:["super type","supertype","type","types","card type","type line","typeline"],
+  subtype:["sub type","subtype","sub types","subtypes","subtype line"],
+  rules:["rule text","rules text","text","card text","rules","ability text","rulestext"],
+  flavor:["flavor text","flavour text","flavor","flavour"],
+  power:["power","pow"],
+  toughness:["toughness","tough","tou"],
+  loyalty:["loyalty","starting loyalty"],
+  rarity:["rarity","rareness"],
+  artist:["illustrator","artist"],
+  code:["card code text","collector number","card number","number","cardnumber"],
+  image:["image","art","image 1"],
+  color:["card color","color","colors","card colour"],
+  link:["linked card 1","linked card","link 1"],
+  rel:["linked relation 1","linked relation","relation 1"]
+};
+const ALIAS_HITS=new Map();
+let USE_NUMBERED=true;
+function getAny(node,group){
+  const map=new Map(node.children.map(c=>[nk(c.key),{k:c.key,v:c.value}]));
+  for(const a of FIELD_ALIASES[group]){
+    const e=map.get(nk(a));
+    if(e && String(e.v).trim()!==""){ if(!ALIAS_HITS.has(group)) ALIAS_HITS.set(group,e.k); return e.v; }
+  }
+  return "";
+}
+function getAny2(node,group,restrict){
+  const map=new Map(node.children.map(c=>[nk(c.key),{k:c.key,v:c.value}]));
+  const sfxs=restrict?[" b"," back"]:[" 2","2"," b"," back"];
+  for(const a of FIELD_ALIASES[group]) for(const sfx of sfxs){
+    const e=map.get(nk(a+sfx));
+    if(e && String(e.v).trim()!==""){ if(!ALIAS_HITS.has(group+" (back)")) ALIAS_HITS.set(group+" (back)",e.k); return e.v; }
+  }
+  return "";
+}
+
+/* ── numbered ability fields; matched on NORMALIZED keys, so
+      level_1_text == "level 1 text" == Level1Text ───────────────────────── */
+const NUMKEY=/^(?:loyaltycost|level|abilitycost|cost|rule?text|abilitytext|text)(\d)(?:text|cost)?$/;
+function numIndexOf(key){
+  const m=nk(key).match(NUMKEY);
+  return m?parseInt(m[1],10):0;
+}
+function isNumberedTemplate(node){
+  if(!USE_NUMBERED) return false;
+  let indexed=0;
+  for(const c of node.children){
+    const n=nk(c.key);
+    if(/^(?:loyaltycost|level)\d/.test(n)) return true;
+    if(NUMKEY.test(n) && String(c.value).trim()) indexed++;
+  }
+  const has1=node.children.some(c=>/^(?:rule?text|abilitytext|text)1(?:text)?$/.test(nk(c.key)));
+  return has1 && indexed>0;
+}
+const SPECIAL_KEYS=["special text","static text","rules text 0","text 0","ability text 0",
+                    "top text","header text","non loyalty text","flavor bar text"];
+function specialText(node){
+  const map=new Map(node.children.map(c=>[nk(c.key),String(c.value)]));
+  for(const k of SPECIAL_KEYS){ const v=map.get(nk(k)); if(v&&v.trim()) return v; }
+  return "";
+}
+/* "[+1]:" / "(-3):" / "{0}:" → "+1:" so every source normalizes alike */
+function normLoyaltyMarks(t){
+  return String(t).replace(/^[ \t]*[\[({]\s*([+\-\u2212\u2013\u2014]?\s*(?:\d+|[Xx]))\s*[\])}]\s*:/gm,
+    (m,c)=>c.replace(/\s+/g,"").replace(/[\u2212\u2013\u2014]/g,"-")+":");
+}
+/* Merge text sources paragraph-by-paragraph, dropping repeats. Templates
+   often store the WHOLE text box in special_text AND split it across
+   level_N_text, which would otherwise duplicate everything. */
+function mergeParas(sources,report){
+  const seen=new Set(), out=[];
+  for(const src of sources){
+    if(!src) continue;
+    for(const p of normLoyaltyMarks(src).split(/\n+/)){
+      const t=p.trim(); if(!t) continue;
+      const k=nk(t);
+      if(seen.has(k)){ if(report) report.push("    (dup dropped) "+t.slice(0,52)); continue; }
+      seen.add(k); out.push(t);
+    }
+  }
+  return out.join("\n");
+}
+function numberedRules(node,report){
+  const byIdx=new Map();
+  for(const c of node.children){
+    const i=numIndexOf(c.key);
+    if(!i||!String(c.value).trim()) continue;
+    const n=nk(c.key);
+    const isCost=/cost/.test(n)||/^level\d+$/.test(n);
+    const slot=byIdx.get(i)||{cost:"",text:""};
+    if(isCost) slot.cost=slot.cost||c.value;
+    else slot.text=slot.text||c.value;
+    byIdx.set(i,slot);
+  }
+  const out=[];
+  for(const i of [...byIdx.keys()].sort((a,b)=>a-b)){
+    const {cost,text}=byIdx.get(i);
+    const t=clean(text); if(!t) continue;
+    const c=clean(cost).replace(/\s+/g,"");
+    if(report) report.push("    ["+i+"] "+(c?c+": ":"(no cost) ")+t.slice(0,56).replace(/\n/g," / "));
+    out.push(c?c+": "+t:t);
+  }
+  return out.join("\n");
+}
+
+function readFace(node){
+  let sup=clean(getAny(node,"supertype")).replace(/\s+/g," ");
+  let sub=clean(getAny(node,"subtype")).replace(/\s+/g," ");
+  if(!sub){
+    const parts=sup.split(/\s*[\u2014\u2013]\s*|\s+-\s+/);
+    if(parts.length>1){ sup=parts[0].trim(); sub=parts.slice(1).join(" ").trim(); }
+  }
+  const raw=clean(getAny(node,"name"));
+  const numbered=isNumberedTemplate(node);
+  const rep=[];
+  const spec=clean(specialText(node));
+  const base=clean(getAny(node,"rules"));
+  const extra=numbered?numberedRules(node,rep):"";
+  return {
+    uid:String(get(node,"uid")||"").trim(),
+    name:/\s\/\/\s/.test(raw)?raw.split(/\s\/\/\s/)[0].trim():raw,
+    _rawName:raw, _numbered:numbered, _numReport:rep, _special:!!spec,
+    mana:forgeCost(getAny(node,"cost")),
+    superType:sup, subType:sub,
+    rules:mergeParas([spec,base,extra],rep),
+    flavor:clean(getAny(node,"flavor")),
+    power:clean(getAny(node,"power")),
+    toughness:clean(getAny(node,"toughness")),
+    loyalty:clean(getAny(node,"loyalty")),
+    rarity:clean(getAny(node,"rarity")).toLowerCase(),
+    artist:clean(getAny(node,"artist")),
+    code:clean(getAny(node,"code")),
+    image:String(getAny(node,"image")).trim(),
+    colors:(clean(getAny(node,"color"))||"").split(/,\s*/).filter(c=>COLORWORD[c]),
+    link:String(getAny(node,"link")).trim(),
+    rel:clean(getAny(node,"rel")).trim()
+  };
+}
+function readBack(node,front){
+  const R=!!front._numbered;
+  const any=["name","rules","cost","supertype","power"].some(g=>String(getAny2(node,g,R)).trim()!=="");
+  let nm=clean(getAny2(node,"name",R));
+  if(!nm && /\s\/\/\s/.test(front._rawName)) nm=front._rawName.split(/\s\/\/\s/)[1].trim();
+  if(!nm) return null;
+  if(!any) log("  '"+front.name+"' names a back face ("+nm+") but has no back-face fields — back will be empty.","w");
+  let sup=clean(getAny2(node,"supertype",R)).replace(/\s+/g," ");
+  let sub=clean(getAny2(node,"subtype",R)).replace(/\s+/g," ");
+  if(!sub){
+    const p=sup.split(/\s*[\u2014\u2013]\s*|\s+-\s+/);
+    if(p.length>1){ sup=p[0].trim(); sub=p.slice(1).join(" ").trim(); }
+  }
+  if(!sup){ sup=front.superType; if(!sub) sub=front.subType; }
+  return {name:nm, mana:forgeCost(getAny2(node,"cost",R)), superType:sup, subType:sub,
+    rules:clean(getAny2(node,"rules",R)), flavor:clean(getAny2(node,"flavor",R)),
+    power:clean(getAny2(node,"power",R)), toughness:clean(getAny2(node,"toughness",R)),
+    loyalty:clean(getAny2(node,"loyalty",R)), rarity:front.rarity,
+    artist:clean(getAny2(node,"artist",R))||front.artist, code:"",
+    image:String(getAny2(node,"image",R)).trim(),
+    colors:(clean(getAny2(node,"color",R))||"").split(/,\s*/).filter(c=>COLORWORD[c]),
+    link:"", rel:"", _i:-1, _second:true};
+}
+function faceMode(node,front,back,opt){
+  const hint=(String(get(node,"stylesheet")||"")+" "+SET_STYLE).toLowerCase();
+  if(/\btransform(s|ed)?\b/i.test(front.rules+" "+back.rules)) return "Transform";
+  if(/split/.test(hint)) return "Split";
+  if(/flip/.test(hint)) return "Flip";
+  if(/adventure/.test(hint)) return "Adventure";
+  if(/modal|mdfc/.test(hint)) return "Modal";
+  if(/double.?face|dfc|transform/.test(hint)) return back.mana?"Modal":"Transform";
+  if(front.mana&&back.mana&&/\b(Instant|Sorcery)\b/.test(front.superType)) return "Split";
+  return opt.dfc;
+}
+function makeStub(f){
+  return {name:f.name.replace(/,.*$/,"")+" (Transformed)",mana:"",superType:f.superType,subType:f.subType,
+    rules:"",flavor:"",power:f.power,toughness:f.toughness,loyalty:"",rarity:f.rarity,artist:f.artist,
+    code:"",image:"",colors:f.colors.length?f.colors:colorsFromCost(f.mana),link:"",rel:"",_i:-1,_stub:true};
+}
+const BACKREL=new Set(["Front Face","Creature","Unflipped","Melds From"]);
+const MODEBYREL={"Back Face":"Transform","Adventure":"Adventure","Other Half":"Split","Flipped":"Flip","Melds With":"Meld"};
+
+/* ═══════════════════════════════════════════ token-card detection ════════ */
+/* Hand-drawn token cards duplicate the scripts generated from "create a …
+   token" text, and several often share one name (three "Djinn"), which would
+   overwrite each other in custom/cards/. Detection uses three signals and is
+   always logged so it can be overridden. */
+function tokenSignals(f,genTypes){
+  const sig=[];
+  if(/\btokens?\b/i.test(f.superType)) sig.push("type line says Token");
+  const bare=!f.mana && !f.rules.trim();
+  const typeWords=f.subType.split(/\s+/).filter(Boolean).map(w=>nk(singular(w)));
+  const nameKey=nk(singular(f.name));
+  const nameIsType=typeWords.includes(nameKey)||STD_CREATURE.has(singular(f.name).toLowerCase());
+  if(bare && nameIsType) sig.push("no cost, no rules, name = creature type");
+  const gen=genTypes.get(nameKey);
+  if(gen){
+    if(f.power&&f.toughness&&gen.has(f.power+"/"+f.toughness)) sig.push("matches generated token "+nameKey+" "+f.power+"/"+f.toughness);
+    else if(bare) sig.push("name matches generated token "+nameKey);
+  }
+  return sig;
+}
+
+/* ═══════════════════════════════════════════ main ════════════════════════ */
+let LOADED=null, RESULT=null;
+
+function compile(){
+  clearLog(); $("#rows").innerHTML=""; $("#prev").value=""; $("#dl").disabled=true;
+  if(!LOADED){ log("No set loaded.","e"); return; }
+  const opt={
+    setname:$("#setname").value.trim()||"Custom Set",
+    setcode:($("#setcode").value.trim()||"CUSTOM").replace(/\s+/g,"_"),
+    date:$("#setdate").value.trim()||new Date().toISOString().slice(0,10),
+    artist:$("#artist").value.trim(),
+    incartist:$("#incartist").checked, suffix:$("#suffix").checked,
+    unres:$("#unres").value, dfc:$("#dfc").value, folders:$("#folders").value,
+    dotokens:$("#dotokens").checked, dotypes:$("#dotypes").checked,
+    doart:$("#doart").checked, basicmana:$("#basicmana").checked,
+    stubback:$("#stubback").checked, secondface:$("#secondface").checked,
+    tokmode:$("#tokmode").value
+  };
+  USE_NUMBERED=$("#numbered").checked;
+  ALLOW_PARTIAL=$("#partialchain").checked;
+  if(ALLOW_PARTIAL) log("Partial ability chaining is ON — abilities may be missing clauses.","w");
+  if(opt.setcode==="CUSTOM"||opt.setname==="Custom Set")
+    log("Set name/code are placeholders — edition will be '"+opt.setname+"' / '"+opt.setcode+"'.","w");
+
+  const ctx={tokens:new Map(),userRules:[]};
+  try{
+    const ur=$("#userrules").value.trim();
+    if(ur) for(const r of JSON.parse(ur)) ctx.userRules.push({re:new RegExp(r.match,r.flags||""),emit:r.emit});
+    if(ctx.userRules.length) log("Loaded "+ctx.userRules.length+" user rules.","m");
+  }catch(e){ log("User rules JSON invalid, ignored: "+e.message,"w"); }
+
+  const forceTok=new Set(), forceCard=new Set();
+  for(const ln of $("#forcetok").value.split("\n")){
+    const t=ln.trim(); if(!t) continue;
+    if(t.startsWith("!")) forceCard.add(keyName(t.slice(1))); else forceTok.add(keyName(t));
+  }
+
+  ALIAS_HITS.clear();
+  const faces=LOADED.cards.map((n,i)=>{
+    const f=readFace(n); f._i=i; f._node=n;
+    if(f._numbered){
+      log("Numbered template: "+f.name+(f._special?"  [+ special text]":""),"m");
+      for(const l of f._numReport||[]) log(l,"d");
+    }
+    if(opt.secondface){
+      const b=readBack(n,f);
+      if(b){ f._backFace=b; f._mode=faceMode(n,f,b,opt);
+        log("In-block second face: "+f.name+" // "+b.name+"  ("+f._mode+")","m"); }
+    }
+    return f;
+  }).filter(f=>f.name);
+  log("Read "+faces.length+" named faces.","d");
+  const unnamed=LOADED.cards.length-faces.length;
+  if(unnamed) log(unnamed+" card block(s) had NO readable name and were dropped — click Inspect fields to see why.","w");
+  for(const [g,k] of ALIAS_HITS){
+    const canon=FIELD_ALIASES[g]?FIELD_ALIASES[g][0]:null;
+    if(!canon||nk(k)!==nk(canon)) log("  field '"+g+"' resolved to MSE key '"+k+"'","m");
+  }
+  for(const g of ["supertype","cost"]) if(!ALIAS_HITS.has(g)) log("  no field found for '"+g+"' in ANY card — click Inspect fields","w");
+
+  SET_SUBTYPES=new Set();
+  for(const f of faces){
+    for(const w of f.subType.split(/\s+/)) if(w) SET_SUBTYPES.add(nk(singular(w)));
+    if(f._backFace) for(const w of f._backFace.subType.split(/\s+/)) if(w) SET_SUBTYPES.add(nk(singular(w)));
+  }
+
+  /* ── PRE-PASS: harvest token definitions from every card's text, so
+       hand-drawn token cards can be matched against them ── */
+  const genTypes=new Map();
+  {
+    const probe={tokens:new Map(),userRules:ctx.userRules};
+    for(const f of faces) compileFace(f,opt,probe);
+    for(const t of probe.tokens.values()){
+      const type=nk(singular(t.types.replace(/^Creature\s+/i,"").split(/\s+/).pop()||""));
+      if(!type) continue;
+      if(!genTypes.has(type)) genTypes.set(type,new Set());
+      genTypes.get(type).add(t.pt);
+    }
+    if(genTypes.size) log("Token types found in card text: "+
+      [...genTypes.entries()].map(([k,v])=>k+" ("+[...v].join(",")+")").join(", "),"d");
+  }
+
+  /* ── classify token cards ── */
+  const tokenCards=[];
+  const cardFaces=faces.filter(f=>{
+    const kn=keyName(f.name);
+    if(forceCard.has(kn)) return true;
+    const sig=forceTok.has(kn)?["forced by user"]:tokenSignals(f,genTypes);
+    if(!sig.length) return true;
+    if(opt.tokmode==="cards"){ log("Token-like card kept as a normal card: "+f.name+"  ("+sig.join("; ")+")","w"); return true; }
+    tokenCards.push(f);
+    log((opt.tokmode==="drop"?"Discarded":"Routed to tokens/")+": "+f.name+"  ("+sig.join("; ")+")","m");
+    return false;
+  });
+  if(tokenCards.length) log(tokenCards.length+" hand-drawn token card(s) taken out of [cards]. "+
+    "Use 'Force token / force card' to override.","w");
+
+  /* ── face grouping ── */
+  const uniq=new Set(cardFaces.map(f=>f.uid).filter(Boolean));
+  if(uniq.size<cardFaces.length) log("Only "+uniq.size+" usable uids for "+cardFaces.length+" faces — cross-block linking needs Manual face pairs.","w");
+  const byUid=new Map();
+  for(const f of cardFaces) if(f.uid && !byUid.has(f.uid)) byUid.set(f.uid,f);
+
+  const isBackOf=new Map();
+  for(const f of cardFaces){
+    if(!f.uid||!f.link||!BACKREL.has(f.rel)) continue;
+    const front=byUid.get(f.link);
+    if(front && front.link===f.uid) isBackOf.set(f._i,front._i);
+  }
+  const manual=new Map(); let pairFail=false;
+  for(const ln of $("#pairs").value.split("\n")){
+    if(!ln.trim()) continue;
+    const p=ln.split(/=>|->|\|\||\/\//);
+    if(p.length!==2){ log("Pair needs 'Front => Back': "+ln.trim(),"w"); pairFail=true; continue; }
+    const fa=cardFaces.find(f=>keyName(f.name)===keyName(p[0]));
+    const fb=cardFaces.find(f=>keyName(f.name)===keyName(p[1]));
+    if(!fa){ log("Pair FRONT not found: '"+p[0].trim()+"'","w"); pairFail=true; }
+    if(!fb){ log("Pair BACK not found: '"+p[1].trim()+"' — that face is not a separate card block.","w"); pairFail=true; }
+    if(fa&&fb&&fa!==fb){
+      if(fa._backFace) log("'"+fa.name+"' already has an in-block back face; ignoring manual pair.","w");
+      else { manual.set(fa._i,fb._i); isBackOf.set(fb._i,fa._i); log("Paired "+fa.name+" → "+fb.name,"m"); }
+    }
+  }
+  if(pairFail) log("Card names available: "+cardFaces.map(f=>f.name).join(" | "),"d");
+
+  const used=new Set(), groups=[];
+  for(const f of cardFaces){
+    if(used.has(f._i)||isBackOf.has(f._i)) continue;
+    used.add(f._i);
+    let back=f._backFace||null, inBlockMode=f._mode||null;
+    if(back){ }
+    else if(manual.has(f._i)){ back=cardFaces.find(x=>x._i===manual.get(f._i)); if(back) used.add(back._i); }
+    else if(f.uid && f.link && !BACKREL.has(f.rel)){
+      const cand=byUid.get(f.link);
+      if(cand && cand._i!==f._i && !used.has(cand._i) && cand.link===f.uid && isBackOf.get(cand._i)===f._i){
+        back=cand; used.add(cand._i);
+      }
+    }
+    let mode=null;
+    if(back) mode=inBlockMode||MODEBYREL[f.rel]||opt.dfc;
+    if(back&&!inBlockMode&&f.rel==="Back Face") mode=back.mana?"Modal":"Transform";
+    groups.push({front:f,back,mode});
+  }
+  log("Grouped into "+groups.length+" Forge cards ("+(cardFaces.length-groups.length)+" separate back-face blocks merged).");
+
+  /* ───────── PASS 1: compile every face, register tokens ───────── */
+  const compiled=[];
+  for(const g of groups){
+    const f=g.front;
+    if(opt.suffix){ f.name+=" ("+opt.setcode+")"; if(g.back) g.back.name+=" ("+opt.setcode+")"; }
+    const cf=compileFace(f,opt,ctx);
+    if(!f.rules.trim() && f._node){
+      const textish=f._node.children.filter(c=>/text|rule|abilit|level/i.test(c.key)&&String(c.value).trim());
+      if(textish.length) log("! "+f.name+" produced NO rules text but its block has: "+
+        textish.map(c=>c.key).join(", ")+" — field mapping problem.","e");
+    }
+    if(cf.needsBack && !g.back){
+      if(opt.stubback){
+        g.back=makeStub(f); g.mode="Transform";
+        log("Stub back face '"+g.back.name+"' generated for "+f.name+" — edit it by hand.","w");
+      } else {
+        log("! "+f.name+" transforms with no back face — Forge will fail to load it.","e");
+      }
+    }
+    const cb=g.back?compileFace(g.back,opt,ctx):null;
+    compiled.push({g,cf,cb});
+  }
+
+  /* ── hand-drawn token cards become token scripts ── */
+  if(opt.tokmode==="tokens") for(const f of tokenCards){
+    const ct=compileFace(f,opt,ctx);
+    const type=f.subType||f.superType.replace(/\b(Token|Creature)\b/gi,"").trim();
+    const cols=f.colors.length?f.colors:colorsFromCost(f.mana);
+    const letters=cols.length?["white","blue","black","red","green"].filter(c=>cols.includes(c)).map(c=>COLORLET[c]).join(""):"c";
+    const kwslug=ct.K.map(k=>nk(k)).join("_");
+    const script=[letters,f.power||"0",f.toughness||"0",scriptName(type),kwslug].filter(Boolean).join("_");
+    const key="mse|"+script;
+    if(!ctx.tokens.has(key)) ctx.tokens.set(key,{
+      script, name:f.name, colors:cols,
+      types:(/\bCreature\b/i.test(f.superType)?"":"Creature ")+(f.superType.replace(/\btokens?\b/gi,"").trim()+" "+f.subType).replace(/\s+/g," ").trim(),
+      pt:(f.power||"0")+"/"+(f.toughness||"0"), kws:ct.K, abils:[], _fromCard:true, _todo:ct.todo
+    });
+  }
+
+  /* ───────── finalize token filenames, then resolve placeholders ───────── */
+  for(const t of ctx.tokens.values()){
+    const slug=(t.abils||[]).map(a=>scriptName(a).slice(0,14)).filter(Boolean).join("_");
+    t._file=slug?t.script+"_"+slug:t.script;
+  }
+  const seenFile=new Map();
+  for(const t of ctx.tokens.values()){
+    if(seenFile.has(t._file)){
+      const n=seenFile.get(t._file)+1; seenFile.set(t._file,n); t._file=t._file+"_"+n;
+    } else seenFile.set(t._file,1);
+  }
+  function fixTok(arr){
+    return arr.map(s=>s.replace(/%%TOK:([^%]+)%%/g,(m,k)=>{
+      const t=ctx.tokens.get(k);
+      if(!t){ log("Unresolved token reference "+k,"e"); return k.split("|")[0]; }
+      return t._file;
+    }));
+  }
+  for(const c of compiled) for(const o of [c.cf,c.cb]) if(o)
+    for(const key of ["A","T","S","SV"]) o[key]=fixTok(o[key]);
+
+  /* ───────── PASS 2: write files ───────── */
+  const rows=[], files=[], editionCards=[], customTypes={creature:new Set(),other:new Set()};
+  let full=0,part=0,none=0,skipped=0,auto=1,badTypes=0;
+  const usedFiles=new Map();
+
+  for(const {g,cf,cb} of compiled){
+    const f=g.front;
+    if(!cf.types) badTypes++;
+    const todoAll=[...cf.todo,...(cb?cb.todo:[])];
+    const verifyAll=[...cf.verify,...(cb?cb.verify:[])];
+    const scripted=cf.K.length+cf.A.length+cf.T.length+cf.S.length+(cb?cb.K.length+cb.A.length+cb.T.length+cb.S.length:0);
+    const hasRules=(f.rules+(g.back&&!g.back._stub?g.back.rules:"")).trim().length>0;
+
+    if(todoAll.length && opt.unres==="skip"){ skipped++; log("skipped "+f.name,"d"); continue; }
+    const status=(!hasRules)?"full":(todoAll.length===0?"full":(scripted?"part":"none"));
+    if(status==="full")full++;else if(status==="part")part++;else none++;
+
+    for(const fc of [f,g.back].filter(Boolean)){
+      const isCre=/\bCreature\b/.test(fc.superType);
+      for(const st of fc.subType.split(/\s+/).filter(Boolean)){
+        const l=singular(st.replace(/[^A-Za-z'-]/g,""));
+        if(!l) continue;
+        if(isCre){ if(!STD_CREATURE.has(l)) customTypes.creature.add(st); }
+        else if(!STD_OTHER.has(l)&&!STD_CREATURE.has(l)) customTypes.other.add(st);
+      }
+    }
+
+    let lines=buildFaceText(f,cf,opt,false,[]);
+    if(g.back){
+      lines.push("AlternateMode:"+g.mode);
+      lines.push("Oracle:"+(f.rules||"").replace(/\n/g,"\\n"));
+      lines.push("","ALTERNATE","");
+      lines=lines.concat(buildFaceText(g.back,cb,opt,true,colorsFromCost(f.mana)));
+      lines.push("Oracle:"+(g.back.rules||"").replace(/\n/g,"\\n"));
+    } else {
+      lines.push("Oracle:"+(f.rules||"").replace(/\n/g,"\\n"));
+    }
+    const body=lines.join("\n")+"\n";
+    const base=scriptName(f.name);
+    if(!base){ log("card with unusable name skipped: "+f.name,"w"); continue; }
+
+    /* never silently overwrite a same-named card */
+    let fname=base;
+    if(usedFiles.has(base)){
+      const n=usedFiles.get(base)+1; usedFiles.set(base,n); fname=base+"_"+n;
+      log("! Duplicate card name '"+f.name+"' → written as "+fname+".txt so it isn't lost. "+
+          "Forge treats same-named cards as ONE card: rename them in MSE, or mark them as tokens.","e");
+    } else usedFiles.set(base,1);
+
+    const dir=opt.folders==="letter"
+      ?("custom/cards/"+opt.setcode.toLowerCase()+"/"+fname[0]+"/")
+      :("custom/cards/"+opt.setcode.toLowerCase()+"/");
+    files.push({name:dir+fname+".txt",data:ENC.encode(body)});
+
+    let numTok=(f.code.match(/\d+[a-z★]?/i)||[])[0];
+    if(!numTok) numTok=String(auto);
+    auto=Math.max(auto,parseInt(numTok,10)||auto)+1;
+    const art=f.artist||opt.artist;
+    editionCards.push(numTok+" "+(RARITY[f.rarity]||"C")+" "+f.name+(opt.incartist&&art?" @"+art:""));
+    rows.push({name:f.name+(g.back?" // "+g.back.name:""),status,todo:todoAll,verify:verifyAll,text:body});
+  }
+  if(badTypes) log(badTypes+" card(s) have NO type line and will not work until fixed by hand.","e");
+
+  /* token scripts */
+  if(opt.dotokens) for(const t of ctx.tokens.values()){
+    const L=["Name:"+t.name,"ManaCost:no cost"];
+    if(t.colors.length)L.push("Colors:"+t.colors.join(","));
+    L.push("Types:"+t.types,"PT:"+t.pt);
+    for(const k of t.kws)L.push("K:"+k);
+    for(const ab of t.abils||[]){
+      const mm=ab.match(/^([^:]+):\s*(.+)$/);
+      let ok=false;
+      if(mm){
+        const c=parseCost(mm[1]), e=resolveEffect(mm[2]);
+        if(c!==null&&e){ L.push("A:AB$ "+e.api+" | Cost$ "+c+" | "+paramStr(e.p)+" | SpellDescription$ "+sd(mm[2])); ok=true; }
+      }
+      if(!ok) L.push("#TODO token ability: "+ab);
+    }
+    for(const td of t._todo||[]) L.push("#TODO not scripted: "+td.replace(/\n/g," / "));
+    if(t._fromCard) L.push("#TODO from a hand-drawn MSE token card — verify against the generated tokens.");
+    L.push("Oracle:"+[...t.kws,...(t.abils||[])].join(" ").trim());
+    files.push({name:"custom/tokens/"+t._file+".txt",data:ENC.encode(L.join("\n")+"\n")});
+    rows.push({name:"[token] "+t.name,status:"token",todo:t._todo||[],verify:[],text:L.join("\n")+"\n"});
+  }
+  if(ctx.tokens.size) log("Token scripts ("+ctx.tokens.size+"): "+[...ctx.tokens.values()].map(t=>t._file).join(", "),"d");
+
+  const ed=["[metadata]","Code="+opt.setcode,"Name="+opt.setname,"Date="+opt.date,"Type=Custom","","[cards]",...editionCards];
+  if(opt.dotokens && ctx.tokens.size){ ed.push("","[tokens]"); let i=1; for(const t of ctx.tokens.values()) ed.push((i++)+" "+t._file); }
+  if(opt.dotypes){
+    if(customTypes.creature.size){ ed.push("","[CreatureTypes]"); for(const t of customTypes.creature) ed.push(t+":"+t+"s"); }
+    if(customTypes.other.size){ ed.push("","[ArtifactTypes]"); for(const t of customTypes.other) ed.push(t+":"+t+"s"); }
+  }
+  files.push({name:"custom/editions/"+opt.setname.replace(/[\\/:*?"<>|]/g,"_")+".txt",data:ENC.encode(ed.join("\n")+"\n")});
+
+  if(opt.doart) for(const im of LOADED.images){
+    const owner=LOADED.cards.find(c=>String(getAny(c,"image")).trim()===im.name);
+    const nm=owner?clean(getAny(owner,"name")):im.name;
+    files.push({name:"art/"+(nm||im.name).replace(/[\\/:*?"<>|]/g,"_")+"__"+im.name+".jpg",data:im.data});
+  }
+
+  const report=["MSE → Forge conversion report","Set: "+opt.setname+"  ("+opt.setcode+")",
+    "Generated: "+new Date().toISOString(),"",
+    "Fully scripted : "+full,"Partial        : "+part,"Unscripted     : "+none,
+    "Skipped        : "+skipped,"Token scripts  : "+ctx.tokens.size,
+    "Token cards routed out of [cards] : "+(opt.tokmode==="tokens"?tokenCards.length:0),
+    "","=== Cards needing hand-scripting ==="];
+  for(const r of rows) if(r.todo.length&&r.status!=="token"){ report.push("","--- "+r.name+" ["+r.status+"]"); for(const t of r.todo) report.push("    "+t.replace(/\n/g," / ")); }
+  report.push("","=== Emitted but worth verifying against your Forge build ===");
+  for(const r of rows) if(r.verify.length) report.push(r.name+": "+r.verify.join(" ; "));
+  if(tokenCards.length){
+    report.push("","=== Hand-drawn token cards detected ===");
+    for(const f of tokenCards) report.push("    "+f.name+"  "+(f.power||"?")+"/"+(f.toughness||"?")+"  "+f.superType+" "+f.subType);
+  }
+  files.push({name:"report.txt",data:ENC.encode(report.join("\n")+"\n")});
+
+  files.push({name:"README.txt",data:ENC.encode(
+`How to install this package
+===========================
+1. Copy the whole "custom" folder into:
+       %APPDATA%\\Forge\\custom          (Android: Forge/data/custom)
+   giving you
+       %APPDATA%\\Forge\\custom\\cards\\${opt.setcode.toLowerCase()}\\...
+       %APPDATA%\\Forge\\custom\\editions\\${opt.setname}.txt
+       %APPDATA%\\Forge\\custom\\tokens\\...
+
+2. Card images (NOT included)
+   Forge wants a full card render per card, named exactly:
+       %LOCALAPPDATA%\\Forge\\Cache\\pics\\cards\\${opt.setcode}\\Card Name.full.jpg
+   The "art" folder here holds only MSE ART CROPS. In Magic Set Editor use
+   File -> Export -> Export Images... with template  {card.name}.full.jpg
+   Two-faced cards need one image per face name.
+
+3. Restart Forge. The set appears as a Custom edition.
+
+Token cards
+-----------
+Token scripts in custom/tokens/ come from two sources: text like "create a 1/1
+white Soldier token" on your cards, and any hand-drawn token CARDS in the MSE
+set (which are kept out of [cards] so several same-named ones can't overwrite
+each other). See report.txt for which were detected, and use the converter's
+"Force token / force card" box to override any misclassification.
+
+Unscripted lines are left as "#TODO not scripted:" comments — those cards LOAD
+and are CASTABLE but the commented lines DO NOTHING. See report.txt, then edit
+using https://github.com/Card-Forge/forge/wiki/Card-scripting-API
+
+Check report.txt's "worth verifying" list before trusting Animate, AddAbility,
+GenericChoice, ChooseColor, Sacrifice-with-SacValid, ChangeZone-from-hand,
+TriggeredPlayer mana, Protection, Ward, cmcEQX and optional-cost triggers.
+
+"Pay {W}{U}{B}{R}{G} rather than pay the mana cost" (Fist of Suns) is not
+emitted — copy it from res/cardsfolder/f/fist_of_suns.txt in your Forge install.
+`)});
+
+  RESULT={blob:makeZip(files),name:opt.setcode.toLowerCase()+"-forge.zip",rows};
+  $("#dl").disabled=false;
+  $("#stat").innerHTML=`<span class="o">● fully scripted: ${full}</span><span class="w">● partial: ${part}</span>`+
+    `<span class="e">● unscripted: ${none}</span><span class="m">● tokens: ${ctx.tokens.size}</span>`+
+    `<span class="d">● token cards routed: ${opt.tokmode==="tokens"?tokenCards.length:0}</span>`+
+    `<span class="d">● files: ${files.length}</span>`;
+  renderRows();
+  log("Done. "+files.length+" files, "+(RESULT.blob.size/1048576).toFixed(2)+" MB.","o");
+}
+
+function esc(s){return String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+function renderRows(){
+  const only=$("#onlyprob").checked, tb=$("#rows");
+  tb.innerHTML="";
+  for(const r of RESULT.rows){
+    if(only && (r.status==="full"||(r.status==="token"&&!r.todo.length))) continue;
+    const tr=document.createElement("tr");
+    const cls=r.status==="full"?"t-full":r.status==="part"?"t-part":r.status==="token"?"t-tok":"t-none";
+    const lbl=r.status==="full"?"scripted":r.status==="part"?"partial":r.status==="token"?"token":"shell";
+    tr.innerHTML=`<td>${esc(r.name)}</td><td><span class="tag ${cls}">${lbl}</span></td>`+
+      `<td class="d">${esc(r.todo.slice(0,3).map(t=>t.replace(/\n/g," / ")).join(" · ")||"—")}${r.todo.length>3?" …":""}</td>`;
+    tr.onclick=()=>{$("#prev").value=r.text;};
+    tb.appendChild(tr);
+  }
+}
+
+/* ═══════════════════════════════════════════ loader ═════════════════════ */
+async function load(file){
+  clearLog();
+  $("#go").disabled=true;
+  try{
+    log("File: "+file.name+"  ("+file.size.toLocaleString()+" bytes, type '"+(file.type||"none")+"')","d");
+    if(!file.size) throw new Error("file is 0 bytes");
+    const buf=await file.arrayBuffer();
+    const h=new Uint8Array(buf.slice(0,4));
+    log("First 4 bytes: "+[...h].map(b=>b.toString(16).padStart(2,"0")).join(" ")+
+        "  '"+[...h].map(b=>b>31&&b<127?String.fromCharCode(b):".").join("")+"'","d");
+
+    let setText, images=[];
+    if(h[0]===0x50&&h[1]===0x4B){
+      const files=await unzip(buf);
+      log("Archive entries: "+files.map(f=>f.name).slice(0,40).join(", ")+(files.length>40?" …":""),"d");
+      const se=pickSetEntry(files);
+      if(!se) throw new Error("no 'set' file inside; entries were: "+files.map(f=>f.name).join(", "));
+      log("Using '"+se.name+"' as the set file ("+se.data.length.toLocaleString()+" bytes).","m");
+      setText=DEC.decode(se.data);
+      images=files.filter(f=>f!==se && !/\/$/.test(f.name) && f.data.length>0);
+    } else {
+      setText=DEC.decode(buf);
+      log("Not a ZIP — reading as plain MSE set text.","m");
+    }
+
+    setText=normalizeIndent(setText);
+    if(!/mse\s*version|^\s*card:/im.test(setText))
+      throw new Error("this doesn't look like MSE set data (no 'mse version' or 'card:' found)");
+
+    const tree=parseMSE(setText);
+    const cards=tree.children.filter(x=>x.key==="card");
+    log("Parsed "+tree.children.length+" top-level blocks, "+cards.length+" of them cards.","d");
+    if(!cards.length) throw new Error("parsed 0 card blocks — indentation may be mangled");
+
+    const info=tree.children.find(x=>x.key==="set info");
+    SET_STYLE=String(get(tree,"stylesheet")||"");
+    if(SET_STYLE) log("Set stylesheet: "+SET_STYLE,"d");
+    LOADED={tree,cards,images,info};
+    $("#fileinfo").textContent=file.name+" — "+cards.length+" cards, "+images.length+" embedded files.";
+    $("#fileinfo").className="o";
+
+    const fb=file.name.replace(/\.(mse-set|zip|txt)$/i,"").trim();
+    let title="",code="";
+    if(info){
+      for(const k of ["title","set title","name"]){ const v=clean(get(info,k)); if(v){title=v;break;} }
+      for(const k of ["set code","code","setcode"]){ const v=clean(get(info,k)); if(v){code=v;break;} }
+    }
+    if(!$("#setname").value) $("#setname").value=title||fb;
+    if(!$("#setcode").value) $("#setcode").value=(code||fb).replace(/[^A-Za-z0-9]/g,"").slice(0,5).toUpperCase();
+    if(!$("#setdate").value) $("#setdate").value=new Date().toISOString().slice(0,10);
+    $("#go").disabled=false;
+    log("Ready to compile.","o");
+  }catch(e){
+    log("ERROR: "+e.message,"e");
+    if(e.stack) log(String(e.stack).split("\n").slice(1,3).join("\n"),"d");
+    $("#fileinfo").textContent="Load failed — see the log above.";
+    $("#fileinfo").className="e";
+  }
+}
+
+/* ═══════════════════════════════════════════ wiring ═════════════════════ */
+function bindDrop(){
+  const d=$("#drop"), f=$("#file"), pick=$("#pick");
+  pick.addEventListener("click",e=>{ e.stopPropagation(); f.click(); });
+  d.addEventListener("click",e=>{ if(e.target.closest("#pick")) return; f.click(); });
+  f.addEventListener("click",()=>{ f.value=""; });
+  f.addEventListener("change",()=>{ if(f.files&&f.files[0]) load(f.files[0]); });
+  d.addEventListener("dragover",e=>{e.preventDefault();d.classList.add("hot");});
+  d.addEventListener("dragleave",()=>d.classList.remove("hot"));
+  d.addEventListener("drop",e=>{
+    e.preventDefault(); d.classList.remove("hot");
+    const dt=e.dataTransfer;
+    const file=(dt.files&&dt.files[0])?dt.files[0]
+      :(dt.items&&dt.items[0]&&dt.items[0].kind==="file"?dt.items[0].getAsFile():null);
+    if(file) load(file); else log("Nothing usable in that drop.","w");
+  });
+  window.addEventListener("dragover",e=>e.preventDefault());
+  window.addEventListener("drop",e=>e.preventDefault());
+}
+$("#go").onclick=compile;
+$("#onlyprob").onchange=()=>RESULT&&renderRows();
+$("#dl").onclick=()=>{ if(!RESULT)return; const a=document.createElement("a");
+  a.href=URL.createObjectURL(RESULT.blob); a.download=RESULT.name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),10000); };
+$("#loadpaste").onclick=()=>{
+  const t=$("#paste").value;
+  if(!t.trim()){ log("Nothing pasted.","w"); return; }
+  load(new File([t],"pasted-set.txt",{type:"text/plain"}));
+};
+$("#names").onclick=()=>{
+  if(!LOADED){ log("Load a set first.","e"); return; }
+  clearLog();
+  USE_NUMBERED=$("#numbered").checked;
+  log("=== card names, exactly as stored ===","m");
+  const seen=new Map();
+  LOADED.cards.forEach((n,i)=>{
+    const f=readFace(n);
+    if(!f.name){ log("  "+String(i+1).padStart(3)+". (NO NAME — block "+(i+1)+")","w"); return; }
+    seen.set(nk(f.name),(seen.get(nk(f.name))||0)+1);
+    const b=readBack(n,f);
+    log("  "+String(i+1).padStart(3)+". "+f.name+
+        "   "+(f.power!==""?f.power+"/"+f.toughness+"  ":"")+(f.superType||"")+
+        (b?"   [in-block back: "+b.name+"]":"")+
+        (f._numbered?"   [numbered × "+(f._numReport||[]).length+"]":"")+
+        (f._special?"   [special text]":""));
+  });
+  const dups=[...seen.entries()].filter(([,n])=>n>1);
+  if(dups.length) log("\nDUPLICATE NAMES: "+dups.map(([k,n])=>k+" ×"+n).join(", ")+
+    "\nForge treats same-named cards as ONE card. Rename them, or let them be routed to tokens/.","e");
+};
+$("#inspect").onclick=()=>{
+  if(!LOADED){ log("Load a set first.","e"); return; }
+  clearLog();
+  const counts=new Map();
+  for(const c of LOADED.cards) for(const ch of c.children){
+    const e=counts.get(ch.key)||{n:0,ex:""};
+    e.n++; if(!e.ex && String(ch.value).trim()) e.ex=String(ch.value).replace(/\n/g," / ").slice(0,60);
+    counts.set(ch.key,e);
+  }
+  log("=== every field key across "+LOADED.cards.length+" card blocks ===","m");
+  [...counts.entries()].sort((a,b)=>b[1].n-a[1].n)
+    .forEach(([k,e])=>{
+      const idx=numIndexOf(k);
+      log("  "+String(e.n).padStart(4)+"×  "+k.padEnd(22)+(idx?"[#"+idx+"] ":"")+(e.ex?"e.g. "+e.ex:"(always empty)"));
+    });
+  const known=new Set();
+  for(const arr of Object.values(FIELD_ALIASES)) for(const a of arr){
+    for(const sfx of ["", " 2","2"," b"," back"]) known.add(nk(a+sfx));
+    for(let i=1;i<=9;i++) known.add(nk(a+" "+i));
+  }
+  for(const k of SPECIAL_KEYS) known.add(nk(k));
+  for(let i=1;i<=9;i++){ known.add(nk("loyalty cost "+i)); known.add(nk("level "+i)); known.add(nk("level "+i+" text")); known.add(nk("level "+i+" cost")); }
+  const un=[...counts.keys()].filter(k=>!known.has(nk(k))&&!numIndexOf(k));
+  if(un.length) log("\nNot recognised by any alias: "+un.join(", "),"w");
+};
+bindDrop();
+log("Script loaded OK. Choose or drop a file.","o");
+</script>
+</body></html>

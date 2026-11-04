@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>V2 Character Card → NovelAI Converter</title>
+<style>
+  :root{--bg:#14151f;--panel:#1e2030;--panel2:#262940;--txt:#e6e6f0;--mut:#9a9cb8;--acc:#f5c66b;--acc2:#7f6df2;--err:#ff6b6b;--ok:#6bdc9a}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--txt);line-height:1.45}
+  .wrap{max-width:1050px;margin:0 auto;padding:24px}
+  h1{margin:0 0 4px;font-size:1.6rem}
+  h1 span{color:var(--acc)}
+  .sub{color:var(--mut);margin:0 0 20px}
+  .panel{background:var(--panel);border-radius:12px;padding:18px;margin-bottom:18px}
+  .panel h2{margin:0 0 12px;font-size:1.05rem;color:var(--acc)}
+  #drop{border:2px dashed #4a4e75;border-radius:12px;padding:34px;text-align:center;cursor:pointer;transition:.15s}
+  #drop.hover{border-color:var(--acc);background:#23263a}
+  #drop small{color:var(--mut)}
+  .hidden{display:none!important}
+  .info{display:flex;gap:18px;align-items:flex-start}
+  .info img{width:140px;border-radius:10px;object-fit:cover;background:#000}
+  .info .meta div{margin-bottom:4px}
+  .tag{display:inline-block;background:var(--panel2);border-radius:6px;padding:1px 7px;margin:2px;font-size:.8rem;color:var(--mut)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px 22px}
+  label{display:block;font-size:.88rem;color:var(--mut);margin-bottom:3px}
+  label.cb{display:flex;gap:8px;align-items:center;color:var(--txt);cursor:pointer}
+  input[type=text],select,textarea{width:100%;background:var(--panel2);color:var(--txt);border:1px solid #393d5c;border-radius:8px;padding:8px;font:inherit}
+  textarea{min-height:110px;resize:vertical;font-family:ui-monospace,Consolas,monospace;font-size:.85rem}
+  .field{margin-bottom:12px}
+  .count{float:right;font-size:.75rem;color:var(--mut)}
+  .btns{display:flex;flex-wrap:wrap;gap:10px}
+  button{background:var(--acc2);color:#fff;border:0;border-radius:8px;padding:10px 16px;font:inherit;font-weight:600;cursor:pointer}
+  button.alt{background:var(--panel2);border:1px solid #444a70}
+  button:hover{filter:brightness(1.12)}
+  #msg{margin-top:10px;font-size:.9rem}
+  #msg.err{color:var(--err)} #msg.ok{color:var(--ok)}
+  .note{font-size:.8rem;color:var(--mut);margin-top:6px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>V2 Card → <span>NovelAI</span> Converter</h1>
+  <p class="sub">Converts SillyTavern / Chub V1, V2 (and V3) character cards (.png or .json) into a NovelAI Scenario, Lorebook, or Lorebook PNG. Everything runs locally in your browser.</p>
+
+  <!-- STEP 1 -->
+  <div class="panel">
+    <h2>1. Load a character card</h2>
+    <div id="drop">
+      <strong>Drop a .png or .json card here</strong><br><small>or click to choose a file</small>
+      <input type="file" id="file" accept=".png,.json,image/png,application/json" class="hidden">
+    </div>
+    <div id="msg"></div>
+    <div id="info" class="info hidden" style="margin-top:16px">
+      <img id="avatar" alt="avatar">
+      <div class="meta">
+        <div><strong id="cName" style="font-size:1.2rem"></strong></div>
+        <div id="cSpec" class="note"></div>
+        <div id="cStats"></div>
+        <div id="cTags"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="work" class="hidden">
+  <!-- STEP 2 -->
+  <div class="panel">
+    <h2>2. Conversion options</h2>
+    <div class="grid">
+      <div>
+        <div class="field"><label>Your name (replaces {{user}})</label><input type="text" id="userName" class="opt" value="You"></div>
+        <div class="field"><label>Character description goes into…</label>
+          <select id="descMode" class="opt">
+            <option value="lore-always">Lorebook entry – always on</option>
+            <option value="lore-keyed">Lorebook entry – activated by name keys</option>
+            <option value="memory">Memory</option>
+          </select></div>
+        <div class="field"><label>Example dialogue goes into…</label>
+          <select id="exMode" class="opt">
+            <option value="lore">Lorebook entry – always on</option>
+            <option value="prompt">Start of the story text (before greeting)</option>
+            <option value="memory">Memory</option>
+            <option value="none">Leave it out</option>
+          </select></div>
+        <div class="field"><label>Opening message</label><select id="greeting" class="opt"></select></div>
+        <div class="field"><label>Text model</label>
+          <select id="model">
+            <option value="xialong-v1" selected>Xialong (Opus only)</option>
+            <option value="glm-4-6">GLM-4.6</option>
+            <option value="llama-3-erato-v1">Erato</option>
+            <option value="kayra-v1">Kayra</option>
+            <option value="clio-v1">Clio</option>
+          </select></div>
+      </div>
+      <div>
+        <label class="cb"><input type="checkbox" id="incPersonality" class="opt" checked> Include "personality" field</label>
+        <label class="cb"><input type="checkbox" id="incScenario" class="opt" checked> Put "scenario" field into Memory</label>
+        <label class="cb"><input type="checkbox" id="prefixName" class="opt"> Prefix opening message with "Name:" (chat style)</label>
+        <label class="cb"><input type="checkbox" id="incBook" class="opt" checked> Convert embedded character lorebook</label>
+        <label class="cb"><input type="checkbox" id="attg" class="opt" checked> Add ATTG line to Memory</label>
+        <div class="field" style="margin-top:8px"><label>Genre for ATTG (optional)</label><input type="text" id="genre" class="opt" placeholder="e.g. fantasy, romance"></div>
+        <label class="cb"><input type="checkbox" id="keepV2" checked> Keep original V2 data inside exported PNG</label>
+        <div class="field" style="margin-top:8px"><label>Replace image (optional, any format)</label><input type="file" id="newImg" accept="image/*"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3 -->
+  <div class="panel">
+    <h2>3. Review &amp; edit (changing options above regenerates these)</h2>
+    <div class="grid">
+      <div class="field"><label>Memory <span class="count" id="c_memory"></span></label><textarea id="memory"></textarea></div>
+      <div class="field"><label>Author's Note <span class="count" id="c_an"></span></label><textarea id="an" placeholder="[ Style: descriptive, dialogue-heavy ]"></textarea></div>
+      <div class="field"><label>Character lorebook entry <span class="count" id="c_charEntry"></span></label><textarea id="charEntry"></textarea>
+        <label style="margin-top:6px">Activation keys (comma-separated)</label><input type="text" id="charKeys"></div>
+      <div class="field"><label>Example dialogue entry <span class="count" id="c_exEntry"></span></label><textarea id="exEntry"></textarea></div>
+    </div>
+    <div class="field"><label>Opening story text (prompt) <span class="count" id="c_prompt"></span></label><textarea id="prompt" style="min-height:150px"></textarea></div>
+    <div id="bookInfo" class="note"></div>
+  </div>
+
+  <!-- STEP 4 -->
+  <div class="panel">
+    <h2>4. Download</h2>
+    <div class="btns">
+      <button id="dlScenario">⬇ NovelAI Scenario (.scenario)</button>
+      <button id="dlLore" class="alt">⬇ Lorebook (.lorebook)</button>
+      <button id="dlPng" class="alt">⬇ Lorebook PNG (image + naidata)</button>
+    </div>
+    <p class="note">Scenario = ready-to-play story with Memory, Author's Note, prompt, lorebook and the selected model. Lorebook / Lorebook PNG = import into the Lorebook of an existing story.</p>
+  </div>
+  </div>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+let card = null;        // normalized card data
+let imageBytes = null;  // Uint8Array PNG
+
+/* ---------- utilities ---------- */
+const uuid = () => (window.crypto && crypto.randomUUID) ? crypto.randomUUID() :
+  'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random()*16|0; return (c === 'x' ? r : (r&3|8)).toString(16); });
+
+function b64ToUtf8(b64) {
+  const bin = atob(b64.replace(/\s+/g, ''));
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+function utf8ToB64(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = '';
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+function parseMaybeB64(s) {
+  s = s.trim();
+  return JSON.parse(s.startsWith('{') ? s : b64ToUtf8(s));
+}
+function safeName(n) { return (n || 'character').replace(/[\\/:*?"<>|]+/g, '_').trim().slice(0, 80) || 'character'; }
+function download(filename, data, mime) {
+  const blob = data instanceof Blob ? data : new Blob([data], { type: mime });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+function msg(text, cls) { const m = $('msg'); m.textContent = text; m.className = cls || ''; }
+
+/* ---------- PNG handling ---------- */
+const PNG_SIG = new Uint8Array([137,80,78,71,13,10,26,10]);
+const CRC_TABLE = (() => { const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); t[n] = c >>> 0; }
+  return t; })();
+function crc32(bytes) { let c = 0xFFFFFFFF; for (let i = 0; i < bytes.length; i++) c = CRC_TABLE[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+
+function isPng(b) { return b.length > 8 && PNG_SIG.every((v, i) => b[i] === v); }
+function readChunks(bytes) {
+  if (!isPng(bytes)) throw new Error('Not a valid PNG file.');
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const chunks = []; let off = 8;
+  while (off + 8 <= bytes.length) {
+    const len = dv.getUint32(off);
+    const type = String.fromCharCode(bytes[off+4], bytes[off+5], bytes[off+6], bytes[off+7]);
+    chunks.push({ type, data: bytes.subarray(off + 8, off + 8 + len) });
+    off += 12 + len;
+    if (type === 'IEND') break;
+  }
+  return chunks;
+}
+function readTextChunks(chunks) {
+  const out = {}; const latin = new TextDecoder('latin1'); const utf8 = new TextDecoder();
+  for (const c of chunks) {
+    const d = c.data;
+    if (c.type === 'tEXt') {
+      const z = d.indexOf(0);
+      out[latin.decode(d.subarray(0, z))] = latin.decode(d.subarray(z + 1));
+    } else if (c.type === 'iTXt') {
+      let p = d.indexOf(0); const key = latin.decode(d.subarray(0, p));
+      const compressed = d[p + 1]; p += 3;
+      const p2 = d.indexOf(0, p); const p3 = d.indexOf(0, p2 + 1);
+      if (!compressed) out[key] = utf8.decode(d.subarray(p3 + 1));
+    }
+  }
+  return out;
+}
+function makeTextChunk(keyword, text) {
+  const kw = new TextEncoder().encode(keyword), tx = new TextEncoder().encode(text);
+  const data = new Uint8Array(kw.length + 1 + tx.length);
+  data.set(kw, 0); data[kw.length] = 0; data.set(tx, kw.length + 1);
+  return { type: 'tEXt', data };
+}
+function buildPng(chunks) {
+  let total = 8; for (const c of chunks) total += 12 + c.data.length;
+  const out = new Uint8Array(total); out.set(PNG_SIG, 0);
+  const dv = new DataView(out.buffer); let off = 8;
+  for (const c of chunks) {
+    dv.setUint32(off, c.data.length); off += 4;
+    for (let i = 0; i < 4; i++) out[off + i] = c.type.charCodeAt(i);
+    out.set(c.data, off + 4);
+    const crc = crc32(out.subarray(off, off + 4 + c.data.length));
+    off += 4 + c.data.length;
+    dv.setUint32(off, crc); off += 4;
+  }
+  return out;
+}
+function canvasToPng(cv) {
+  return new Promise((res, rej) => cv.toBlob(b => b ? b.arrayBuffer().then(a => res(new Uint8Array(a))) : rej(new Error('Image export failed')), 'image/png'));
+}
+function placeholderPng(name) {
+  const cv = document.createElement('canvas'); cv.width = 400; cv.height = 600;
+  const g = cv.getContext('2d');
+  const grad = g.createLinearGradient(0, 0, 0, 600); grad.addColorStop(0, '#2b2d42'); grad.addColorStop(1, '#7f6df2');
+  g.fillStyle = grad; g.fillRect(0, 0, 400, 600);
+  g.fillStyle = '#fff'; g.font = 'bold 34px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(name.slice(0, 22), 200, 300);
+  return canvasToPng(cv);
+}
+function imageFileToPng(file) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => { const cv = document.createElement('canvas'); cv.width = img.naturalWidth; cv.height = img.naturalHeight;
+      cv.getContext('2d').drawImage(img, 0, 0); URL.revokeObjectURL(img.src); canvasToPng(cv).then(res, rej); };
+    img.onerror = () => rej(new Error('Could not read that image.'));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+/* ---------- card parsing ---------- */
+function normalizeCard(obj) {
+  if (!obj || typeof obj !== 'object') throw new Error('Card data is not a JSON object.');
+  const d = (obj.data && typeof obj.data === 'object') ? obj.data : obj;
+  if (!d.name && !d.char_name) throw new Error('This does not look like a character card (no name field).');
+  const s = v => (typeof v === 'string' ? v : '');
+  return {
+    spec: obj.spec ? `${obj.spec} ${obj.spec_version || ''}` : 'V1 (no spec field)',
+    name: s(d.name) || s(d.char_name),
+    description: s(d.description) || s(d.char_persona),
+    personality: s(d.personality),
+    scenario: s(d.scenario) || s(d.world_scenario),
+    first_mes: s(d.first_mes) || s(d.char_greeting),
+    mes_example: s(d.mes_example) || s(d.example_dialogue),
+    creator_notes: s(d.creator_notes),
+    alternate_greetings: Array.isArray(d.alternate_greetings) ? d.alternate_greetings.filter(x => typeof x === 'string') : [],
+    tags: Array.isArray(d.tags) ? d.tags.map(String) : [],
+    creator: s(d.creator),
+    character_book: d.character_book && Array.isArray(d.character_book.entries) ? d.character_book : null
+  };
+}
+
+async function loadFile(file) {
+  try {
+    const buf = new Uint8Array(await file.arrayBuffer());
+    let json, img = null;
+    if (isPng(buf)) {
+      const texts = readTextChunks(readChunks(buf));
+      const raw = texts.chara || texts.ccv3;
+      if (!raw) throw new Error('No character data (chara / ccv3 chunk) found in this PNG.');
+      json = parseMaybeB64(raw);
+      img = buf;
+    } else {
+      json = JSON.parse(new TextDecoder().decode(buf));
+    }
+    card = normalizeCard(json);
+    imageBytes = img || await placeholderPng(card.name);
+    showInfo(!img);
+    fillGreetings();
+    buildPreview();
+    $('work').classList.remove('hidden');
+    msg(`Loaded "${card.name}" successfully.`, 'ok');
+  } catch (e) {
+    console.error(e); msg('Error: ' + e.message, 'err');
+  }
+}
+
+function showInfo(placeholder) {
+  $('info').classList.remove('hidden');
+  $('avatar').src = URL.createObjectURL(new Blob([imageBytes], { type: 'image/png' }));
+  $('cName').textContent = card.name;
+  $('cSpec').textContent = 'Format: ' + card.spec + (placeholder ? ' · JSON card, placeholder image generated' : '');
+  const n = card.character_book ? card.character_book.entries.length : 0;
+  $('cStats').textContent = `${card.alternate_greetings.length + (card.first_mes ? 1 : 0)} greeting(s) · ${n} embedded lorebook entr${n === 1 ? 'y' : 'ies'}` + (card.creator ? ` · by ${card.creator}` : '');
+  $('cTags').innerHTML = '';
+  card.tags.slice(0, 20).forEach(t => { const s = document.createElement('span'); s.className = 'tag'; s.textContent = t; $('cTags').appendChild(s); });
+}
+
+function fillGreetings() {
+  const sel = $('greeting'); sel.innerHTML = '';
+  const all = [card.first_mes, ...card.alternate_greetings];
+  all.forEach((g, i) => {
+    if (!g.trim() && i > 0) return;
+    const o = document.createElement('option'); o.value = i;
+    o.textContent = (i === 0 ? 'First message: ' : `Alt greeting ${i}: `) + g.replace(/\s+/g, ' ').slice(0, 60) + (g.length > 60 ? '…' : '');
+    sel.appendChild(o);
+  });
+}
+
+/* ---------- conversion ---------- */
+function macros(text) {
+  const user = $('userName').value.trim() || 'You';
+  return (text || '').replace(/\r\n/g, '\n')
+    .replace(/\{\{char\}\}|<BOT>/gi, card.name)
+    .replace(/\{\{user\}\}|<USER>/gi, user)
+    .trim();
+}
+function exampleText() {
+  return macros(card.mes_example)
+    .replace(/^\s*<START>\s*/i, '')
+    .replace(/\s*<START>\s*/gi, '\n***\n')
+    .trim();
+}
+function defaultKeys() {
+  const keys = new Set([card.name]);
+  card.name.split(/\s+/).forEach(w => { if (w.length > 2 && card.name.includes(' ')) keys.add(w); });
+  return [...keys];
+}
+function attgLine() {
+  const parts = [];
+  if (card.creator) parts.push(`Author: ${card.creator}`);
+  parts.push(`Title: ${card.name}`);
+  const tags = card.tags.filter(t => t.length < 30).slice(0, 10);
+  if (tags.length) parts.push(`Tags: ${tags.join(', ').toLowerCase()}`);
+  const genre = $('genre').value.trim();
+  if (genre) parts.push(`Genre: ${genre}`);
+  return `[ ${parts.join('; ')} ]`;
+}
+
+function buildPreview() {
+  if (!card) return;
+  const descMode = $('descMode').value, exMode = $('exMode').value;
+
+  let charText = macros(card.description);
+  if ($('incPersonality').checked && card.personality.trim())
+    charText += (charText ? '\n' : '') + `${card.name}'s personality: ${macros(card.personality)}`;
+
+  const ex = exampleText();
+  const mem = [];
+  if ($('attg').checked) mem.push(attgLine());
+  if (descMode === 'memory' && charText) mem.push(charText);
+  if ($('incScenario').checked && card.scenario.trim()) mem.push(`Scenario: ${macros(card.scenario)}`);
+  if (exMode === 'memory' && ex) mem.push(ex);
+
+  const all = [card.first_mes, ...card.alternate_greetings];
+  let greet = macros(all[+$('greeting').value || 0] || '');
+  if ($('prefixName').checked && greet) greet = `${card.name}: ${greet}`;
+  let prompt = greet;
+  if (exMode === 'prompt' && ex) prompt = ex + '\n***\n' + greet;
+
+  $('memory').value = mem.join('\n');
+  $('charEntry').value = descMode.startsWith('lore') ? charText : '';
+  $('charEntry').disabled = !descMode.startsWith('lore');
+  $('charKeys').value = defaultKeys().join(', ');
+  $('exEntry').value = exMode === 'lore' ? ex : '';
+  $('exEntry').disabled = exMode !== 'lore';
+  $('prompt').value = prompt;
+
+  const n = ($('incBook').checked && card.character_book) ? card.character_book.entries.length : 0;
+  $('bookInfo').textContent = n ? `+ ${n} entr${n === 1 ? 'y' : 'ies'} from the embedded character lorebook will be added.` : '';
+  updateCounts();
+}
+
+function updateCounts() {
+  ['memory', 'an', 'charEntry', 'exEntry', 'prompt'].forEach(id => {
+    const len = $(id).value.length;
+    $('c_' + id).textContent = len ? `~${Math.ceil(len / 4)} tokens` : '';
+  });
+}
+
+const ctx = (o = {}) => Object.assign({
+  prefix: '', suffix: '\n', tokenBudget: 2048, reservedTokens: 0, budgetPriority: 400,
+  trimDirection: 'trimBottom', insertionType: 'newline', maximumTrimType: 'sentence', insertionPosition: -1
+}, o);
+
+function makeEntry({ name, text, keys, force = false, enabled = true, priority = 400 }) {
+  return {
+    text,
+    contextConfig: ctx({ budgetPriority: priority }),
+    lastUpdatedAt: Date.now(),
+    displayName: name,
+    id: uuid(),
+    keys,
+    searchRange: 1000,
+    enabled,
+    forceActivation: force,
+    keyRelative: false,
+    nonStoryActivatable: false,
+    category: '',
+    loreBiasGroups: [{ phrases: [], ensureSequenceFinish: false, generateOnce: true, bias: 0, enabled: true, whenInactive: false }]
+  };
+}
+
+function buildLorebook() {
+  const entries = [];
+  const descMode = $('descMode').value;
+  const charText = $('charEntry').value.trim();
+  if (descMode.startsWith('lore') && charText) {
+    const keys = $('charKeys').value.split(',').map(k => k.trim()).filter(Boolean);
+    entries.push(makeEntry({ name: card.name, text: charText, keys: keys.length ? keys : [card.name],
+      force: descMode === 'lore-always', priority: 500 }));
+  }
+  const exText = $('exEntry').value.trim();
+  if ($('exMode').value === 'lore' && exText)
+    entries.push(makeEntry({ name: `${card.name} – example dialogue`, text: exText, keys: [card.name], force: true, priority: 200 }));
+
+  if ($('incBook').checked && card.character_book) {
+    card.character_book.entries.forEach((e, i) => {
+      const keys = (Array.isArray(e.keys) ? e.keys : []).map(k => String(k).trim()).filter(Boolean);
+      const text = macros(e.content || '');
+      if (!text) return;
+      entries.push(makeEntry({
+        name: e.comment || e.name || keys[0] || `Entry ${i + 1}`,
+        text, keys, force: !!e.constant, enabled: e.enabled !== false
+      }));
+    });
+  }
+  return { lorebookVersion: 5, entries, settings: { orderByKeyLocations: false }, categories: [] };
+}
+
+function buildScenario() {
+  const an = $('an').value.trim();
+  return {
+    scenarioVersion: 3,
+    title: card.name,
+    author: card.creator || '',
+    description: macros(card.creator_notes).slice(0, 2000),
+    prompt: $('prompt').value,
+    tags: card.tags.slice(0, 20),
+    context: [
+      { text: $('memory').value, contextConfig: ctx({ budgetPriority: 800, insertionPosition: 0 }) },
+      { text: an, contextConfig: ctx({ reservedTokens: 2048, budgetPriority: -400, insertionPosition: -4 }) }
+    ],
+    ephemeralContext: [],
+    placeholders: [],
+    settings: { model: $('model').value, parameters: {}, preset: '', trimResponses: true, banBrackets: true, prefix: 'vanilla' },
+    lorebook: buildLorebook(),
+    storyContextConfig: { prefix: '', suffix: '', tokenBudget: 2048, reservedTokens: 512, budgetPriority: 0,
+      trimDirection: 'trimTop', insertionType: 'newline', maximumTrimType: 'sentence', insertionPosition: -1, allowInsertionInside: true },
+    phraseBiasGroups: [],
+    bannedSequenceGroups: []
+  };
+}
+
+/* ---------- events ---------- */
+const drop = $('drop');
+drop.addEventListener('click', () => $('file').click());
+$('file').addEventListener('change', e => e.target.files[0] && loadFile(e.target.files[0]));
+['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('hover'); }));
+['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('hover'); }));
+drop.addEventListener('drop', e => e.dataTransfer.files[0] && loadFile(e.dataTransfer.files[0]));
+
+document.querySelectorAll('.opt').forEach(el => el.addEventListener(el.type === 'text' ? 'input' : 'change', buildPreview));
+['memory', 'an', 'charEntry', 'exEntry', 'prompt'].forEach(id => $(id).addEventListener('input', updateCounts));
+
+$('newImg').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try { imageBytes = await imageFileToPng(f); $('avatar').src = URL.createObjectURL(new Blob([imageBytes], { type: 'image/png' })); msg('Image replaced.', 'ok'); }
+  catch (err) { msg('Error: ' + err.message, 'err'); }
+});
+
+$('dlScenario').addEventListener('click', () => {
+  if (!card) return;
+  download(safeName(card.name) + '.scenario', JSON.stringify(buildScenario(), null, 2), 'application/json');
+});
+$('dlLore').addEventListener('click', () => {
+  if (!card) return;
+  download(safeName(card.name) + '.lorebook', JSON.stringify(buildLorebook(), null, 2), 'application/json');
+});
+$('dlPng').addEventListener('click', () => {
+  if (!card) return;
+  try {
+    const keep = $('keepV2').checked;
+    const chunks = readChunks(imageBytes).filter(c => {
+      if (c.type !== 'tEXt' && c.type !== 'iTXt') return true;
+      const key = new TextDecoder('latin1').decode(c.data.subarray(0, c.data.indexOf(0)));
+      if (key === 'naidata') return false;
+      if (!keep && (key === 'chara' || key === 'ccv3')) return false;
+      return true;
+    });
+    const iend = chunks.findIndex(c => c.type === 'IEND');
+    chunks.splice(iend, 0, makeTextChunk('naidata', utf8ToB64(JSON.stringify(buildLorebook()))));
+    download(safeName(card.name) + '_lorebook.png', buildPng(chunks), 'image/png');
+  } catch (e) { msg('Error: ' + e.message, 'err'); }
+});
+})();
+</script>
+</body>
+</html>

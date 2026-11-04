@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>2024 5e Monster CR Calculator</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0f1117;--card:#1a1d2e;--border:#2a2e42;--gold:#d4a840;--gold-dim:#a07a20;--gold-glow:rgba(212,168,64,.15);--red:#c0392b;--orange:#e67e22;--green:#2ecc71;--txt:#ddd8cc;--muted:#7d819a;--inp:#12141e;--inp-b:#333752;--radius:10px}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--txt);line-height:1.6}
+body::before{content:"";display:block;height:3px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.container{max-width:1100px;margin:0 auto;padding:1.5rem 1rem}
+header{text-align:center;margin-bottom:2rem}
+header h1{font-family:Georgia,"Times New Roman",serif;font-size:2rem;color:var(--gold)}
+header .sub{color:var(--muted);font-size:.9rem;margin-top:.25rem}
+header::after{content:"";display:block;width:60%;max-width:300px;height:2px;background:linear-gradient(90deg,transparent,var(--gold-dim),transparent);margin:1rem auto 0}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;align-items:start}
+@media(max-width:820px){.grid{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:1.4rem}
+.card-t{font-family:Georgia,serif;font-size:1.15rem;color:var(--gold);margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid var(--border)}
+.fg{margin-bottom:.9rem}
+.fg label{display:block;font-size:.78rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:.25rem}
+input[type="number"],input[type="text"]{width:100%;padding:.55rem .75rem;background:var(--inp);border:1px solid var(--inp-b);border-radius:6px;color:var(--txt);font-size:1rem;transition:border-color .2s,box-shadow .2s}
+input[type="number"]:focus,input[type="text"]:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-glow)}
+select{width:100%;padding:.55rem .75rem;background:var(--inp);border:1px solid var(--inp-b);border-radius:6px;color:var(--txt);font-size:.88rem;cursor:pointer;transition:border-color .2s}
+select:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px var(--gold-glow)}
+select option{background:var(--card);color:var(--txt)}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
+.ht{font-size:.72rem;color:var(--muted);margin-top:.2rem;font-style:italic}
+.tg{display:flex;border-radius:6px;overflow:hidden}
+.tb{flex:1;padding:.45rem .5rem;border:1px solid var(--inp-b);background:var(--inp);color:var(--muted);font-size:.82rem;cursor:pointer;transition:all .15s;text-align:center;user-select:none}
+.tb+.tb{border-left:none}.tb.on{background:var(--gold-dim);border-color:var(--gold);color:#fff;font-weight:600}.tb:hover:not(.on){background:#1e2133}
+.btn-row{display:flex;gap:.5rem;margin-top:.6rem}
+.btn{flex:3;padding:.75rem;background:linear-gradient(135deg,var(--gold-dim),var(--gold));border:none;border-radius:8px;color:#111;font-size:1rem;font-weight:700;cursor:pointer;text-transform:uppercase;letter-spacing:.08em;transition:transform .1s,box-shadow .2s}
+.btn:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(212,168,64,.35)}.btn:active{transform:translateY(0)}
+.btn-clr{flex:1;padding:.75rem .5rem;background:transparent;border:1px solid var(--inp-b);border-radius:8px;color:var(--muted);font-size:.82rem;font-weight:600;cursor:pointer;transition:all .15s;text-transform:uppercase;letter-spacing:.06em}
+.btn-clr:hover{border-color:var(--red);color:var(--red)}
+.note{margin-top:.8rem;padding:.6rem .8rem;background:rgba(212,168,64,.04);border-left:3px solid var(--gold-dim);border-radius:0 6px 6px 0;font-size:.78rem;color:var(--muted)}.note b{color:var(--gold)}
+.ph{text-align:center;color:var(--muted);padding:3rem 1rem;font-style:italic;font-size:.9rem}
+.hero{text-align:center;padding:1.2rem;background:linear-gradient(135deg,var(--gold-glow),rgba(192,57,43,.08));border-radius:8px;border:1px solid var(--gold-dim);margin-bottom:1.2rem}
+.hero .l{font-size:.78rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em}
+.hero .v{font-family:Georgia,serif;font-size:3.2rem;color:var(--gold);line-height:1.15}
+.hero .s{font-size:.82rem;color:var(--muted);margin-top:.15rem}
+.bd{margin-bottom:1rem}.bd h3{font-size:.82rem;text-transform:uppercase;letter-spacing:.06em;color:var(--gold);margin-bottom:.4rem}
+.st{font-size:.82rem;color:var(--muted);line-height:1.9}.st strong{color:var(--txt)}
+.ar{color:var(--gold-dim);margin:0 .2rem}
+.cr-t{display:inline-block;background:var(--gold-glow);color:var(--gold);padding:.05rem .45rem;border-radius:4px;font-weight:700}
+.ap{color:var(--orange);font-weight:600}.an{color:var(--green);font-weight:600}.az{color:var(--muted)}
+.adj-note{font-size:.75rem;color:var(--muted);font-style:italic}
+.atk-detail{display:block;font-size:.75rem;padding-left:1rem;color:var(--muted);margin-top:2px}
+.ex-s{margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--border)}
+.ex-s h3{font-size:.82rem;text-transform:uppercase;letter-spacing:.06em;color:var(--gold);margin-bottom:.5rem}
+.sg{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem}
+@media(max-width:400px){.sg{grid-template-columns:repeat(2,1fr)}}
+.sb{background:var(--inp);border:1px solid var(--border);border-radius:6px;padding:.4rem .6rem;text-align:center}
+.sb .sl{font-size:.65rem;color:var(--muted);text-transform:uppercase}.sb .sv{font-size:1.05rem;font-weight:700;color:var(--txt)}
+.exm{margin-top:.7rem;font-size:.8rem;color:var(--muted)}.exm b{color:var(--gold)}
+.err{color:var(--red);text-align:center;padding:2rem 1rem;font-weight:600}
+.dice-res{font-size:.72rem;color:var(--gold);margin-top:.15rem;min-height:.85rem;transition:color .15s}.dice-res.bad{color:var(--red)}
+#atk-list{max-height:420px;overflow-y:auto;padding-right:4px}
+#atk-list::-webkit-scrollbar{width:5px}#atk-list::-webkit-scrollbar-track{background:transparent}#atk-list::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.ae{background:var(--inp);border:1px solid var(--border);border-radius:8px;padding:.65rem .7rem;margin-bottom:.5rem;transition:border-color .15s}.ae:hover{border-color:#3d4260}
+.ae-top{display:flex;align-items:center;gap:.45rem;margin-bottom:.45rem}
+.ae-n{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--gold-dim);color:#fff;font-size:.65rem;font-weight:700;flex-shrink:0}
+.ae-name{flex:1;padding:.3rem .5rem!important;font-size:.85rem!important;background:rgba(0,0,0,.25)!important;border-radius:4px!important}
+.ae-del{background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;padding:0 2px;transition:color .15s;flex-shrink:0;line-height:1}.ae-del:hover{color:var(--red)}
+.ae-fields{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:.3rem}
+.ae-fields .fg{margin-bottom:0}.ae-fields .fg label{font-size:.68rem;margin-bottom:.15rem}
+.ae-fields input{padding:.35rem .5rem!important;font-size:.85rem!important}
+.ae-mt{display:flex;align-items:center;gap:.35rem;font-size:.72rem;color:var(--muted);cursor:pointer;user-select:none;padding-top:.1rem}
+.ae-mt input[type="checkbox"]{accent-color:var(--gold);cursor:pointer}
+.btn-add{width:100%;padding:.5rem;margin-top:.3rem;background:transparent;border:1px dashed var(--inp-b);border-radius:8px;color:var(--gold);font-size:.82rem;cursor:pointer;transition:all .15s}.btn-add:hover{border-color:var(--gold);background:var(--gold-glow)}
+.ds{margin-top:.7rem;padding:.55rem .7rem;background:rgba(212,168,64,.06);border-radius:6px;border:1px solid rgba(212,168,64,.2)}
+.ds-ma{font-size:.72rem;color:var(--gold);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.ds-parts{font-size:.78rem;color:var(--muted);margin:.25rem 0;line-height:1.5}
+.ds-total{font-size:.9rem;color:var(--txt)}.ds-total strong{color:var(--gold);font-size:1.05rem}
+.ds-hint{font-size:.78rem;color:var(--muted);font-style:italic}
+.adv{margin-bottom:.5rem}
+.adv summary{cursor:pointer;font-size:.85rem;color:var(--gold);padding:.5rem 0;user-select:none;list-style:none;display:flex;align-items:center;gap:.35rem;border-bottom:1px solid var(--border);margin-bottom:.2rem;font-weight:600}
+.adv summary::-webkit-details-marker{display:none}
+.adv summary::before{content:"▸";font-size:.65rem;transition:transform .2s;display:inline-block}
+.adv[open] summary::before{transform:rotate(90deg)}
+.adv-body{padding:.5rem 0 .2rem}
+.adv-sub{font-size:.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:0 0 .35rem}.adv-sub:not(:first-child){margin-top:.7rem}
+.dt-legend{display:flex;gap:.6rem;flex-wrap:wrap;margin-bottom:.5rem;font-size:.68rem;font-weight:600}
+.dt-leg-n{color:var(--muted)}.dt-leg-v{color:#ff9b9b}.dt-leg-r{color:#7cc4e8}.dt-leg-i{color:#ffd966}
+.dt-grid{display:grid;grid-template-columns:1fr 1fr;gap:.25rem .6rem}
+@media(max-width:500px){.dt-grid{grid-template-columns:1fr}}
+.dt-row{display:flex;align-items:center;gap:.3rem}
+.dt-label{width:88px;font-size:.73rem;color:var(--txt);flex-shrink:0;white-space:nowrap}
+.dt-btns{display:flex;border-radius:4px;overflow:hidden}
+.dt-btn{width:28px;height:24px;border:1px solid var(--inp-b);background:var(--inp);color:#555;font-size:.6rem;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .1s;padding:0}
+.dt-btn+.dt-btn{border-left:none}.dt-btn:hover{opacity:.85}
+.dt-btn.active[data-s="N"]{background:#252838;color:#666;border-color:#383b4e}
+.dt-btn.active[data-s="V"]{background:#5c1a1a;color:#ff9b9b;border-color:#8b3030}
+.dt-btn.active[data-s="R"]{background:#14364e;color:#7cc4e8;border-color:#1f5a82}
+.dt-btn.active[data-s="I"]{background:#5c4a10;color:#ffd966;border-color:#8c7020}
+.save-row{display:flex;gap:.3rem;flex-wrap:wrap}
+.save-btn,.feat-btn{padding:.35rem .1rem;border:1px solid var(--inp-b);background:var(--inp);color:var(--muted);font-size:.72rem;font-weight:700;border-radius:5px;cursor:pointer;transition:all .15s;text-align:center;user-select:none}
+.save-btn{flex:1;min-width:40px}.feat-btn{padding:.35rem .8rem;font-size:.78rem}
+.save-btn:hover:not(.on),.feat-btn:hover:not(.on){background:#1e2133}
+.save-btn.on,.feat-btn.on{background:var(--gold-dim);border-color:var(--gold);color:#fff}
+.feat-guide{margin-top:.4rem;padding:.4rem .6rem;background:rgba(212,168,64,.04);border-radius:4px;font-size:.68rem;color:var(--muted);line-height:1.8}
+.feat-guide-t{color:var(--gold);font-weight:600;font-size:.7rem;margin-bottom:.1rem}
+.adv-body .fg{margin-bottom:.5rem}.adv-body .fg label{font-size:.72rem}
+.adv-body select{font-size:.82rem;padding:.45rem .65rem}.adv-body .ht{font-size:.68rem}
+.adv-body input[type="number"]{font-size:.88rem;padding:.45rem .65rem}
+.adv-sum-wrap{margin-top:.6rem;padding-top:.5rem;border-top:1px solid var(--border)}
+.adv-sum{font-size:.78rem;color:var(--muted);line-height:1.7}.adv-sum .av{color:var(--gold);font-weight:600}
+.rs{margin-top:2rem}
+.rs summary{cursor:pointer;font-family:Georgia,serif;font-size:1.05rem;color:var(--gold);background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:.8rem 1.2rem;list-style:none;display:flex;align-items:center;gap:.5rem;user-select:none}
+.rs summary::-webkit-details-marker{display:none}
+.rs summary::before{content:"▸";transition:transform .2s;display:inline-block}
+.rs[open] summary::before{transform:rotate(90deg)}
+.rs[open] summary{border-radius:var(--radius) var(--radius) 0 0}
+.rw{background:var(--card);border:1px solid var(--border);border-top:none;border-radius:0 0 var(--radius) var(--radius);overflow-x:auto;padding:.5rem}
+.rt{width:100%;border-collapse:collapse;font-size:.75rem}
+.rt th{position:sticky;top:0;background:var(--inp);color:var(--gold);padding:.5rem .35rem;border:1px solid var(--border);font-size:.65rem;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+.rt td{padding:.35rem;border:1px solid var(--border);text-align:center;color:var(--muted)}
+.rt td:first-child{color:var(--gold);font-weight:600}
+.rt td:last-child{text-align:left;font-size:.7rem;max-width:220px}
+.rt tr:hover td{background:rgba(212,168,64,.04)}.rt tr.hl td{background:rgba(212,168,64,.12);color:var(--txt)}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<div class="container">
+  <header><h1>⚔️ Monster CR Calculator</h1><p class="sub">Calculate Challenge Rating using the 2024 5e Monster Statistics table</p></header>
+  <div class="grid">
+    <div class="card">
+      <div class="card-t">Monster Statistics</div>
+      <div class="fr">
+        <div class="fg"><label for="inp-hp">Hit Points</label>
+          <input type="text" id="inp-hp" placeholder="e.g. 130 or 15d10+60">
+          <div class="dice-res" id="hp-dr"></div></div>
+        <div class="fg"><label for="inp-ac">Armor Class</label>
+          <input type="number" id="inp-ac" min="1" max="30" placeholder="e.g. 15"></div></div>
+      <div class="fg"><label>Offensive Type</label><div class="tg" id="tgl-off"><button class="tb on" data-v="attack">Attack Roll</button><button class="tb" data-v="savedc">Save DC</button></div></div>
+      <div class="fg"><label for="inp-bon" id="lbl-bon">Attack Bonus</label><input type="number" id="inp-bon" min="-5" max="30" placeholder="e.g. 7"><div class="ht" id="help-bon">The monster's to-hit modifier on attack rolls</div></div>
+      <div class="fg"><label>Damage Input</label><div class="tg" id="tgl-dpr"><button class="tb on" data-v="direct">Direct DPR</button><button class="tb" data-v="build">Attack Builder</button></div></div>
+      <div id="sec-dir"><div class="fg"><label for="inp-dpr">Damage Per Round</label><input type="text" id="inp-dpr" placeholder="e.g. 47 or 8d6+10"><div class="dice-res" id="dpr-dr"></div><div class="ht">Accepts dice notation — average calculated automatically</div></div></div>
+      <div id="sec-build" class="hidden"><div id="atk-list"></div><button type="button" class="btn-add" id="btn-add">+ Add Attack</button><div class="ds" id="dpr-sum"><div class="ds-hint">Add attack details to calculate DPR</div><div class="ds-total">Calculated DPR: <strong>0</strong></div></div></div>
+
+      <details class="adv" id="adv"><summary>⚙️ Advanced Adjustments</summary><div class="adv-body">
+        <div class="adv-sub">Damage Defenses</div>
+        <div class="dt-legend"><span class="dt-leg-n">— None</span><span class="dt-leg-v">V Vulnerable</span><span class="dt-leg-r">R Resistant</span><span class="dt-leg-i">I Immune</span></div>
+        <div class="dt-grid" id="dt-grid"></div>
+        <div class="adv-sub">Saving Throw Proficiencies</div>
+        <div class="save-row" id="save-row"><button type="button" class="save-btn" data-save="STR">STR</button><button type="button" class="save-btn" data-save="DEX">DEX</button><button type="button" class="save-btn" data-save="CON">CON</button><button type="button" class="save-btn" data-save="INT">INT</button><button type="button" class="save-btn" data-save="WIS">WIS</button><button type="button" class="save-btn" data-save="CHA">CHA</button></div>
+        <div class="adv-sub">Monster Features</div>
+        <div style="margin-bottom:.5rem"><button type="button" class="feat-btn" id="btn-magres" title="Advantage on saves vs spells and magical effects">Magic Resistance (+2 AC)</button></div>
+        <div class="fr">
+          <div class="fg"><label for="inp-bhp">Bonus Effective HP</label><input type="number" id="inp-bhp" placeholder="e.g. 30"><div class="ht">Regeneration, legendary resistance…</div></div>
+          <div class="fg"><label for="inp-bdpr">Bonus Effective DPR</label><input type="number" id="inp-bdpr" placeholder="e.g. 15"><div class="ht">Legendary / lair actions, auras…</div></div></div>
+        <div class="feat-guide"><div class="feat-guide-t">Common Feature Estimates</div>Regeneration X/round → <b style="color:var(--txt)">~3×X</b> Bonus HP<br>Legendary Resistance (3/day) → <b style="color:var(--txt)">~15</b> Bonus HP<br>Legendary Actions (dmg) → add to Bonus DPR<br>Lair Actions (dmg) → add to Bonus DPR<br>Damage Aura → add to Bonus DPR</div>
+        <div class="adv-sub">Other</div>
+        <div class="fg"><label for="sel-fly">Flying + Ranged</label><select id="sel-fly"><option value="0">Standard movement</option><option value="2">Can fly + ranged attacks (+2 AC)</option></select><div class="ht">Most impactful at CR 0–9</div></div>
+        <div class="adv-sum-wrap"><div class="adv-sum" id="adv-sum">No adjustments active</div></div>
+      </div></details>
+
+      <div class="btn-row"><button class="btn" id="btn-go">Calculate CR</button><button class="btn-clr" id="btn-clr">Clear</button></div>
+      <div class="note"><b>Tip:</b> HP and damage fields accept dice notation like <code style="color:var(--gold)">15d10+60</code> or <code style="color:var(--gold)">2d8+3</code>. Averages are calculated automatically.</div>
+    </div>
+    <div class="card" id="res-card"><div class="card-t">Results</div><div id="res"><div class="ph">Enter your monster's statistics and click <strong>Calculate CR</strong> to determine its Challenge Rating.</div></div></div>
+  </div>
+  <details class="rs"><summary>📋 Monster Statistics by Challenge Rating</summary><div class="rw"><table class="rt"><thead><tr><th>CR</th><th>Eqv Lvl</th><th>AC/DC</th><th>HP</th><th>Prof Bonus</th><th>DPR</th><th># Atks</th><th>Dmg/Atk</th><th>Examples</th></tr></thead><tbody id="ref-tb"></tbody></table></div></details>
+</div>
+<script>
+const D=[
+{cr:"0",n:0,eq:"< 1",ac:10,hp:3,hr:"2–4",pr:2,dpr:2,na:1,da:"2 (1d4)",ex:"Commoner, rat, spider"},
+{cr:"1/8",n:.125,eq:"< 1",ac:11,hp:9,hr:"7–11",pr:3,dpr:3,na:1,da:"4 (1d6+1)",ex:"Bandit, cultist, giant rat"},
+{cr:"1/4",n:.25,eq:"1",ac:11,hp:13,hr:"10–16",pr:3,dpr:5,na:1,da:"5 (1d6+2)",ex:"Acolyte, skeleton, wolf"},
+{cr:"1/2",n:.5,eq:"2",ac:12,hp:22,hr:"17–28",pr:4,dpr:8,na:2,da:"4 (1d4+2)",ex:"Black bear, scout, shadow"},
+{cr:"1",n:1,eq:"3",ac:12,hp:33,hr:"25–41",pr:5,dpr:12,na:2,da:"6 (1d8+2)",ex:"Dire wolf, specter, spy"},
+{cr:"2",n:2,eq:"5",ac:13,hp:45,hr:"34–56",pr:5,dpr:17,na:2,da:"9 (2d6+2)",ex:"Ghast, ogre, priest"},
+{cr:"3",n:3,eq:"7",ac:13,hp:65,hr:"49–81",pr:5,dpr:23,na:2,da:"12 (2d8+3)",ex:"Knight, mummy, werewolf"},
+{cr:"4",n:4,eq:"9",ac:14,hp:84,hr:"64–106",pr:6,dpr:28,na:2,da:"14 (3d8+1)",ex:"Ettin, ghost"},
+{cr:"5",n:5,eq:"10",ac:15,hp:95,hr:"71–119",pr:7,dpr:35,na:3,da:"12 (3d6+2)",ex:"Elemental, gladiator, vampire spawn"},
+{cr:"6",n:6,eq:"11",ac:15,hp:112,hr:"84–140",pr:7,dpr:41,na:3,da:"14 (3d6+4)",ex:"Mage, medusa, wyvern"},
+{cr:"7",n:7,eq:"12",ac:15,hp:130,hr:"98–162",pr:7,dpr:47,na:3,da:"16 (3d8+3)",ex:"Stone giant, young black dragon"},
+{cr:"8",n:8,eq:"13",ac:15,hp:136,hr:"102–170",pr:7,dpr:53,na:3,da:"18 (3d10+2)",ex:"Assassin, frost giant"},
+{cr:"9",n:9,eq:"15",ac:16,hp:145,hr:"109–181",pr:8,dpr:59,na:3,da:"19 (3d10+3)",ex:"Bone devil, fire giant, young blue dragon"},
+{cr:"10",n:10,eq:"16",ac:17,hp:155,hr:"116–194",pr:9,dpr:65,na:4,da:"16 (3d8+3)",ex:"Stone golem, young red dragon"},
+{cr:"11",n:11,eq:"17",ac:17,hp:165,hr:"124–206",pr:9,dpr:71,na:4,da:"18 (3d10+2)",ex:"Djinni, efreeti, horned devil"},
+{cr:"12",n:12,eq:"18",ac:17,hp:175,hr:"131–219",pr:9,dpr:77,na:4,da:"19 (3d10+3)",ex:"Archmage, erinyes"},
+{cr:"13",n:13,eq:"19",ac:18,hp:184,hr:"138–230",pr:10,dpr:83,na:4,da:"21 (4d8+3)",ex:"Adult white dragon, storm giant, vampire"},
+{cr:"14",n:14,eq:"20",ac:19,hp:196,hr:"147–245",pr:11,dpr:89,na:4,da:"22 (4d10)",ex:"Adult black dragon, ice devil"},
+{cr:"15",n:15,eq:"> 20",ac:19,hp:210,hr:"158–263",pr:11,dpr:95,na:5,da:"19 (3d10+3)",ex:"Adult green dragon, mummy lord, purple worm"},
+{cr:"16",n:16,eq:"> 20",ac:19,hp:229,hr:"172–286",pr:11,dpr:101,na:5,da:"21 (4d8+3)",ex:"Adult blue dragon, iron golem, marilith"},
+{cr:"17",n:17,eq:"> 20",ac:20,hp:246,hr:"185–308",pr:12,dpr:107,na:5,da:"22 (3d12+3)",ex:"Adult red dragon"},
+{cr:"18",n:18,eq:"> 20",ac:21,hp:266,hr:"200–333",pr:13,dpr:113,na:5,da:"23 (4d10+1)",ex:"Demilich"},
+{cr:"19",n:19,eq:"> 20",ac:21,hp:285,hr:"214–356",pr:13,dpr:119,na:5,da:"24 (4d10+2)",ex:"Balor"},
+{cr:"20",n:20,eq:"> 20",ac:21,hp:300,hr:"225–375",pr:13,dpr:132,na:5,da:"26 (4d12)",ex:"Ancient white dragon, pit fiend"},
+{cr:"21",n:21,eq:"> 20",ac:22,hp:325,hr:"244–406",pr:14,dpr:150,na:5,da:"30 (4d12+4)",ex:"Ancient black dragon, lich, solar"},
+{cr:"22",n:22,eq:"> 20",ac:23,hp:350,hr:"263–438",pr:15,dpr:168,na:5,da:"34 (4d12+8)",ex:"Ancient green dragon"},
+{cr:"23",n:23,eq:"> 20",ac:23,hp:375,hr:"281–469",pr:15,dpr:186,na:5,da:"37 (6d10+4)",ex:"Ancient blue dragon, kraken"},
+{cr:"24",n:24,eq:"> 20",ac:23,hp:400,hr:"300–500",pr:15,dpr:204,na:5,da:"41 (6d10+8)",ex:"Ancient red dragon"},
+{cr:"25",n:25,eq:"> 20",ac:24,hp:430,hr:"323–538",pr:16,dpr:222,na:5,da:"44 (6d10+11)",ex:"—"},
+{cr:"26",n:26,eq:"> 20",ac:25,hp:460,hr:"345–575",pr:17,dpr:240,na:5,da:"48 (6d10+15)",ex:"—"},
+{cr:"27",n:27,eq:"> 20",ac:25,hp:490,hr:"368–613",pr:17,dpr:258,na:5,da:"52 (6d10+19)",ex:"—"},
+{cr:"28",n:28,eq:"> 20",ac:25,hp:540,hr:"405–675",pr:17,dpr:276,na:5,da:"55 (6d10+22)",ex:"—"},
+{cr:"29",n:29,eq:"> 20",ac:26,hp:600,hr:"450–750",pr:18,dpr:294,na:5,da:"59 (6d10+26)",ex:"—"},
+{cr:"30",n:30,eq:"> 20",ac:27,hp:666,hr:"500–833",pr:19,dpr:312,na:5,da:"62 (6d10+29)",ex:"Tarrasque"}
+];
+const MX=D.length-1,PHYS=['bludgeoning','piercing','slashing'],DMG_TYPES=['Acid','Bludgeoning','Cold','Fire','Force','Lightning','Necrotic','Piercing','Poison','Psychic','Radiant','Slashing','Thunder'];
+
+function parseDice(s){if(typeof s!=='string')s=String(s||'');s=s.replace(/\s/g,'');if(!s)return NaN;if(/^-?\d+(\.\d+)?$/.test(s))return parseFloat(s);const t=s.match(/[+-]?[^+-]+/g);if(!t)return NaN;let z=0;for(const k of t){const m=k.match(/^([+-]?\d*)d(\d+)$/i);if(m){const cs=m[1],c=cs===''||cs==='+'?1:cs==='-'?-1:parseInt(cs),si=parseInt(m[2]);if(isNaN(c)||si<1)return NaN;z+=c*(si+1)/2}else{const n=parseFloat(k);if(isNaN(n))return NaN;z+=n}}return Math.round(z*100)/100}
+function fmtAvg(v){return v%1===0?''+v:v.toFixed(1)}
+function showDR(el,val,hp){if(!el)return;if(!val){el.textContent='';el.className='dice-res';return}const a=parseDice(val);if(isNaN(a)){el.textContent='⚠ invalid';el.className='dice-res bad'}else if(/d/i.test(val)){el.textContent=hp?`= ${Math.floor(a)} HP`:`= ${fmtAvg(a)} average`;el.className='dice-res'}else{el.textContent='';el.className='dice-res'}}
+
+function ci(k,v){let b=0,d=1/0;for(let i=0;i<D.length;i++){let x=Math.abs(D[i][k]-v);if(x<d){d=x;b=i}}return b}
+function cn(v){let b=0,d=1/0;for(let i=0;i<D.length;i++){let x=Math.abs(D[i].n-v);if(x<d){d=x;b=i}}return b}
+function cl(v,lo,hi){return Math.max(lo,Math.min(hi,v))}
+function sg(n){return n>=0?"+"+n:""+n}
+function calc(hp,ac,bon,ot,dpr){const dBI=ci("hp",hp),eAC=D[dBI].ac,acD=ac-eAC,dAd=Math.trunc(acD/2),dI=cl(dBI+dAd,0,MX);const oBI=ci("dpr",dpr),eO=ot==="savedc"?D[oBI].ac:D[oBI].pr,oD=bon-eO,oAd=Math.trunc(oD/2),oI=cl(oBI+oAd,0,MX);const av=(D[dI].n+D[oI].n)/2,fI=cn(av);return{dBI,eAC,acD,dAd,dI,oBI,eO,oD,oAd,oI,fI,av}}
+
+function buildDG(){const g=document.getElementById("dt-grid");DMG_TYPES.forEach(t=>{const k=t.toLowerCase(),r=document.createElement("div");r.className="dt-row";r.dataset.type=k;r.innerHTML=`<span class="dt-label">${t}</span><div class="dt-btns"><button class="dt-btn active" data-s="N" title="Normal">—</button><button class="dt-btn" data-s="V" title="Vulnerable">V</button><button class="dt-btn" data-s="R" title="Resistant">R</button><button class="dt-btn" data-s="I" title="Immune">I</button></div>`;g.appendChild(r)})}
+function getDT(){const o={};document.querySelectorAll(".dt-row").forEach(r=>{o[r.dataset.type]=r.querySelector(".dt-btn.active").dataset.s});return o}
+function calcHM(ty,rCR){let rC=0,iC=0,vC=0,pp=0;for(const[t,s]of Object.entries(ty)){if(s==="R"){rC++;if(PHYS.includes(t))pp++}if(s==="I"){iC++;if(PHYS.includes(t))pp++}if(s==="V")vC++}let m=1;if(pp>=3){if(rCR<=4)m=2;else if(rCR<=10)m=2;else if(rCR<=16)m=1.5;else m=1.25}else if(iC>=3)m=1.5;else if(rC+iC>=3)m=1.25;if(vC>0)m=Math.max(.5,m-vC*.1);return Math.round(m*100)/100}
+function hmR(ty){let rC=0,iC=0,vC=0,pp=0;for(const[t,s]of Object.entries(ty)){if(s==="R"){rC++;if(PHYS.includes(t))pp++}if(s==="I"){iC++;if(PHYS.includes(t))pp++}if(s==="V")vC++}const p=[];if(pp>=3)p.push("B/P/S protected");else if(iC>=3)p.push(iC+" immun.");else if(rC+iC>=3)p.push((rC+iC)+" resist./immun.");if(vC>0)p.push(vC+" vuln.");return p.join(", ")||"standard"}
+function getSC(){return document.querySelectorAll(".save-btn.on").length}
+function getPS(){const o=[];document.querySelectorAll(".save-btn.on").forEach(b=>o.push(b.dataset.save));return o}
+
+function updateAS(){
+  const ty=getDT(),hp=Math.floor(parseDice(document.getElementById("inp-hp").value))||33,rCR=D[ci("hp",hp)].n;
+  const hm=calcHM(ty,rCR),hmL=hmR(ty),sC=getSC(),sA=sC>=5?2:sC>=3?1:0,sN=getPS();
+  const fA=parseInt(document.getElementById("sel-fly").value)||0,mr=document.getElementById("btn-magres").classList.contains("on")?2:0;
+  const bHP=parseInt(document.getElementById("inp-bhp").value)||0,bDPR=parseInt(document.getElementById("inp-bdpr").value)||0;
+  const p=[];
+  if(hm!==1)p.push(`<span class="av">×${hm} HP</span> — ${hmL}`);
+  if(bHP)p.push(`<span class="av">${bHP>0?"+":""}${bHP} HP</span> — features`);
+  if(sA>0)p.push(`<span class="av">+${sA} AC</span> — ${sN.join(", ")} saves`);
+  if(mr>0)p.push(`<span class="av">+2 AC</span> — magic resistance`);
+  if(fA>0)p.push(`<span class="av">+${fA} AC</span> — fly + ranged`);
+  if(bDPR)p.push(`<span class="av">${bDPR>0?"+":""}${bDPR} DPR</span> — features`);
+  document.getElementById("adv-sum").innerHTML=p.length?p.join("<br>"):'<span style="color:var(--muted)">No adjustments active</span>';
+}
+
+let atkC=0,buildInit=false;
+function addAtk(){const list=document.getElementById("atk-list");if(list.querySelectorAll(".ae").length>=10)return;atkC++;const d=document.createElement("div");d.className="ae";d.innerHTML=`<div class="ae-top"><span class="ae-n"></span><input type="text" class="ae-name" placeholder="Attack name (e.g. Bite)"><button type="button" class="ae-del" title="Remove">×</button></div><div class="ae-fields"><div class="fg"><label>Avg Damage</label><input type="text" class="ae-dmg" placeholder="e.g. 14 or 2d8+3"><div class="dice-res"></div></div><div class="fg"><label>Uses / Round</label><input type="number" class="ae-uses" min="0" max="10" value="1"></div></div><label class="ae-mt" title="For area/multi-creature attacks. Counts as half DPR."><input type="checkbox" class="ae-mt-cb"> Targets multiple creatures (½ DPR)</label>`;list.appendChild(d);renum();updSum();d.querySelector(".ae-dmg").focus()}
+function renum(){document.querySelectorAll(".ae").forEach((e,i)=>{e.querySelector(".ae-n").textContent=i+1});document.getElementById("btn-add").style.display=document.querySelectorAll(".ae").length>=10?"none":""}
+function getAtks(){const o=[];document.querySelectorAll(".ae").forEach(e=>{const nm=e.querySelector(".ae-name").value.trim()||"Attack",rw=e.querySelector(".ae-dmg").value.trim(),dm=parseDice(rw)||0,us=parseInt(e.querySelector(".ae-uses").value)||0,mt=e.querySelector(".ae-mt-cb").checked,fm=/d/i.test(rw)?rw:'';if(dm>0&&us>0)o.push({name:nm,dmg:dm,uses:us,mt,formula:fm})});return o}
+function sumDPR(a){let t=0;a.forEach(x=>{t+=x.dmg*x.uses*(x.mt?.5:1)});return t}
+function updSum(){const a=getAtks(),total=sumDPR(a),el=document.getElementById("dpr-sum");if(!el)return;const tU=a.reduce((s,x)=>s+x.uses,0);if(!a.length){el.innerHTML='<div class="ds-hint">Enter attack damage and uses above</div><div class="ds-total">Calculated DPR: <strong>0</strong></div>';return}const parts=a.map(x=>{const c=Math.round(x.dmg*x.uses*(x.mt?.5:1));let l="";if(x.uses>1)l+=x.uses+"× ";l+=x.name;if(x.formula)l+=` [${x.formula}]`;if(x.mt)l+=" (½)";return l+": "+c});el.innerHTML=`<div class="ds-ma">${tU>1?`Multiattack · ${tU} attacks/round`:"Single attack/round"}</div><div class="ds-parts">${parts.join("  ·  ")}</div><div class="ds-total">Calculated DPR: <strong>${Math.round(total)}</strong></div>`}
+
+function adjH(a){if(a===0)return'<span class="az">no adjustment</span>';return`<span class="${a>0?"ap":"an"}">${sg(a)} CR step${Math.abs(a)>1?"s":""}</span>`}
+function show(r,inp){
+  const f=D[r.fI],db=D[r.dBI],ob=D[r.oBI],dR=D[r.dI],oR=D[r.oI];
+  const oL=inp.ot==="savedc"?"Save DC":"Attack Bonus",oF=v=>inp.ot==="savedc"?""+v:sg(v);
+  const hpTag=inp.hpDice?`${inp.hpRaw} (${inp.hp})`:`${inp.hp}`;
+  let hpL=`HP <strong>${hpTag}</strong>`;
+  if(inp.hm!==1||inp.bHP){const p=[];if(inp.hm!==1)p.push(`×${inp.hm} ${inp.hmL}`);if(inp.bHP)p.push(`${inp.bHP>0?"+":""}${inp.bHP} features`);hpL+=` <span class="ar">→</span> effective <strong>${inp.effHP}</strong> <span class="adj-note">(${p.join(", ")})</span>`}
+  hpL+=` <span class="ar">→</span> base <span class="cr-t">CR ${db.cr}</span> <span style="color:var(--muted)">(expected HP ${db.hp})</span>`;
+  let acL=`AC <strong>${inp.ac}</strong>`;
+  if(inp.acTot>0){const p=[];if(inp.sA>0)p.push(`+${inp.sA} saves [${inp.sN.join(",")}]`);if(inp.mr>0)p.push("+2 magic resist.");if(inp.fA>0)p.push("+2 fly");acL+=` <span class="ar">→</span> effective <strong>${inp.effAC}</strong> <span class="adj-note">(${p.join(", ")})</span>`}
+  acL+=` vs expected <strong>${r.eAC}</strong> (${sg(r.acD)}) <span class="ar">→</span> ${adjH(r.dAd)}`;
+  let dprL=`DPR <strong>${inp.dprDisp}</strong>`;
+  if(inp.bDPR){dprL+=` <span class="adj-note">(${inp.bDPR>0?"+":""}${inp.bDPR} features = ${inp.effDPR})</span>`}
+  dprL+=` <span class="ar">→</span> base <span class="cr-t">CR ${ob.cr}</span> <span style="color:var(--muted)">(expected DPR ${ob.dpr})</span>`;
+  if(inp.atkDetail)dprL+=`<span class="atk-detail">${inp.atkDetail}</span>`;
+  document.getElementById("res").innerHTML=`
+    <div class="hero"><div class="l">Calculated Challenge Rating</div><div class="v">CR ${f.cr}</div><div class="s">Equivalent Character Level: ${f.eq}</div></div>
+    <div class="bd"><h3>🛡️ Defensive CR</h3><div class="st">${hpL}<br>${acL}<br>Defensive CR: <span class="cr-t">CR ${dR.cr}</span></div></div>
+    <div class="bd"><h3>⚔️ Offensive CR</h3><div class="st">${dprL}<br>${oL} <strong>${oF(inp.bon)}</strong> vs expected <strong>${oF(r.eO)}</strong> (${sg(r.oD)}) <span class="ar">→</span> ${adjH(r.oAd)}<br>Offensive CR: <span class="cr-t">CR ${oR.cr}</span></div></div>
+    <div class="bd"><h3>📊 Final</h3><div class="st">Defensive <span class="cr-t">CR ${dR.cr}</span> + Offensive <span class="cr-t">CR ${oR.cr}</span> <span class="ar">→</span> averaged <span class="ar">→</span> <span class="cr-t" style="font-size:.95rem">CR ${f.cr}</span></div></div>
+    <div class="ex-s"><h3>Expected Stats for CR ${f.cr}</h3><div class="sg">
+      <div class="sb"><div class="sl">AC / DC</div><div class="sv">${f.ac}</div></div><div class="sb"><div class="sl">HP</div><div class="sv">${f.hp}</div></div><div class="sb"><div class="sl">Prof Bonus</div><div class="sv">+${f.pr}</div></div>
+      <div class="sb"><div class="sl">DPR</div><div class="sv">${f.dpr}</div></div><div class="sb"><div class="sl"># Attacks</div><div class="sv">${f.na}</div></div><div class="sb"><div class="sl">Dmg/Atk</div><div class="sv">${f.da}</div></div>
+    </div>${f.ex!=="—"?`<div class="exm"><b>Examples:</b> ${f.ex}</div>`:""}</div>`;
+  document.querySelectorAll(".rt tr.hl").forEach(r=>r.classList.remove("hl"));const row=document.querySelector(`#ref-tb tr[data-i="${r.fI}"]`);if(row)row.classList.add("hl");
+}
+function buildRef(){const tb=document.getElementById("ref-tb");D.forEach((r,i)=>{const tr=document.createElement("tr");tr.dataset.i=i;tr.innerHTML=`<td>${r.cr}</td><td>${r.eq}</td><td>${r.ac}</td><td>${r.hp} (${r.hr})</td><td>+${r.pr}</td><td>${r.dpr}</td><td>${r.na}</td><td>${r.da}</td><td>${r.ex}</td>`;tb.appendChild(tr)})}
+
+document.addEventListener("DOMContentLoaded",()=>{
+  buildRef();buildDG();
+  function tog(id,cb){document.getElementById(id).querySelectorAll(".tb").forEach(b=>{b.addEventListener("click",()=>{document.getElementById(id).querySelectorAll(".tb").forEach(x=>x.classList.remove("on"));b.classList.add("on");cb(b.dataset.v)})})}
+  tog("tgl-off",v=>{document.getElementById("lbl-bon").textContent=v==="savedc"?"Save DC":"Attack Bonus";document.getElementById("help-bon").textContent=v==="savedc"?"The DC for the monster's saving-throw-based effects":"The monster's to-hit modifier on attack rolls";document.getElementById("inp-bon").placeholder=v==="savedc"?"e.g. 15":"e.g. 7"});
+  tog("tgl-dpr",v=>{document.getElementById("sec-dir").classList.toggle("hidden",v!=="direct");document.getElementById("sec-build").classList.toggle("hidden",v!=="build");if(v==="build"&&!buildInit){addAtk();buildInit=true}});
+  const atkList=document.getElementById("atk-list");
+  atkList.addEventListener("click",e=>{if(e.target.classList.contains("ae-del")||e.target.closest(".ae-del")){e.target.closest(".ae").remove();renum();updSum();if(!document.querySelectorAll(".ae").length)addAtk()}});
+  atkList.addEventListener("input",e=>{if(e.target.classList.contains("ae-dmg"))showDR(e.target.parentElement.querySelector('.dice-res'),e.target.value.trim());updSum()});
+  atkList.addEventListener("change",updSum);
+  document.getElementById("btn-add").addEventListener("click",addAtk);
+  document.getElementById("inp-hp").addEventListener("input",function(){showDR(document.getElementById("hp-dr"),this.value.trim(),true);updateAS()});
+  document.getElementById("inp-dpr").addEventListener("input",function(){showDR(document.getElementById("dpr-dr"),this.value.trim())});
+  document.getElementById("dt-grid").addEventListener("click",e=>{const b=e.target.closest(".dt-btn");if(!b)return;b.closest(".dt-row").querySelectorAll(".dt-btn").forEach(x=>x.classList.remove("active"));b.classList.add("active");updateAS()});
+  document.getElementById("save-row").addEventListener("click",e=>{const b=e.target.closest(".save-btn");if(!b)return;b.classList.toggle("on");updateAS()});
+  document.getElementById("sel-fly").addEventListener("change",updateAS);
+  document.getElementById("btn-magres").addEventListener("click",function(){this.classList.toggle("on");updateAS()});
+  document.getElementById("inp-bhp").addEventListener("input",updateAS);
+  document.getElementById("inp-bdpr").addEventListener("input",updateAS);
+
+  function go(){
+    const hpRaw=document.getElementById("inp-hp").value.trim();
+    const hpParsed=parseDice(hpRaw);
+    const hp=/d/i.test(hpRaw)?Math.floor(hpParsed):Math.round(hpParsed);
+    const hpDice=/d/i.test(hpRaw)&&!isNaN(hp);
+    const ac=parseInt(document.getElementById("inp-ac").value),bon=parseInt(document.getElementById("inp-bon").value);
+    const ot=document.querySelector("#tgl-off .on").dataset.v,dm=document.querySelector("#tgl-dpr .on").dataset.v;
+    let dpr,dprDisp,atkDetail="";
+    if(dm==="direct"){const rw=document.getElementById("inp-dpr").value.trim();dpr=parseDice(rw);dprDisp=isNaN(dpr)?"0":""+Math.round(dpr);if(/d/i.test(rw)&&!isNaN(dpr))dprDisp=rw+" ≈ "+Math.round(dpr)}
+    else{const a=getAtks();if(!a.length){document.getElementById("res").innerHTML='<div class="err">⚠️ Add at least one attack with damage and uses/round.</div>';return}dpr=sumDPR(a);dprDisp=""+Math.round(dpr);atkDetail=a.map(x=>{const c=Math.round(x.dmg*x.uses*(x.mt?.5:1));let s="";if(x.uses>1)s+=x.uses+"× ";s+=x.name;if(x.formula)s+=` [${x.formula}]`;s+=": "+c;if(x.mt)s+=" (½)";return s}).join(" + ")}
+    if(isNaN(hp)||isNaN(ac)||isNaN(bon)||isNaN(dpr)){document.getElementById("res").innerHTML='<div class="err">⚠️ Please fill in all required fields.</div>';return}
+    dpr=Math.round(dpr);
+    const ty=getDT(),rCR=D[ci("hp",hp)].n,hm=calcHM(ty,rCR),hmL=hmR(ty);
+    const sC=getSC(),sA=sC>=5?2:sC>=3?1:0,sN=getPS(),fA=parseInt(document.getElementById("sel-fly").value)||0;
+    const mr=document.getElementById("btn-magres").classList.contains("on")?2:0;
+    const bHP=parseInt(document.getElementById("inp-bhp").value)||0,bDPR=parseInt(document.getElementById("inp-bdpr").value)||0;
+    const effHP=Math.round(hp*hm)+bHP,effAC=ac+sA+fA+mr,effDPR=dpr+bDPR,acTot=sA+fA+mr;
+    const r=calc(effHP,effAC,bon,ot,effDPR);
+    show(r,{hp,ac,bon,ot,dpr,dprDisp,atkDetail,hpRaw,hpDice,effHP,effAC,hm,hmL,sA,sN,fA,mr,bHP,bDPR,effDPR,acTot});
+    document.getElementById("res-card").scrollIntoView({behavior:"smooth",block:"nearest"});
+  }
+
+  document.getElementById("btn-go").addEventListener("click",go);
+  document.querySelectorAll("#inp-ac,#inp-bon,#inp-bhp,#inp-bdpr").forEach(el=>{el.addEventListener("keydown",e=>{if(e.key==="Enter")go()})});
+  document.querySelectorAll("#inp-hp,#inp-dpr").forEach(el=>{el.addEventListener("keydown",e=>{if(e.key==="Enter")go()})});
+  atkList.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.tagName==="INPUT")go()});
+
+  function resetTog(id,val){document.getElementById(id).querySelectorAll(".tb").forEach(b=>{b.classList.toggle("on",b.dataset.v===val)})}
+  document.getElementById("btn-clr").addEventListener("click",()=>{
+    document.getElementById("inp-hp").value="";document.getElementById("hp-dr").textContent="";
+    ["inp-ac","inp-bon","inp-bhp","inp-bdpr"].forEach(id=>{document.getElementById(id).value=""});
+    document.getElementById("inp-dpr").value="";document.getElementById("dpr-dr").textContent="";
+    resetTog("tgl-off","attack");document.getElementById("lbl-bon").textContent="Attack Bonus";document.getElementById("help-bon").textContent="The monster's to-hit modifier on attack rolls";document.getElementById("inp-bon").placeholder="e.g. 7";
+    resetTog("tgl-dpr","direct");document.getElementById("sec-dir").classList.remove("hidden");document.getElementById("sec-build").classList.add("hidden");
+    document.getElementById("atk-list").innerHTML="";buildInit=false;
+    document.querySelectorAll(".dt-row").forEach(r=>{r.querySelectorAll(".dt-btn").forEach(b=>b.classList.remove("active"));r.querySelector('[data-s="N"]').classList.add("active")});
+    document.querySelectorAll(".save-btn").forEach(b=>b.classList.remove("on"));
+    document.getElementById("btn-magres").classList.remove("on");
+    document.getElementById("sel-fly").selectedIndex=0;
+    document.getElementById("adv").removeAttribute("open");updateAS();
+    document.getElementById("res").innerHTML='<div class="ph">Enter your monster\'s statistics and click <strong>Calculate CR</strong> to determine its Challenge Rating.</div>';
+    document.querySelectorAll(".rt tr.hl").forEach(tr=>tr.classList.remove("hl"));document.getElementById("inp-hp").focus();
+  });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gemini Video Shrinker</title>
+<script type="importmap">
+{
+  "imports": {
+    "mediabunny": "https://cdn.jsdelivr.net/npm/mediabunny@1.61.4/dist/bundles/mediabunny.min.mjs",
+    "@mediabunny/aac-encoder": "https://cdn.jsdelivr.net/npm/@mediabunny/aac-encoder@1.61.4/dist/bundles/mediabunny-aac-encoder.min.mjs"
+  }
+}
+</script>
+<style>
+  :root {
+    --bg:#f6f7f9; --card:#fff; --text:#1d2330; --muted:#667085; --line:#e3e6eb;
+    --accent:#2f6fec; --accent-2:#e8f0fe; --ok:#1a7f4b; --warn:#a15c00; --err:#c0392b;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#12151b; --card:#1b2029; --text:#e6e9ef; --muted:#98a2b3; --line:#2b3240;
+            --accent:#6b9bff; --accent-2:#1f2b45; --ok:#4cc38a; --warn:#f0b35a; --err:#ff7b6b; }
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--text); }
+  main { max-width:860px; margin:0 auto; padding:24px 16px 64px; }
+  h1 { font-size:1.6rem; margin:0 0 4px; }
+  h2 { font-size:1.05rem; margin:0 0 12px; }
+  .sub { color:var(--muted); margin:0 0 20px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; margin-bottom:16px; }
+  fieldset { border:none; margin:0; padding:0; min-width:0; }
+  #drop { border:2px dashed var(--line); border-radius:12px; padding:30px; text-align:center; cursor:pointer;
+          transition:.15s; background:var(--card); margin-bottom:16px; }
+  #drop.over, #drop:focus-visible { border-color:var(--accent); background:var(--accent-2); outline:none; }
+  #drop strong { color:var(--accent); }
+  #drop small { color:var(--muted); display:block; margin-top:4px; }
+  .presets { display:flex; flex-wrap:wrap; gap:8px; }
+  .presets button { padding:6px 12px; border-radius:999px; border:1px solid var(--line); background:var(--bg); color:var(--text); }
+  .presets button.active { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .hint { color:var(--muted); font-size:.9rem; margin:8px 0 14px; min-height:1.4em; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px 16px; }
+  .grid label { display:flex; flex-direction:column; gap:4px; font-size:.85rem; color:var(--muted); }
+  .grid label.check { flex-direction:row; align-items:center; gap:8px; color:var(--text); font-size:.9rem; }
+  select, input[type=number], input[type=text], input[type=password], textarea {
+    font:inherit; padding:7px 9px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--text); }
+  textarea { width:100%; resize:vertical; margin-top:12px; }
+  select:disabled, input:disabled { opacity:.5; }
+  .estimate { margin-top:14px; padding:10px 12px; background:var(--accent-2); border-radius:8px; font-size:.92rem; }
+  button { font:inherit; cursor:pointer; }
+  .actions { display:flex; gap:8px; margin-top:14px; flex-wrap:wrap; }
+  .btn { padding:8px 16px; border-radius:8px; border:1px solid var(--line); background:var(--card); color:var(--text); }
+  .btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600; }
+  .btn:disabled { opacity:.45; cursor:not-allowed; }
+  .job { border-top:1px solid var(--line); padding:12px 0; }
+  .job:first-child { border-top:none; padding-top:0; }
+  .job-head { display:flex; gap:10px; align-items:baseline; }
+  .name { font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; flex:0 1 auto; }
+  .meta { color:var(--muted); font-size:.85rem; flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .x { border:none; background:none; color:var(--muted); font-size:1rem; padding:0 4px; }
+  .bar { height:6px; background:var(--line); border-radius:3px; overflow:hidden; margin:8px 0 6px; }
+  .bar > div { height:100%; width:0; background:var(--accent); transition:width .2s; }
+  .job.done .bar > div { background:var(--ok); }
+  .job-foot { display:flex; justify-content:space-between; gap:10px; font-size:.88rem; flex-wrap:wrap; }
+  .status.ok { color:var(--ok); } .status.warn { color:var(--warn); } .status.err { color:var(--err); }
+  .links a, .links button { color:var(--accent); margin-left:14px; text-decoration:none; background:none; border:none; padding:0; font-size:inherit; }
+  .links button.ask { font-weight:600; }
+  .empty { color:var(--muted); font-size:.92rem; margin:0; }
+  .banner { display:none; padding:10px 14px; border-radius:8px; margin-bottom:16px; }
+  .banner.show { display:block; background:color-mix(in srgb, var(--err) 14%, transparent); color:var(--err); }
+  pre { background:var(--bg); border:1px solid var(--line); border-radius:8px; padding:12px; white-space:pre-wrap; word-break:break-all; font-size:.85rem; margin:12px 0 8px; }
+  details summary { cursor:pointer; font-weight:600; }
+  #chatLog { margin-top:12px; display:flex; flex-direction:column; gap:10px; }
+  .msg { padding:10px 12px; border-radius:10px; white-space:pre-wrap; word-wrap:break-word; }
+  .msg.user { background:var(--accent-2); align-self:flex-end; max-width:85%; }
+  .msg.assistant { background:var(--bg); border:1px solid var(--line); }
+  .msg.sys { font-size:.88rem; color:var(--muted); padding:2px 4px; }
+  .msg.err { color:var(--err); }
+  .msg.warn { color:var(--warn); }
+  .msg-meta { font-size:.8rem; color:var(--muted); margin-top:-4px; padding:0 4px; }
+  footer { color:var(--muted); font-size:.85rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Gemini Video Shrinker</h1>
+  <p class="sub">Shrinks video to roughly what Gemini actually looks at (≈1 fps, low resolution, mono audio), then lets you ask Gemini about it
+     through the OpenRouter API, since OpenRouter's chatroom doesn't accept video. Compression runs locally; files only leave your
+     computer when you press Send.</p>
+
+  <div id="banner" class="banner"></div>
+
+  <div id="drop" role="button" tabindex="0">
+    <strong>Drop video files here</strong> or click to choose
+    <small>MP4, MOV, MKV, WebM, MPEG-TS (also audio files). AVI/WMV/FLV aren't supported; use the ffmpeg command below.</small>
+    <input id="fileIn" type="file" multiple accept="video/*,audio/*,.mkv,.mov,.webm,.ts,.m4v" hidden>
+  </div>
+
+  <section class="card">
+    <fieldset id="settings">
+      <h2>1. Compression settings</h2>
+      <div class="presets" id="presets"></div>
+      <p class="hint" id="hint"></p>
+      <div class="grid">
+        <label>Frame rate
+          <select id="fps">
+            <option value="0.5">0.5 fps (every 2 s)</option>
+            <option value="1">1 fps (Gemini default)</option>
+            <option value="2">2 fps</option>
+            <option value="5">5 fps</option>
+            <option value="10">10 fps</option>
+            <option value="orig">Original</option>
+          </select>
+        </label>
+        <label>Max resolution (long side)
+          <select id="res">
+            <option value="640">640 px (≈360p)</option>
+            <option value="854">854 px (≈480p)</option>
+            <option value="1280">1280 px (≈720p)</option>
+            <option value="1920">1920 px (≈1080p)</option>
+            <option value="orig">Original</option>
+          </select>
+        </label>
+        <label>Video bitrate (kbps)
+          <input id="vkbps" type="number" min="20" max="20000" step="10">
+        </label>
+        <label>Audio bitrate (AAC mono)
+          <select id="akbps">
+            <option value="16">16 kbps</option>
+            <option value="24">24 kbps</option>
+            <option value="32">32 kbps</option>
+            <option value="48">48 kbps</option>
+            <option value="64">64 kbps</option>
+          </select>
+        </label>
+        <label class="check"><input type="checkbox" id="keepAudio" checked> Keep audio</label>
+        <label class="check"><input type="checkbox" id="sr16" checked> Resample audio to 16 kHz</label>
+        <label class="check"><input type="checkbox" id="audioOnly"> Audio only (.m4a)</label>
+      </div>
+      <div class="estimate" id="estimate"></div>
+    </fieldset>
+  </section>
+
+  <section class="card">
+    <h2>2. Files</h2>
+    <div id="list"></div>
+    <p class="empty" id="empty">No files yet.</p>
+    <div class="actions">
+      <button class="btn primary" id="start" disabled>Compress</button>
+      <button class="btn" id="cancel" disabled>Cancel</button>
+      <button class="btn" id="clear" disabled>Clear list</button>
+    </div>
+  </section>
+
+  <section class="card" id="askCard">
+    <h2>3. Ask Gemini (via OpenRouter API)</h2>
+    <div class="grid">
+      <label>OpenRouter API key
+        <input id="apiKey" type="password" placeholder="sk-or-v1-…" autocomplete="off" spellcheck="false">
+      </label>
+      <label>Model (type or pick)
+        <input id="model" type="text" list="models" placeholder="google/gemini-…" spellcheck="false">
+        <datalist id="models"></datalist>
+      </label>
+      <label>Video processing
+        <select id="processing">
+          <option value="">Default</option>
+          <option value="static">Static (whole video, fixed frame rate)</option>
+          <option value="agentic">Agentic (long videos, specific moments)</option>
+        </select>
+      </label>
+      <label class="check"><input type="checkbox" id="rememberKey"> Remember key on this device</label>
+    </div>
+    <div class="estimate" id="attach">No file attached. Compress a file, then click "Ask Gemini" next to it.</div>
+    <div id="chatLog"></div>
+    <textarea id="prompt" rows="3" placeholder="e.g. Summarize this video with timestamps. (Ctrl+Enter to send)"></textarea>
+    <div class="actions">
+      <button class="btn primary" id="send">Send</button>
+      <button class="btn" id="newChat">New conversation</button>
+    </div>
+  </section>
+
+  <details class="card">
+    <summary>Equivalent ffmpeg command for these settings</summary>
+    <pre id="cmd"></pre>
+    <button class="btn" id="copy">Copy</button>
+  </details>
+
+  <footer>
+    Powered by <a href="https://mediabunny.dev" target="_blank" rel="noopener">Mediabunny</a> + WebCodecs and
+    <a href="https://openrouter.ai/docs/guides/overview/multimodal/videos" target="_blank" rel="noopener">OpenRouter video inputs</a>.
+    Keep this tab in the foreground while compressing.
+  </footer>
+</main>
+
+<script type="module">
+const $ = (s) => document.querySelector(s);
+const bannerEl = $('#banner');
+const showBanner = (msg) => { bannerEl.textContent = msg; bannerEl.classList.add('show'); };
+
+// ---------- Load libraries ----------
+let MB;
+try {
+  MB = await import('mediabunny');
+} catch (e) {
+  showBanner('Could not load the Mediabunny library from jsDelivr. An internet connection is needed to load the page.');
+  throw e;
+}
+const { Input, Output, Conversion, ConversionCanceledError, ALL_FORMATS,
+        BlobSource, BufferTarget, Mp4OutputFormat, Quality } = MB;
+
+let aacReady = false;
+try {
+  const { registerAacEncoder } = await import('@mediabunny/aac-encoder');
+  registerAacEncoder();
+  aacReady = true;
+} catch (e) {
+  console.error(e);
+  showBanner("Couldn't load the AAC encoder. Audio will use the browser's built-in AAC encoder if it can; otherwise the job will fail with an error.");
+}
+
+if (!('VideoEncoder' in window)) {
+  showBanner("This browser doesn't support WebCodecs, which this tool needs. Use a recent Chrome or Edge.");
+} else if (!window.isSecureContext) {
+  showBanner('WebCodecs is disabled on plain http:// pages. Open this file directly (file://), via localhost, or over https.');
+}
+
+// ---------- Helpers ----------
+const fmtBytes = (b) => b < 1048576 ? `${Math.max(1, Math.round(b / 1024))} KB`
+  : b < 1073741824 ? `${(b / 1048576).toFixed(1)} MB` : `${(b / 1073741824).toFixed(2)} GB`;
+const fmtTime = (sec) => {
+  sec = Math.max(0, Math.round(sec));
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  return h ? `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}` : `${m}:${String(s).padStart(2, '0')}`;
+};
+async function prop(obj, name) {
+  const getter = obj['get' + name[0].toUpperCase() + name.slice(1)];
+  if (typeof getter === 'function') return await getter.call(obj);
+  return obj[name];
+}
+const CODEC_NAMES = { avc: 'H.264', hevc: 'HEVC', vp8: 'VP8', vp9: 'VP9', av1: 'AV1',
+                      aac: 'AAC', opus: 'Opus', mp3: 'MP3', vorbis: 'Vorbis', flac: 'FLAC' };
+const codecName = (c) => CODEC_NAMES[c] ?? c ?? '?';
+const trackType = (t) => t?.type ?? (t?.isVideoTrack?.() ? 'video' : t?.isAudioTrack?.() ? 'audio' : 'track');
+const WHY = {
+  undecodable_source_codec: "the browser can't decode its codec",
+  unknown_source_codec: 'unknown codec',
+  no_encodable_target_codec: "the browser can't encode H.264/AAC with these settings",
+  max_track_count_reached: 'too many tracks',
+  max_track_count_of_type_reached: 'too many tracks',
+};
+const describeDiscards = (ds) => ds.map(d => `${trackType(d.track)} dropped (${WHY[d.reason] ?? d.reason})`).join('; ');
+const INLINE_LIMIT = 20 * 1048576; // Google's guidance for inline (base64) requests
+const b64Size = (bytes) => Math.ceil(bytes / 3) * 4;
+
+// ---------- Settings / presets ----------
+const fpsSel = $('#fps'), resSel = $('#res'), vkIn = $('#vkbps'), akSel = $('#akbps');
+const keepAudio = $('#keepAudio'), sr16 = $('#sr16'), audioOnly = $('#audioOnly');
+const hintEl = $('#hint'), estimateEl = $('#estimate'), cmdEl = $('#cmd'), presetBox = $('#presets');
+
+const PRESETS = {
+  general: { label: 'General', fps: '1', res: '854', akbps: '32', keepAudio: true, audioOnly: false,
+    hint: "1 fps, ≈480p, mono audio. Matches what Gemini keeps from a video at default settings." },
+  speech:  { label: 'Talking head / lecture', fps: '1', res: '640', akbps: '24', keepAudio: true, audioOnly: false,
+    hint: 'Smallest useful video when visuals barely matter. For very static lectures, try 0.5 fps.' },
+  screen:  { label: 'Screen recording / slides', fps: '1', res: '1280', akbps: '32', keepAudio: true, audioOnly: false,
+    hint: 'Keeps on-screen text legible. Bigger files, so fewer minutes fit in one request.' },
+  action:  { label: 'Fast motion', fps: '5', res: '854', akbps: '32', keepAudio: true, audioOnly: false,
+    hint: 'Keeps 5 frames/s. Note that Gemini samples about 1 fps by default anyway.' },
+  audio:   { label: 'Audio only', fps: '1', res: '854', akbps: '32', keepAudio: true, audioOnly: true,
+    hint: 'The original MP3 trick: mono, low bitrate, saved as .m4a (AAC).' },
+};
+for (const [key, p] of Object.entries(PRESETS)) {
+  const b = document.createElement('button');
+  b.type = 'button'; b.textContent = p.label; b.dataset.key = key;
+  b.onclick = () => applyPreset(key);
+  presetBox.append(b);
+}
+
+let manualV = false;
+const BASE_KBPS = { '640': 90, '854': 150, '1280': 300, '1920': 600, 'orig': 800 };
+function autoVkbps() {
+  const base = BASE_KBPS[resSel.value] ?? 300;
+  const f = fpsSel.value === 'orig' ? 30 : Number(fpsSel.value);
+  const mult = f <= 1 ? f : 1 + 0.3 * (f - 1);
+  return Math.max(30, Math.round((base * mult) / 10) * 10);
+}
+
+function applyPreset(key) {
+  const p = PRESETS[key];
+  fpsSel.value = p.fps; resSel.value = p.res; akSel.value = p.akbps;
+  keepAudio.checked = p.keepAudio; audioOnly.checked = p.audioOnly; sr16.checked = true;
+  manualV = false;
+  presetBox.querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.key === key));
+  hintEl.textContent = p.hint;
+  onSettingsChanged();
+}
+function markCustom() {
+  presetBox.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+  hintEl.textContent = 'Custom settings.';
+}
+
+function getSettings() {
+  const ao = audioOnly.checked;
+  return {
+    audioOnly: ao,
+    fps: fpsSel.value === 'orig' ? null : Number(fpsSel.value),
+    maxSide: resSel.value === 'orig' ? null : Number(resSel.value),
+    vkbps: Math.min(20000, Math.max(20, Math.round(Number(vkIn.value) || autoVkbps()))),
+    keepAudio: ao || keepAudio.checked,
+    akbps: Number(akSel.value),
+    sr16: sr16.checked,
+  };
+}
+
+function onSettingsChanged() {
+  if (!manualV) vkIn.value = autoVkbps();
+  const ao = audioOnly.checked;
+  fpsSel.disabled = resSel.disabled = vkIn.disabled = keepAudio.disabled = ao;
+  akSel.disabled = sr16.disabled = !(ao || keepAudio.checked);
+  updateEstimates();
+  cmdEl.textContent = ffmpegCmd(getSettings());
+}
+[fpsSel, resSel, akSel, keepAudio, sr16, audioOnly].forEach(el =>
+  el.addEventListener('change', () => { markCustom(); onSettingsChanged(); }));
+vkIn.addEventListener('input', () => { manualV = true; markCustom(); onSettingsChanged(); });
+
+function ffmpegCmd(s) {
+  const parts = ['ffmpeg -i input.mp4'];
+  if (s.audioOnly) parts.push('-vn');
+  else {
+    const vf = [];
+    if (s.fps) vf.push(`fps=${s.fps}`);
+    vf.push(s.maxSide
+      ? `scale='min(iw,${s.maxSide})':'min(ih,${s.maxSide})':force_original_aspect_ratio=decrease:force_divisible_by=2`
+      : 'scale=trunc(iw/2)*2:trunc(ih/2)*2');
+    parts.push(`-vf "${vf.join(',')}"`);
+    const g = s.fps ? Math.max(1, Math.round(s.fps * 10)) : 250;
+    parts.push(`-c:v libx264 -preset slow -b:v ${s.vkbps}k -maxrate ${Math.round(s.vkbps * 1.5)}k -bufsize ${s.vkbps * 2}k -g ${g} -pix_fmt yuv420p`);
+  }
+  if (s.keepAudio) parts.push(`-c:a aac -ac 1${s.sr16 ? ' -ar 16000' : ''} -b:a ${s.akbps}k`);
+  else parts.push('-an');
+  parts.push('-movflags +faststart', s.audioOnly ? 'output.m4a' : 'output.mp4');
+  return parts.join(' ');
+}
+
+// ---------- Jobs ----------
+const listEl = $('#list'), emptyEl = $('#empty');
+const startBtn = $('#start'), cancelBtn = $('#cancel'), clearBtn = $('#clear'), settingsFs = $('#settings');
+const jobs = [];
+let seq = 0, running = false, cancelRequested = false, currentConv = null;
+
+const setMeta = (job, t) => { job.el.querySelector('.meta').textContent = t; };
+const setBar = (job, p) => { job.el.querySelector('.bar > div').style.width = `${Math.min(100, p * 100)}%`; };
+function setStatus(job, text, cls = '') {
+  const el = job.el.querySelector('.status');
+  el.textContent = text; el.className = 'status ' + cls;
+}
+
+function estimateBytes(job, s) {
+  if (!job.duration) return null;
+  const v = (!s.audioOnly && job.hasVideo) ? s.vkbps : 0;
+  const a = (s.keepAudio && job.hasAudio) ? s.akbps : 0;
+  return job.duration * (v + a) * 125 * 1.03;
+}
+
+function updateEstimates() {
+  const s = getSettings();
+  const v = s.audioOnly ? 0 : s.vkbps, a = s.keepAudio ? s.akbps : 0;
+  const perMin = (v + a) * 125 * 60;
+  const maxMin = perMin ? Math.floor(INLINE_LIMIT / b64Size(perMin)) : 0;
+  let text = `Estimated output: ≈ ${fmtBytes(perMin)} per minute (`
+    + [v && `H.264 ${v} kbps`, a && `AAC ${a} kbps mono`].filter(Boolean).join(' + ')
+    + `). About ${maxMin} min fits in one Gemini request.`;
+  const known = jobs.filter(j => j.duration && j.status !== 'error');
+  if (known.length) {
+    const inT = known.reduce((t, j) => t + j.file.size, 0);
+    const outT = known.reduce((t, j) => t + (estimateBytes(j, s) || 0), 0);
+    text += ` Your ${known.length} file${known.length > 1 ? 's' : ''}: ${fmtBytes(inT)} → ≈ ${fmtBytes(outT)}.`;
+  }
+  estimateEl.textContent = text;
+  for (const j of jobs) if (j.status === 'queued') {
+    const est = estimateBytes(j, s);
+    const tooBig = est && b64Size(est) > INLINE_LIMIT;
+    setStatus(j, 'Queued' + (est ? ` · est. ≈ ${fmtBytes(est)}` : '')
+      + (tooBig ? ' · ⚠ likely too large for one request; use a smaller preset or split the video' : ''), tooBig ? 'warn' : '');
+  }
+}
+
+function refresh() {
+  const runnable = jobs.some(j => ['queued', 'canceled', 'failed'].includes(j.status));
+  startBtn.disabled = running || !runnable;
+  cancelBtn.disabled = !running;
+  clearBtn.disabled = running || jobs.length === 0;
+  settingsFs.disabled = running;
+  emptyEl.style.display = jobs.length ? 'none' : '';
+}
+
+function addFiles(files) {
+  for (const file of files) {
+    const job = { id: ++seq, file, status: 'queued', duration: null, hasVideo: false, hasAudio: false, result: null };
+    job.el = document.createElement('div');
+    job.el.className = 'job';
+    job.el.innerHTML = `
+      <div class="job-head"><span class="name"></span><span class="meta">Reading…</span>
+        <button class="x" title="Remove">✕</button></div>
+      <div class="bar"><div></div></div>
+      <div class="job-foot"><span class="status">Queued</span><span class="links"></span></div>`;
+    job.el.querySelector('.name').textContent = file.name;
+    job.el.querySelector('.name').title = file.name;
+    job.el.querySelector('.x').onclick = () => removeJob(job);
+    listEl.append(job.el);
+    jobs.push(job);
+    probe(job);
+  }
+  refresh();
+}
+
+function removeJob(job) {
+  if (job.status === 'running') return;
+  detachIf(job);
+  if (job.result) URL.revokeObjectURL(job.result.url);
+  job.el.remove();
+  jobs.splice(jobs.indexOf(job), 1);
+  updateEstimates(); refresh();
+}
+
+async function probe(job) {
+  let input;
+  try {
+    input = new Input({ source: new BlobSource(job.file), formats: ALL_FORMATS });
+    const [dur, v, a] = await Promise.all([
+      input.computeDuration(), input.getPrimaryVideoTrack(), input.getPrimaryAudioTrack(),
+    ]);
+    if (!v && !a) throw new Error('no audio or video tracks found');
+    job.duration = dur; job.hasVideo = !!v; job.hasAudio = !!a;
+    const parts = [fmtTime(dur), fmtBytes(job.file.size)];
+    if (v) {
+      const [w, h, c] = await Promise.all([prop(v, 'displayWidth'), prop(v, 'displayHeight'), prop(v, 'codec')]);
+      parts.push(`${w}×${h} ${codecName(c)}`);
+    }
+    if (a) {
+      const [c, ch] = await Promise.all([prop(a, 'codec'), prop(a, 'numberOfChannels')]);
+      parts.push(`${codecName(c)}${ch ? ` ${ch}ch` : ''}`);
+    }
+    setMeta(job, parts.join(' · '));
+  } catch (e) {
+    job.status = 'error';
+    setMeta(job, fmtBytes(job.file.size));
+    setStatus(job, `Can't read this file in the browser (${e?.message || e}). Try the ffmpeg command below.`, 'err');
+  } finally {
+    input?.dispose?.();
+    updateEstimates(); refresh();
+  }
+}
+
+async function inspectOutput(blob) {
+  const inp = new Input({ source: new BlobSource(blob), formats: ALL_FORMATS });
+  try {
+    const [v, a] = await Promise.all([inp.getPrimaryVideoTrack(), inp.getPrimaryAudioTrack()]);
+    const out = { vcodec: null, acodec: null, parts: [] };
+    if (v) {
+      out.vcodec = await prop(v, 'codec');
+      const [w, h] = await Promise.all([prop(v, 'displayWidth'), prop(v, 'displayHeight')]);
+      out.parts.push(`${codecName(out.vcodec)} ${w}×${h}`);
+    }
+    if (a) {
+      out.acodec = await prop(a, 'codec');
+      const [sr, ch] = await Promise.all([prop(a, 'sampleRate'), prop(a, 'numberOfChannels')]);
+      out.parts.push(`${codecName(out.acodec)} ${sr ? Math.round(sr / 1000) + ' kHz' : ''}${ch === 1 ? ' mono' : ch ? ` ${ch}ch` : ''}`.trim());
+    }
+    return out;
+  } catch {
+    return null;
+  } finally {
+    inp.dispose?.();
+  }
+}
+
+function attemptsFor(s) {
+  return s.sr16 ? [{ sr: 16000 }, { sr: null }] : [{ sr: null }];
+}
+
+async function build(file, s, at) {
+  const input = new Input({ source: new BlobSource(file), formats: ALL_FORMATS });
+  const output = new Output({
+    format: new Mp4OutputFormat({ fastStart: 'in-memory' }),
+    target: new BufferTarget(),
+  });
+  const audioOpts = s.keepAudio ? {
+    codec: 'aac',
+    numberOfChannels: 1,
+    quality: new Quality({ bitrate: s.akbps * 1000 }),
+    forceTranscode: true,
+    ...(at.sr ? { sampleRate: at.sr } : {}),
+  } : { discard: true };
+
+  const conv = await Conversion.init({
+    input, output,
+    tracks: 'primary',
+    showWarnings: false,
+    video: async (track) => {
+      if (s.audioOnly) return { discard: true };
+      const dw = await prop(track, 'displayWidth'), dh = await prop(track, 'displayHeight');
+      const scale = s.maxSide ? Math.min(1, s.maxSide / Math.max(dw, dh)) : 1;
+      const opts = {
+        codec: 'avc',
+        width: Math.max(2, Math.round((dw * scale) / 2) * 2),
+        height: Math.max(2, Math.round((dh * scale) / 2) * 2),
+        fit: 'fill',
+        quality: new Quality({ bitrate: s.vkbps * 1000 }),
+        keyFrameInterval: 10,
+        forceTranscode: true,
+      };
+      if (s.fps) opts.frameRate = s.fps;
+      return opts;
+    },
+    audio: audioOpts,
+  });
+  return { input, output, conv };
+}
+
+async function runJob(job, s) {
+  job.status = 'running';
+  job.el.classList.remove('done');
+  job.el.querySelector('.links').innerHTML = '';
+  setBar(job, 0);
+  setStatus(job, 'Preparing…');
+  const t0 = performance.now();
+  let chosen = null, fallback = null, lastBad = [];
+
+  try {
+    for (const at of attemptsFor(s)) {
+      const built = await build(job.file, s, at);
+      const bad = built.conv.discardedTracks.filter(d => d.reason !== 'discarded_by_user');
+      lastBad = bad;
+      const encodingProblem = bad.some(d => d.reason === 'no_encodable_target_codec');
+      if (built.conv.isValid && !encodingProblem) { chosen = built; break; }
+      if (built.conv.isValid && !fallback) fallback = built;
+      else built.input.dispose?.();
+    }
+    if (!chosen) chosen = fallback;
+    else if (fallback) fallback.input.dispose?.();
+    if (!chosen) throw new Error(describeDiscards(lastBad) || 'nothing to convert');
+
+    const { conv, output } = chosen;
+    const warnings = describeDiscards(conv.discardedTracks.filter(d => d.reason !== 'discarded_by_user'));
+    currentConv = conv;
+
+    let live = 0;
+    if (typeof output.target.on === 'function') {
+      output.target.on('write', ({ end }) => { live = Math.max(live, end); });
+    }
+    conv.onProgress = (p) => {
+      setBar(job, p);
+      const elapsed = (performance.now() - t0) / 1000;
+      const eta = p > 0.02 ? (elapsed * (1 - p)) / p : null;
+      setStatus(job, `Compressing… ${Math.floor(p * 100)}%`
+        + (live ? ` · ${fmtBytes(live)}` : '')
+        + (eta != null ? ` · ~${fmtTime(eta)} left` : ''));
+    };
+
+    await conv.execute();
+
+    const audioFile = s.audioOnly || !job.hasVideo;
+    const blob = new Blob([output.target.buffer], { type: audioFile ? 'audio/mp4' : 'video/mp4' });
+    const base = job.file.name.replace(/\.[^.]+$/, '');
+    const name = `${base}.gemini.${audioFile ? 'm4a' : 'mp4'}`;
+    job.result = { blob, url: URL.createObjectURL(blob), name, audio: audioFile };
+    job.status = 'done';
+    job.el.classList.add('done');
+    setBar(job, 1);
+
+    const info = await inspectOutput(blob);
+    const codecText = info?.parts.length ? info.parts.join(' + ') : '';
+    const nonStandard = info && ((info.vcodec && info.vcodec !== 'avc') || (info.acodec && info.acodec !== 'aac'));
+    const tooBig = b64Size(blob.size) > INLINE_LIMIT;
+
+    const pct = Math.round((1 - blob.size / job.file.size) * 100);
+    const took = fmtTime((performance.now() - t0) / 1000);
+    const allWarnings = [warnings,
+      nonStandard && 'non-standard codecs',
+      tooBig && 'probably too large for one Gemini request (≈20 MB limit)']
+      .filter(Boolean).join('; ');
+
+    setStatus(job, `Done in ${took} · ${fmtBytes(job.file.size)} → ${fmtBytes(blob.size)}`
+      + (pct > 0 ? ` (−${pct}%)` : ' (not smaller)')
+      + (codecText ? ` · ${codecText}` : '')
+      + (allWarnings ? ` · ⚠ ${allWarnings}` : ''), allWarnings ? 'warn' : 'ok');
+
+    const links = job.el.querySelector('.links');
+    const ask = Object.assign(document.createElement('button'), { textContent: 'Ask Gemini', className: 'ask' });
+    ask.onclick = () => attachJob(job, true);
+    const dl = Object.assign(document.createElement('a'), { href: job.result.url, download: name, textContent: 'Download' });
+    const pv = Object.assign(document.createElement('a'), { href: job.result.url, target: '_blank', textContent: 'Preview' });
+    const redo = Object.assign(document.createElement('button'), { textContent: 'Redo' });
+    redo.onclick = () => {
+      if (running) return;
+      detachIf(job);
+      URL.revokeObjectURL(job.result.url); job.result = null;
+      job.status = 'queued'; job.el.classList.remove('done'); links.innerHTML = ''; setBar(job, 0);
+      updateEstimates(); refresh();
+    };
+    links.append(ask, dl, pv, redo);
+    if (!chat.job) attachJob(job, false);
+  } catch (e) {
+    if (e instanceof ConversionCanceledError || cancelRequested) {
+      job.status = 'canceled'; setStatus(job, 'Canceled', 'warn');
+    } else {
+      console.error(e);
+      job.status = 'failed';
+      const hint = !aacReady ? ' (AAC encoder failed to load; reload the page)' : '';
+      setStatus(job, `Failed: ${e?.message || e}${hint}. The ffmpeg command below will work.`, 'err');
+    }
+  } finally {
+    currentConv = null;
+    chosen?.input.dispose?.();
+  }
+}
+
+startBtn.onclick = async () => {
+  if (running) return;
+  running = true; cancelRequested = false; refresh();
+  const s = getSettings();
+  for (const job of [...jobs]) {
+    if (cancelRequested) break;
+    if (!['queued', 'canceled', 'failed'].includes(job.status)) continue;
+    await runJob(job, s);
+  }
+  running = false; refresh(); updateEstimates();
+};
+cancelBtn.onclick = async () => {
+  cancelRequested = true;
+  try { await currentConv?.cancel(); } catch {}
+};
+clearBtn.onclick = () => { for (const j of [...jobs]) removeJob(j); };
+
+// ---------- Ask Gemini via OpenRouter ----------
+const apiKeyIn = $('#apiKey'), modelIn = $('#model'), modelsDl = $('#models'), procSel = $('#processing');
+const rememberKey = $('#rememberKey'), attachEl = $('#attach'), chatLog = $('#chatLog');
+const promptIn = $('#prompt'), sendBtn = $('#send'), newChatBtn = $('#newChat');
+const LS_KEY = 'gvs.apiKey', LS_MODEL = 'gvs.model';
+let chat = { job: null, dataUrl: null, messages: [] };
+let sending = false;
+
+try {
+  const k = localStorage.getItem(LS_KEY);
+  if (k) { apiKeyIn.value = k; rememberKey.checked = true; }
+  modelIn.value = localStorage.getItem(LS_MODEL) || '';
+} catch {}
+function saveKey() {
+  try {
+    if (rememberKey.checked && apiKeyIn.value.trim()) localStorage.setItem(LS_KEY, apiKeyIn.value.trim());
+    else localStorage.removeItem(LS_KEY);
+  } catch {}
+}
+apiKeyIn.addEventListener('change', saveKey);
+rememberKey.addEventListener('change', saveKey);
+modelIn.addEventListener('change', () => { try { localStorage.setItem(LS_MODEL, modelIn.value.trim()); } catch {} });
+
+// Fill the model list with everything OpenRouter says accepts video input
+async function loadModels() {
+  try {
+    const r = await fetch('https://openrouter.ai/api/v1/models');
+    const { data } = await r.json();
+    const vids = data.filter(m => m.architecture?.input_modalities?.includes('video'))
+                     .sort((a, b) => (b.created || 0) - (a.created || 0));
+    modelsDl.replaceChildren(...vids.map(m =>
+      Object.assign(document.createElement('option'), { value: m.id, label: m.name || m.id })));
+    if (!modelIn.value) {
+      const g = vids.filter(m => m.id.startsWith('google/gemini'));
+      const pick = g.find(m => /flash/.test(m.id) && !/lite|image|tts|live/.test(m.id)) || g[0] || vids[0];
+      if (pick) modelIn.value = pick.id;
+    }
+  } catch (e) {
+    console.warn('Could not load model list', e);
+  }
+}
+loadModels();
+
+function addMsg(role, text, cls = '') {
+  const d = document.createElement('div');
+  d.className = `msg ${role} ${cls}`.trim();
+  d.textContent = text;
+  chatLog.append(d);
+  d.scrollIntoView({ block: 'nearest' });
+  return d;
+}
+function addMeta(text) {
+  const d = document.createElement('div');
+  d.className = 'msg-meta'; d.textContent = text;
+  chatLog.append(d);
+}
+
+function renderAttach() {
+  const r = chat.job?.result;
+  if (!r) { attachEl.textContent = 'No file attached. Compress a file, then click "Ask Gemini" next to it.'; return; }
+  const enc = b64Size(r.blob.size);
+  attachEl.textContent = `Attached: ${r.name} · ${fmtBytes(r.blob.size)} (≈ ${fmtBytes(enc)} uploaded per message)`
+    + (enc > INLINE_LIMIT ? ' · ⚠ Over ≈20 MB, so Gemini will probably reject it. Use a smaller preset or split the video.' : '');
+}
+function attachJob(job, scroll) {
+  if (sending) return;
+  chat = { job, dataUrl: null, messages: [] };
+  chatLog.replaceChildren();
+  renderAttach();
+  if (scroll) { $('#askCard').scrollIntoView({ behavior: 'smooth' }); promptIn.focus(); }
+}
+function detachIf(job) {
+  if (chat.job === job) { chat = { job: null, dataUrl: null, messages: [] }; chatLog.replaceChildren(); renderAttach(); }
+}
+newChatBtn.onclick = () => { if (!sending && chat.job) attachJob(chat.job, false); };
+
+const blobToDataUrl = (blob) => new Promise((res, rej) => {
+  const fr = new FileReader();
+  fr.onload = () => res(fr.result);
+  fr.onerror = () => rej(fr.error);
+  fr.readAsDataURL(blob);
+});
+
+async function send() {
+  if (sending) return;
+  const key = apiKeyIn.value.trim(), model = modelIn.value.trim(), text = promptIn.value.trim();
+  const r = chat.job?.result;
+  if (!key) return addMsg('sys', 'Enter your OpenRouter API key first (get one at openrouter.ai/keys).', 'err');
+  if (!model) return addMsg('sys', 'Choose a model, e.g. a google/gemini-… model.', 'err');
+  if (!r) return addMsg('sys', 'Compress a file first, then click "Ask Gemini" next to it.', 'err');
+  if (!text) return;
+
+  sending = true; sendBtn.disabled = true;
+  const first = chat.messages.length === 0;
+  let pending = null;
+  try {
+    let content = text;
+    if (first) {
+      if (!chat.dataUrl) chat.dataUrl = await blobToDataUrl(r.blob);
+      const media = r.audio
+        ? { type: 'input_audio', input_audio: { data: chat.dataUrl.split(',')[1], format: 'm4a' } }
+        : { type: 'video_url', video_url: { url: chat.dataUrl.replace(/^data:[^;]*;/, 'data:video/mp4;'),
+              ...(procSel.value ? { processing: procSel.value } : {}) } };
+      content = [{ type: 'text', text }, media];
+    } else {
+      // Re-attach the video on follow-ups too: the API is stateless, so it is resent each turn
+      // (it is already inside chat.messages[0], so nothing extra to do here).
+    }
+    chat.messages.push({ role: 'user', content });
+    addMsg('user', text);
+    promptIn.value = '';
+    pending = addMsg('assistant', `Sending ${fmtBytes(b64Size(r.blob.size))} to ${model}… (long videos can take a minute or more)`, 'sys');
+    const t0 = performance.now();
+
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, messages: chat.messages }),
+    });
+    const raw = await res.text();
+    let data;
+    try { data = JSON.parse(raw); } catch { throw new Error(`HTTP ${res.status}: ${raw.slice(0, 300) || 'empty response'}`); }
+    const err = data.error || data.choices?.[0]?.error;
+    if (!res.ok || err) {
+      const extra = err?.metadata?.raw ? ` (${String(err.metadata.raw).slice(0, 400)})` : '';
+      throw new Error(`${err?.message || `HTTP ${res.status}`}${extra}`);
+    }
+
+    const msg = data.choices?.[0]?.message || {};
+    const reply = Array.isArray(msg.content)
+      ? msg.content.map(p => p.text || '').join('')
+      : (msg.content || '(empty reply)');
+    const stored = { role: 'assistant', content: reply };
+    if (msg.reasoning_details) stored.reasoning_details = msg.reasoning_details; // needed for agentic follow-ups
+    chat.messages.push(stored);
+    pending.className = 'msg assistant';
+    pending.textContent = reply;
+
+    const u = data.usage || {};
+    const secs = ((performance.now() - t0) / 1000).toFixed(0);
+    addMeta([data.model, data.provider, u.prompt_tokens != null && `${u.prompt_tokens.toLocaleString()} input tokens`,
+             u.completion_tokens != null && `${u.completion_tokens.toLocaleString()} output`,
+             u.cost != null && `$${Number(u.cost).toFixed(4)}`, `${secs}s`].filter(Boolean).join(' · '));
+
+    // Sanity check: a video that really reached Gemini costs thousands of input tokens
+    const dur = chat.job?.duration;
+    if (first && dur && procSel.value !== 'agentic' && u.prompt_tokens != null && u.prompt_tokens < dur * 20) {
+      addMsg('sys', `⚠ Only ${u.prompt_tokens} input tokens for a ${fmtTime(dur)} file, so Gemini may not have received the media. Try a different Gemini model.`, 'warn');
+    }
+  } catch (e) {
+    console.error(e);
+    if (chat.messages.at(-1)?.role === 'user') chat.messages.pop(); // let the user retry
+    if (first) chat.dataUrl = chat.dataUrl; // keep the encoded file cached
+    const net = e instanceof TypeError
+      ? ' (network/CORS error. If you opened the file directly, try serving it: run "python -m http.server" in its folder and open http://localhost:8000)'
+      : '';
+    const t = `Error: ${e?.message || e}${net}`;
+    if (pending) { pending.className = 'msg sys err'; pending.textContent = t; } else addMsg('sys', t, 'err');
+  } finally {
+    sending = false; sendBtn.disabled = false;
+  }
+}
+sendBtn.onclick = send;
+promptIn.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); send(); } });
+
+// ---------- File input / drag & drop ----------
+const drop = $('#drop'), fileIn = $('#fileIn');
+drop.onclick = () => fileIn.click();
+drop.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileIn.click(); } };
+fileIn.onchange = () => { addFiles([...fileIn.files]); fileIn.value = ''; };
+let dragDepth = 0;
+document.addEventListener('dragenter', (e) => { e.preventDefault(); dragDepth++; drop.classList.add('over'); });
+document.addEventListener('dragover', (e) => e.preventDefault());
+document.addEventListener('dragleave', () => { if (--dragDepth <= 0) { dragDepth = 0; drop.classList.remove('over'); } });
+document.addEventListener('drop', (e) => {
+  e.preventDefault(); dragDepth = 0; drop.classList.remove('over');
+  const files = [...(e.dataTransfer?.files || [])];
+  if (files.length) addFiles(files);
+});
+
+$('#copy').onclick = async (e) => {
+  try { await navigator.clipboard.writeText(cmdEl.textContent); e.target.textContent = 'Copied!'; }
+  catch { getSelection().selectAllChildren(cmdEl); e.target.textContent = 'Press Ctrl/Cmd+C'; }
+  setTimeout(() => (e.target.textContent = 'Copy'), 1500);
+};
+
+window.addEventListener('beforeunload', (e) => { if (running || sending) { e.preventDefault(); e.returnValue = ''; } });
+
+applyPreset('general');
+renderAttach();
+refresh();
+</script>
+</body>
+</html>

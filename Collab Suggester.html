@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Holoidol Collab Optimizer v3</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:#1a1a2e;color:#e0e0e0;font-size:13px}
+.hdr{text-align:center;padding:8px;background:linear-gradient(135deg,#16213e,#0f3460);color:#e94560;font-size:1.3em;font-weight:bold}
+.main{display:flex;gap:6px;padding:6px;min-height:calc(100vh - 46px)}
+.P{background:#16213e;border-radius:8px;padding:8px;overflow-y:auto}
+#pI{width:360px;max-height:calc(100vh - 54px)}
+#pG{width:600px;display:flex;flex-direction:column;gap:5px;max-height:calc(100vh - 54px);overflow-y:auto}
+#pR{flex:1;max-height:calc(100vh - 54px)}
+h2{font-size:1em;color:#e94560;border-bottom:1px solid #333;padding-bottom:3px;margin-bottom:5px}
+.flt{display:flex;gap:3px;flex-wrap:wrap;margin-bottom:5px}
+.flt input,.flt select{background:#0f3460;border:1px solid #444;color:#e0e0e0;padding:2px 4px;border-radius:3px;font-size:11px}
+.cl{max-height:calc(100vh - 200px);overflow-y:auto}
+.cr{display:flex;align-items:center;gap:2px;padding:2px 3px;border-bottom:1px solid #111;font-size:11px;border-radius:2px}
+.cr:hover{background:#1a2744}.cr.on{background:#0d2137}
+.st{color:#ffd700;font-size:10px;min-width:34px}
+.cn{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ct{font-size:9px;padding:0 3px;border-radius:2px;min-width:26px;text-align:center}
+.ct.a{background:#2d6a2d;color:#90ee90}.ct.d{background:#6a2d6a;color:#ee90ee}
+.tg{font-size:9px;color:#777;max-width:100px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fc{accent-color:#ffd700;width:13px;height:13px}
+.gc{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin:4px 0}
+.sl{background:#0f3460;border:2px solid #333;border-radius:6px;min-height:90px;padding:4px;position:relative;font-size:10px;cursor:pointer;transition:border-color .15s}
+.sl:hover{border-color:#e94560}.sl.off{opacity:.22;cursor:default;border-color:#222}
+.sl .lb{position:absolute;top:1px;left:3px;font-size:8px;color:#444}
+.sl .lk{position:absolute;top:0;right:2px;font-size:12px;cursor:pointer;opacity:.35;z-index:2}
+.sl .lk:hover{opacity:1}
+.sl .rm{position:absolute;bottom:1px;right:3px;font-size:11px;color:#e94560;cursor:pointer;opacity:.35}
+.sl .rm:hover{opacity:1}
+.sc{text-align:center;margin-top:8px}
+.sc .nm{font-weight:bold;color:#e94560;font-size:10px;word-break:break-word}
+.sc .dr{color:#ffd700;font-size:9px}
+.ctrls{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+.btn{padding:4px 10px;border:none;border-radius:4px;cursor:pointer;font-size:11px;font-weight:bold}
+.bo{background:#e94560;color:#fff}.bo:hover{background:#d63050}
+.bc{background:#444;color:#ddd}.bc:hover{background:#555}
+.rt{font-size:1.2em;color:#ffd700;text-align:center;padding:5px;background:#0d2137;border-radius:6px;margin-bottom:5px}
+table.r{width:100%;border-collapse:collapse;font-size:10px;margin-bottom:6px}
+table.r th{background:#0f3460;padding:2px 3px;text-align:left;color:#e94560}
+table.r td{padding:2px 3px;border-bottom:1px solid #1a1a2e}
+table.r tr:hover{background:#1a2744}
+.bg{display:grid;grid-template-columns:repeat(2,1fr);gap:2px;margin-bottom:4px}
+.bi{display:flex;align-items:center;gap:2px;font-size:10px}
+.bi input{width:52px;background:#0f3460;border:1px solid #444;color:#e0e0e0;padding:1px 3px;border-radius:3px;text-align:right;font-size:10px}
+.bi label{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.coll{cursor:pointer;user-select:none;color:#e94560;font-size:11px;margin:3px 0;padding:2px 0}
+.coll::before{content:'▶ ';font-size:8px}.coll.open::before{content:'▼ '}
+.cb{display:none;margin-bottom:4px}.cb.open{display:block}
+.mbg{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);z-index:100;display:flex;align-items:center;justify-content:center}
+.mdl{background:#16213e;border-radius:10px;padding:10px;max-width:480px;width:95%;max-height:80vh;overflow-y:auto}
+.mdl h3{color:#e94560;margin-bottom:5px;font-size:13px}
+.mf input{width:100%;background:#0f3460;border:1px solid #444;color:#e0e0e0;padding:3px 5px;border-radius:4px;margin-bottom:4px;font-size:11px}
+.mo{padding:4px;border-bottom:1px solid #1a1a2e;cursor:pointer;border-radius:3px;display:flex;gap:4px;align-items:center;font-size:11px}
+.mo:hover{background:#0f3460}
+.note{font-size:10px;color:#666;margin:3px 0;line-height:1.3}
+.fbx{background:#0d2137;border:1px solid #333;border-radius:4px;padding:5px;margin:3px 0;font-size:10px;color:#99b;line-height:1.4}
+.tagbox{display:flex;flex-wrap:wrap;gap:2px}
+.tagbox span{font-size:9px;padding:0 3px;border-radius:2px;background:#333;color:#aaa}
+</style>
+</head>
+<body>
+<div class="hdr">🎴 Holoidol Collab Optimizer v3</div>
+<div class="main">
+<div class="P" id="pI">
+<h2>Card Inventory</h2>
+<div class="flt">
+<input type="text" id="fS" placeholder="Search..." oninput="rI()" style="width:90px">
+<select id="fT" onchange="rI()"><option value="">All</option><option value="asset">Asset</option><option value="dir">Dir</option></select>
+<select id="fSt" onchange="rI()"><option value="">★</option><option value="4">4★</option><option value="3">3★</option><option value="2">2★</option><option value="1">1★</option></select>
+<select id="fO" onchange="rI()"><option value="">All</option><option value="1">Owned</option><option value="0">Not</option></select>
+</div>
+<div style="font-size:10px;color:#777;margin-bottom:2px;display:flex;gap:8px;align-items:center">
+<label><input type="checkbox" id="sa" onchange="tAV(this.checked)"> Toggle visible</label>
+<span id="cI"></span>
+</div>
+<div class="cl" id="cL"></div>
+</div>
+<div class="P" id="pG">
+<h2>Collab Grid (4×2)</h2>
+<div class="gc" id="grid"></div>
+<div class="ctrls">
+<button class="btn bo" id="oB" onclick="doOpt()">⚡ Optimize</button>
+<button class="btn bc" onclick="clrG()">✕ Clear</button>
+<span style="font-size:10px;color:#666" id="oS"></span>
+</div>
+<div class="coll" onclick="tC(this)">⚙️ Boros Ranks</div>
+<div class="cb" id="brSec"></div>
+<div class="coll" onclick="tC(this)">🏗️ Building Levels (Multiplied Bonus)</div>
+<div class="cb" id="blSec"></div>
+<div class="coll" onclick="tC(this)">🏷️ Active Tags</div>
+<div class="cb" id="tgSec"></div>
+<div class="coll" onclick="tC(this)">📐 Formulas</div>
+<div class="cb"><div class="fbx">
+<b>Effective per asset slot:</b><br>
+V = (Base + ΣFlats) × Π(1 + Mult_k)<br><br>
+<b>Total Score:</b> Σ V_i × |targets_i|<br><br>
+<b>Stacking:</b> Multipliers are <em>multiplicative</em>.<br>
+Each mult card with value M contributes factor (1+M).<br><br>
+<b>Boros Scaling (per card):</b><br>
+Asset: (1 + Σ0.1×R_tag) × foil<br>
+Dir Flat: (1 + 10×R_add + 0.2×R_dir + Σ0.1×R_tag) × foil<br>
+Dir Mult: (1 + 0.2×R_dir + Σ0.1×R_tag) × foil<br>
+FM flat mode uses Flat scaling; mult mode uses Mult scaling.
+</div></div>
+</div>
+<div class="P" id="pR">
+<h2>Results</h2>
+<div class="rt" id="tot">Total: 0</div>
+<div id="sBrk"></div>
+<div id="bBrk"></div>
+</div>
+</div>
+<div class="mbg" id="modal" style="display:none" onclick="if(event.target===this)cM()">
+<div class="mdl">
+<h3 id="mT">Select Card</h3>
+<div class="mf"><input type="text" id="mS" placeholder="Filter..." oninput="rM()"></div>
+<div id="mL" style="max-height:55vh;overflow-y:auto"></div>
+<div style="margin-top:5px">
+<button class="btn bc" onclick="pC(null)" style="font-size:10px">Remove</button>
+<button class="btn bc" onclick="cM()" style="font-size:10px;margin-left:3px">Cancel</button>
+</div>
+</div>
+</div>
+<script>
+// ═════════════════════════════════════════════════════
+// SECTION 1: CONSTANTS & CARD DATABASE
+// ═════════════════════════════════════════════════════
+const BT=['Fantasy','HoloID','Justice','-Myth-','Gamers','Equipment','Talent','Council'];
+const BLDGS=['Artist','Chain Restaurant','Concert Venue','Fan','Gacha Casino','Governmental Ministry','Holo Museum','Idol Shrine','Idol Temple','Karaoke Bar','Luxury Resort','Multiverse Device','Prime Fan','Research Facility','Royal Palace','Space Colony','Talent Academy','Themed Café','Theme Park','Trading Agency'];
+const DS={top:'↑',bottom:'↓',left:'←',right:'→','top-left':'↖','top-right':'↗','bottom-left':'↙','bottom-right':'↘'};
+const DN={top:'Top',bottom:'Bottom',left:'Left',right:'Right','top-left':'Top-Left','top-right':'Top-Right','bottom-left':'Bottom-Left','bottom-right':'Bottom-Right'};
+const DTN={af:'Flat',am:'Mult',fm:'F→M'};
+const DIRS=Object.keys(DS);
+
+const C=[],MAP={};
+let _id=c=>c.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+function A(n,s,t,v,g,at,src){const id=_id(n);const o={id,name:n,stars:s,tags:t,type:'asset',at:at||'flat',v,tgt:g,src:src||null};C.push(o);MAP[id]=o}
+function D(n,s,t,dir,dt,bv,co,cv){const id=_id(n);const o={id,name:n,stars:s,tags:t,type:'dir',dir,dt,bv,cond:co,cv};C.push(o);MAP[id]=o}
+
+// Asset Flat (45)
+A('Ancient Whisper',4,['-Myth-','Ina'],121200,['Artist','Idol Shrine','Idol Temple']);
+A('Spelling Bea',4,['-Myth-','Gura','Amelia'],90900,['Prime Fan','Concert Venue','Royal Palace']);
+A('Marriage Certificate',4,['Talent'],121200,['Themed Café','Luxury Resort']);
+A('Gawr Gura',3,['-Myth-','Gura'],42420,['Karaoke Bar','Themed Café','Idol Shrine']);
+A('Houshou Marine',3,['Fantasy','Marine'],42420,['Luxury Resort','Holo Museum','Royal Palace']);
+A('Nanashi Mumei',3,['Council'],42420,['Idol Temple','Prime Fan','Talent Academy']);
+A("Ninomae Ina'Nis",3,['-Myth-','Ina'],42420,['Artist','Space Colony','Concert Venue']);
+A('Arms Cache',2,['Equipment'],24240,['Talent Academy','Holo Museum']);
+A('Smol Ame',2,['-Myth-','Amelia'],15150,['Talent Academy','Research Facility']);
+A('Smol Bijou',2,['Talent','Bijou'],24240,['Multiverse Device','Holo Museum']);
+A('Smol Gura',2,['-Myth-','Gura'],30300,['Karaoke Bar']);
+A('Smol Ina',2,['-Myth-','Ina'],24240,['Artist','Gacha Casino']);
+A('Smol IRyS',2,['Talent','IRyS'],18180,['Artist','Karaoke Bar','Talent Academy']);
+A('Smol Kiara',2,['-Myth-','Kiara'],30300,['Chain Restaurant']);
+A('Smol Korone',2,['Gamers','Korone'],18180,['Themed Café','Royal Palace','Theme Park']);
+A('Smol Laplus',2,['Talent'],30300,['Governmental Ministry','Space Colony']);
+A('Smol Marine',2,['Fantasy','Marine'],24240,['Gacha Casino','Idol Shrine']);
+A('Smol Miko',2,['Talent'],18180,['Prime Fan','Gacha Casino','Concert Venue']);
+A('Smol Mumei',2,['Council'],24240,['Trading Agency','Idol Temple']);
+A('Smol Nene',2,['Talent'],24240,['Idol Shrine','Prime Fan']);
+A('Smol Ollie',2,['HoloID'],24240,['Theme Park','Concert Venue']);
+A('Boxing Gloves',1,['Equipment','Gamers','Korone'],12060,['Talent Academy']);
+A('Danin',1,['Fantasy'],3030,['Themed Café','Idol Shrine']);
+A('Deadbeat',1,['-Myth-','Calli'],6060,['Concert Venue','Karaoke Bar']);
+A('Friend',1,['Council'],6060,['Prime Fan']);
+A("Haachama's Cooking",1,['Equipment','Talent'],18090,['Chain Restaurant','Luxury Resort']);
+A('Lantern',1,['Equipment','Council'],12060,['Idol Shrine','Idol Temple']);
+A('Miofa',1,['Gamers'],6060,['Idol Shrine','Themed Café','Theme Park']);
+A('Nekko',1,['Talent'],6060,['Prime Fan','Talent Academy']);
+A('Nousagi',1,['Fantasy'],6060,['Prime Fan']);
+A('Pebble',1,['Talent','Bijou'],3030,['Governmental Ministry','Multiverse Device','Space Colony']);
+A('Phoenix',1,['-Myth-','Kiara'],12120,['Chain Restaurant']);
+A('Poyoyo',1,['Talent'],6060,['Holo Museum','Theme Park']);
+A('Dokuro-kun',1,['Fantasy','Marine'],6060,['Gacha Casino','Idol Shrine']);
+A('Syringe',1,['Equipment','-Myth-'],12060,['Trading Agency','Artist','Research Facility']);
+A('Takodachi',1,['-Myth-','Ina'],9090,['Gacha Casino','Artist']);
+A('Yorick',1,['Talent'],6060,['Space Colony','Research Facility']);
+A('Otomo',1,['Justice'],6060,['Research Facility','Holo Museum']);
+A('Chattino',1,['Justice'],6060,['Artist','Luxury Resort']);
+A('Gauntlets',1,['Equipment','Justice','Gigi'],6030,['Talent Academy','Idol Shrine','Themed Café']);
+A('Tatang',1,['HoloID','Talent'],18090,['Concert Venue']);
+A('Shiokko',1,['Talent'],6060,['Multiverse Device','Royal Palace']);
+A('Yukimin',1,['Talent'],6060,['Karaoke Bar','Concert Venue','Luxury Resort']);
+A('Bazo',1,['HoloID'],6060,['Trading Agency','Research Facility','Governmental Ministry']);
+A('Kintsuba',1,['Fantasy'],7272,['Theme Park','Themed Café']);
+// Asset Multiplied (12)
+A('Bau Bau',4,['Talent','Fuwamoco'],30300,['Space Colony'],'mult','Artist');
+A('Kobo Kanaeru',3,['HoloID','Kobo'],12120,['Idol Shrine'],'mult','Luxury Resort');
+A('Smol Kronii',2,['Council','Kronii'],12120,['Multiverse Device'],'mult','Idol Shrine');
+A('Smol Raora',2,['Justice'],12120,['Chain Restaurant'],'mult','Themed Café');
+A('Death-Sensei',1,['-Myth-','Calli'],6060,['Karaoke Bar'],'mult','Artist');
+A('Subarudo',1,['Equipment','Talent'],12060,['Luxury Resort'],'mult','Chain Restaurant');
+A('Sukonbu',1,['Gamers'],6060,['Prime Fan'],'mult','Fan');
+A('Zain',1,['Talent'],6060,['Talent Academy'],'mult','Concert Venue');
+A('Popo',1,['Justice','Gigi'],6060,['Karaoke Bar'],'mult','Fan');
+A('Magnifying Glass',1,['Equipment','-Myth-','Amelia'],12060,['Research Facility'],'mult','Trading Agency');
+A('Oni Mask',1,['Equipment','Talent'],12060,['Idol Temple'],'mult','Idol Shrine');
+A('Pemaloe',1,['HoloID'],6060,['Talent Academy'],'mult','Fan');
+// Dir Top (8)
+D('Shrimp',1,['-Myth-','Gura'],'top','af',618060,['Gura'],6180600);
+D('Smol Noel',2,['Fantasy'],'top','am',18060,['Fantasy'],72240);
+D('Elfriend',1,['Fantasy'],'top','am',3612,['Fantasy'],9030);
+D('Perroccino',1,['Talent','Fuwamoco'],'top','am',5418,['Talent','Fuwamoco'],10836);
+D('Harusaki Nodoka',3,['Equipment'],'top','fm',927090,['Equipment'],54180);
+D('-Myth- Collab',2,['-Myth-'],'top','fm',1854180,['-Myth-'],27090);
+D('Baerats',1,['Council','Baelz'],'top','fm',927090,[],7224);
+D('Novelite',1,['Talent'],'top','fm',618060,['Bijou','Fuwamoco'],14448);
+// Dir Bottom (8)
+D('Jailbird',1,['Talent'],'bottom','af',927090,[],927090);
+D('Council Collab',2,['Council'],'bottom','am',14448,['Council'],27090);
+D('Smol Gigi',2,['Justice','Gigi'],'bottom','am',18060,['Justice'],72240);
+D('AO-chan',1,['Equipment','-Myth-','Ina'],'bottom','am',7218,['-Myth-','Ina'],12030);
+D('Crow',1,['Talent'],'bottom','am',7224,['Talent'],14448);
+D('Umbrella',1,['Equipment','HoloID','Kobo'],'bottom','am',7218,['Equipment'],14436);
+D('Fubuzilla',4,['Gamers'],'bottom','fm',12361200,['Gamers'],144480);
+D('Sword and Shield',2,['Equipment','-Myth-','Kiara'],'bottom','fm',1248120,['Equipment','-Myth-','Kiara'],36090);
+// Dir Left (8)
+D('Usada Pekora',3,['Fantasy'],'left','af',6180600,['Marine'],21632100);
+D('Bubba',1,['-Myth-','Amelia'],'left','af',618060,['-Myth-','Amelia'],2781270);
+D('Onigiryaa',1,['Gamers'],'left','am',5418,[],5418);
+D('Hatotaurus',4,['Gamers'],'left','fm',12361200,['Equipment'],144480);
+D('Cecilia Immergreen',3,['Justice'],'left','fm',4944480,['Justice'],54180);
+D('Smol Pekora',2,['Fantasy'],'left','fm',1854180,['Fantasy'],27090);
+D('Shield',1,['Equipment','-Myth-','Kiara'],'left','fm',624060,['Equipment','-Myth-','Kiara'],12030);
+D('Scythe',1,['Equipment','-Myth-','Calli'],'left','fm',624060,['Equipment','-Myth-','Calli'],4812);
+// Dir Right (8)
+D('SSRB',1,['Talent'],'right','af',618060,['Talent','Gamers'],1854180);
+D('Sword',1,['Equipment','-Myth-','Kiara'],'right','af',624060,['Equipment','Kiara'],1872180);
+D('Thorn',1,['Equipment','Justice'],'right','af',748872,['Equipment'],2496240);
+D('Ground Pound',4,['-Myth-','Amelia'],'right','am',72240,['-Myth-','Amelia'],144480);
+D('Kaela Kovalskia',3,['HoloID'],'right','am',36120,['HoloID','Kronii'],63210);
+D('Lance',1,['Equipment','Justice'],'right','am',4812,['Justice'],24060);
+D('Smol Baelz',2,['Council','Baelz'],'right','fm',2472240,['Council'],27090);
+D('Bloop',1,['-Myth-','Gura'],'right','fm',618060,['Gura'],5418);
+// Dir Top-Left (6)
+D('Bweh',4,['Talent','Bijou'],'top-left','am',90300,['Talent','Bijou'],126420);
+D('Grem',1,['Justice','Gigi'],'top-left','am',5418,['Justice','Gigi'],9030);
+D('Cilus',1,['HoloID','Kobo'],'top-left','am',5418,['Equipment','HoloID','Kobo'],9030);
+D('Jill',1,['Fantasy'],'top-left','am',5418,['Fantasy'],14448);
+D('Smol Calli',2,['-Myth-','Calli'],'top-left','fm',1236120,['Gura','Kiara','Ina'],18060);
+D('Hosoinu',1,['Gamers','Korone'],'top-left','fm',927090,['Gamers'],7224);
+// Dir Top-Right (6)
+D('Nemu',1,['Council'],'top-right','af',309030,['Council'],1236120);
+D('Gallon',1,['HoloID'],'top-right','af',1545150,['HoloID'],6180600);
+D('Listener-san',1,['Gamers','Korone'],'top-right','am',3612,['Gamers'],10836);
+D('Trident',1,['Equipment','-Myth-','Gura'],'top-right','am',7218,['Equipment','Gura'],12030);
+D('Inugami Korone',3,['Gamers','Korone'],'top-right','fm',4326420,['Gamers','Korone'],63210);
+D('Smol Kobo',2,['HoloID','Kobo'],'top-right','fm',1854180,['Talent','Marine'],27090);
+// Dir Bottom-Left (6)
+D('Mori Calliope',3,['-Myth-','Calli'],'bottom-left','am',36120,['Kiara'],72240);
+D('Gigi Murin',3,['Justice','Gigi'],'bottom-left','am',27090,['Justice','Gigi'],81270);
+D('Horny Jailer',1,['Equipment'],'bottom-left','am',9030,['Kiara'],27090);
+D('Plug Type Asacoco',1,['Equipment','Talent'],'bottom-left','am',9624,['Equipment'],16842);
+D('Boros Card',1,['Council','Kronii'],'bottom-left','fm',618060,['Kronii'],27090);
+D('KFP Employee',1,['-Myth-','Kiara'],'bottom-left','fm',618060,['Kiara'],14448);
+// Dir Bottom-Right (5)
+D('Wildlife',2,['Gamers','-Myth-','Council'],'bottom-right','af',1890180,['Gamers','-Myth-','Council'],5670540);
+D('Smol Suisei',2,['Talent'],'bottom-right','am',14448,['Talent','Fantasy'],27090);
+D('Inu',1,[],'bottom-right','am',5418,['Gura'],9030);
+D('Udin',1,['HoloID'],'bottom-right','fm',618060,['Equipment','HoloID'],5418);
+D('Bloom & Gloom',1,['Talent','IRyS'],'bottom-right','fm',741672,['IRyS'],14448);
+
+// ═════════════════════════════════════════════════════
+// SECTION 2: BOROS SCALING
+// ═════════════════════════════════════════════════════
+// Precompute Boros tag count per card
+C.forEach(c=>{c._nbt=c.tags.filter(t=>BT.includes(t)).length});
+
+function msAsset(c){return(1+c._nbt*100)*2}
+function msFlat(c){return(1+10000+200+c._nbt*100)*2}
+function msMult(c){return(1+200+c._nbt*100)*2}
+
+function asAsset(c,B,f){
+  let s=1;for(const t of c.tags)if(BT.includes(t))s+=.1*(B[t]||0);
+  return s*(f?2:1);
+}
+function asFlat(c,B,f){
+  let s=1+10*(B.Add||0)+.2*(B.Dir||0);
+  for(const t of c.tags)if(BT.includes(t))s+=.1*(B[t]||0);
+  return s*(f?2:1);
+}
+function asMult(c,B,f){
+  let s=1+.2*(B.Dir||0);
+  for(const t of c.tags)if(BT.includes(t))s+=.1*(B[t]||0);
+  return s*(f?2:1);
+}
+
+function sv(sheet,card,mode,B,f){
+  const ms=mode==='asset'?msAsset(card):mode==='flat'?msFlat(card):msMult(card);
+  const as=mode==='asset'?asAsset(card,B,f):mode==='flat'?asFlat(card,B,f):asMult(card,B,f);
+  return sheet*as/ms;
+}
+
+// ═════════════════════════════════════════════════════
+// SECTION 3: GRID & CALCULATION
+// ═════════════════════════════════════════════════════
+// Grid: [0][1][2][3] / [4][5][6][7]
+const OFF={top:[-1,0],bottom:[1,0],left:[0,-1],right:[0,1],'top-left':[-1,-1],'top-right':[-1,1],'bottom-left':[1,-1],'bottom-right':[1,1]};
+function ts(from,dir){
+  const r=from>>2,c=from&3,d=OFF[dir];
+  const nr=r+d[0],nc=c+d[1];
+  return(nr>=0&&nr<=1&&nc>=0&&nc<=3)?nr*4+nc:-1;
+}
+// Precompute target map
+const TM=[];
+for(let i=0;i<8;i++){TM[i]={};for(const d of DIRS)TM[i][d]=ts(i,d)}
+
+function getGT(grid){
+  const t=new Set();
+  for(let i=0;i<8;i++){const c=grid[i]?MAP[grid[i]]:null;if(c)c.tags.forEach(x=>t.add(x))}
+  return t;
+}
+
+function calcFull(grid,se,fSt,B,bL){
+  const gt=getGT(grid);
+  let total=0;const bOut={};const det=[];
+  for(let i=0;i<8;i++){
+    if(!se[i]||!grid[i]){det.push(null);continue}
+    const card=MAP[grid[i]];
+    if(!card){det.push(null);continue}
+    if(card.type==='dir'){det.push({card,type:'dir',slot:i});continue}
+    const foil=!!fSt[grid[i]];
+    let base=sv(card.v,card,'asset',B,foil);
+    if(card.at==='mult')base*=Math.floor((bL[card.src]||0)/10);
+    let fS=0,mP=1;const boosts=[];
+    for(let j=0;j<8;j++){
+      if(j===i||!se[j]||!grid[j])continue;
+      const dc=MAP[grid[j]];if(!dc||dc.type!=='dir')continue;
+      if(TM[j][dc.dir]!==i)continue;
+      const df=!!fSt[grid[j]];
+      const cm=dc.cond.length>0&&dc.cond.every(c=>gt.has(c));
+      let eff;
+      if(dc.dt==='af'){const v=sv(cm?dc.cv:dc.bv,dc,'flat',B,df);fS+=v;eff={t:'flat',v}}
+      else if(dc.dt==='am'){const v=sv(cm?dc.cv:dc.bv,dc,'mult',B,df);mP*=(1+v);eff={t:'mult',v}}
+      else{if(cm){const v=sv(dc.cv,dc,'mult',B,df);mP*=(1+v);eff={t:'mult',v}}else{const v=sv(dc.bv,dc,'flat',B,df);fS+=v;eff={t:'flat',v}}}
+      boosts.push({card:dc,eff,slot:j,cm});
+    }
+    const ev=(base+fS)*mP;
+    const tgts=card.tgt||[];
+    tgts.forEach(t=>{bOut[t]=(bOut[t]||0)+ev});
+    total+=ev*tgts.length;
+    det.push({card,base,fS,mP,ev,tgts,boosts,foil,slot:i});
+  }
+  return{total,bOut,det,tags:gt};
+}
+
+// ═════════════════════════════════════════════════════
+// SECTION 4: OPTIMIZER (with precomputed values)
+// ═════════════════════════════════════════════════════
+function prepOpt(ids,fSt,B,bL){
+  const P={};
+  for(const id of ids){
+    const c=MAP[id];if(!c)continue;
+    const f=!!fSt[id];
+    const p={type:c.type,tags:c.tags,cond:c.cond||[],cl:(c.cond||[]).length};
+    if(c.type==='asset'){
+      p.base=sv(c.v,c,'asset',B,f);
+      if(c.at==='mult')p.base*=Math.floor((bL[c.src]||0)/10);
+      p.nt=c.tgt.length;
+    }else{
+      p.dir=c.dir;p.dt=c.dt;
+      if(c.dt==='af'){p.vB=sv(c.bv,c,'flat',B,f);p.vC=sv(c.cv,c,'flat',B,f)}
+      else if(c.dt==='am'){p.vB=sv(c.bv,c,'mult',B,f);p.vC=sv(c.cv,c,'mult',B,f)}
+      else{p.vF=sv(c.bv,c,'flat',B,f);p.vM=sv(c.cv,c,'mult',B,f)}
+    }
+    P[id]=p;
+  }
+  return P;
+}
+
+function fastCalc(grid,se,P){
+  const tgs=new Set();
+  for(let i=0;i<8;i++){const id=grid[i];if(id&&P[id])for(const t of P[id].tags)tgs.add(t)}
+  let tot=0;
+  for(let i=0;i<8;i++){
+    if(!se[i]||!grid[i])continue;
+    const p=P[grid[i]];if(!p||p.type!=='asset')continue;
+    let fS=0,mP=1;
+    for(let j=0;j<8;j++){
+      if(j===i||!se[j]||!grid[j])continue;
+      const d=P[grid[j]];if(!d||d.type!=='dir')continue;
+      if(TM[j][d.dir]!==i)continue;
+      const cm=d.cl>0&&d.cond.every(c=>tgs.has(c));
+      if(d.dt==='af')fS+=(cm?d.vC:d.vB);
+      else if(d.dt==='am')mP*=(1+(cm?d.vC:d.vB));
+      else{if(cm)mP*=(1+d.vM);else fS+=d.vF}
+    }
+    tot+=(p.base+fS)*mP*p.nt;
+  }
+  return tot;
+}
+
+function optimize(ids,fSt,B,bL,se){
+  const P=prepOpt(ids,fSt,B,bL);
+  const eS=[];for(let i=0;i<8;i++)if(se[i])eS.push(i);
+  const ns=eS.length;
+  if(!ns||!ids.length)return new Array(8).fill(null);
+  let bG=new Array(8).fill(null),bS=-1;
+  const NR=20;
+  for(let R=0;R<NR;R++){
+    const g=new Array(8).fill(null),used=new Set();
+    let cards=[...ids];
+    if(R>0)for(let i=cards.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[cards[i],cards[j]]=[cards[j],cards[i]]}
+    // Greedy fill
+    for(let iter=0;iter<ns;iter++){
+      let bc=null,bs=-1,bd=-Infinity;
+      const cs=fastCalc(g,se,P);
+      for(const cid of cards){
+        if(used.has(cid))continue;const cp=P[cid];if(!cp)continue;
+        for(const s of eS){
+          if(g[s])continue;
+          if(cp.type==='dir'&&(TM[s][cp.dir]<0||!se[TM[s][cp.dir]]))continue;
+          g[s]=cid;
+          const sc=fastCalc(g,se,P)-cs;
+          if(sc>bd){bd=sc;bc=cid;bs=s}
+          g[s]=null;
+        }
+      }
+      if(bc&&bd>0){g[bs]=bc;used.add(bc)}
+    }
+    // Hill climbing
+    let imp=true,mi=600;
+    while(imp&&mi-->0){
+      imp=false;const cs=fastCalc(g,se,P);
+      // Replace
+      for(let si=0;si<ns&&!imp;si++){const s=eS[si];
+        for(const cid of cards){
+          if(used.has(cid)&&g[s]!==cid)continue;if(g[s]===cid)continue;
+          const cp=P[cid];if(!cp)continue;
+          if(cp.type==='dir'&&(TM[s][cp.dir]<0||!se[TM[s][cp.dir]]))continue;
+          const old=g[s];g[s]=cid;
+          if(fastCalc(g,se,P)>cs){if(old)used.delete(old);used.add(cid);imp=true;break}
+          g[s]=old;
+        }
+      }
+      // Swap
+      if(!imp)for(let ii=0;ii<ns&&!imp;ii++)for(let jj=ii+1;jj<ns&&!imp;jj++){
+        const i=eS[ii],j=eS[jj],ci=g[i],cj=g[j];
+        if(ci){const cp=P[ci];if(cp&&cp.type==='dir'&&(TM[j][cp.dir]<0||!se[TM[j][cp.dir]]))continue}
+        if(cj){const cp=P[cj];if(cp&&cp.type==='dir'&&(TM[i][cp.dir]<0||!se[TM[i][cp.dir]]))continue}
+        g[i]=cj;g[j]=ci;if(fastCalc(g,se,P)>cs)imp=true;else{g[i]=ci;g[j]=cj}
+      }
+      // Remove
+      if(!imp)for(const s of eS){if(!g[s])continue;const old=g[s];g[s]=null;
+        if(fastCalc(g,se,P)>cs){used.delete(old);imp=true;break}g[s]=old}
+      // Add
+      if(!imp)for(const s of eS){if(g[s])continue;for(const cid of cards){if(used.has(cid))continue;
+        const cp=P[cid];if(!cp)continue;
+        if(cp.type==='dir'&&(TM[s][cp.dir]<0||!se[TM[s][cp.dir]]))continue;
+        g[s]=cid;if(fastCalc(g,se,P)>cs){used.add(cid);imp=true;break}g[s]=null}if(imp)break}
+    }
+    const sc=fastCalc(g,se,P);
+    if(sc>bS){bS=sc;bG=[...g]}
+  }
+  return bG;
+}
+
+// ═════════════════════════════════════════════════════
+// SECTION 5: STATE
+// ═════════════════════════════════════════════════════
+let S={owned:{},foil:{},grid:new Array(8).fill(null),
+  se:[true,true,true,false,true,true,true,false],
+  bL:{},B:{Add:0,Dir:0}};
+BT.forEach(b=>S.B[b]=0);
+let mSlot=-1;
+
+function save(){try{localStorage.setItem('hoi3',JSON.stringify(S))}catch(e){}}
+function load(){try{const s=localStorage.getItem('hoi3');if(s){const p=JSON.parse(s);
+  if(p.grid&&p.grid.length===8){Object.assign(S,p);if(!S.B){S.B={Add:0,Dir:0};BT.forEach(b=>S.B[b]=0)}}
+}}catch(e){}}
+
+// ═════════════════════════════════════════════════════
+// SECTION 6: UI
+// ═════════════════════════════════════════════════════
+const ss=n=>'★'.repeat(n)+'☆'.repeat(4-n);
+function fmt(n){if(!n||isNaN(n))return'0';const a=Math.abs(n);
+if(a>=1e15)return(n/1e15).toFixed(2)+'Q';if(a>=1e12)return(n/1e12).toFixed(2)+'T';
+if(a>=1e9)return(n/1e9).toFixed(2)+'B';if(a>=1e6)return(n/1e6).toFixed(2)+'M';
+if(a>=1e3)return(n/1e3).toFixed(1)+'K';return Math.round(n).toString()}
+
+function rI(){
+  const q=(document.getElementById('fS').value||'').toLowerCase();
+  const ft=document.getElementById('fT').value,fs=document.getElementById('fSt').value,fo=document.getElementById('fO').value;
+  const fc=C.filter(c=>{
+    if(q&&!c.name.toLowerCase().includes(q)&&!c.tags.some(t=>t.toLowerCase().includes(q)))return false;
+    if(ft==='asset'&&c.type!=='asset')return false;if(ft==='dir'&&c.type!=='dir')return false;
+    if(fs&&c.stars!==+fs)return false;
+    if(fo==='1'&&!S.owned[c.id])return false;if(fo==='0'&&S.owned[c.id])return false;
+    return true;
+  });
+  let h='';
+  for(const c of fc){
+    const on=!!S.owned[c.id],fl=!!S.foil[c.id];
+    const tp=c.type==='asset'?'a':'d';
+    const tl=c.type==='asset'?(c.at==='mult'?'A·M':'Ast'):'Dir';
+    const di=c.type==='dir'?' '+DS[c.dir]:'';
+    h+=`<div class="cr${on?' on':''}"><input type="checkbox" ${on?'checked':''} onchange="tO('${c.id}',this.checked)" style="width:13px;height:13px"><input type="checkbox" class="fc" ${fl?'checked':''} ${on?'':'disabled'} onchange="tF('${c.id}',this.checked)"><span class="st">${ss(c.stars)}</span><span class="cn" title="${c.name}${c.type==='dir'?' ('+DN[c.dir]+' '+DTN[c.dt]+')':''}">${c.name}${di}</span><span class="ct ${tp}">${tl}</span><span class="tg" title="${c.tags.join(', ')}">${c.tags.join(', ')}</span></div>`;
+  }
+  document.getElementById('cL').innerHTML=h||'<div style="padding:6px;color:#555">No matches</div>';
+  document.getElementById('cI').textContent=`${Object.values(S.owned).filter(Boolean).length}/${C.length}`;
+}
+
+function rG(){
+  let h='';
+  for(let i=0;i<8;i++){
+    const en=S.se[i],cid=S.grid[i],card=cid?MAP[cid]:null;
+    const lk=`<span class="lk" onclick="event.stopPropagation();tSl(${i})" title="${en?'Lock':'Unlock'}">${en?'🔓':'🔒'}</span>`;
+    let inn='';
+    if(!en)inn=`${lk}<div class="sc" style="color:#333;margin-top:20px">🔒</div>`;
+    else if(!card)inn=`${lk}<div class="sc" style="color:#555;margin-top:12px"><div>Empty</div><div style="font-size:8px">Click to add</div></div>`;
+    else{
+      const di=card.type==='dir'?`<div class="dr">${DS[card.dir]} ${DN[card.dir]}·${DTN[card.dt]}</div>`:'';
+      const fb=S.foil[cid]?'<span style="color:#ffd700">✦</span>':'';
+      const mi=card.at==='mult'?`<div style="font-size:8px;color:#88aaff">×(${card.src})</div>`:'';
+      inn=`${lk}<span class="rm" onclick="event.stopPropagation();rmC(${i})" title="Remove">✕</span><div class="sc"><div class="nm">${fb}${card.name}</div><div style="color:#ffd700;font-size:9px">${ss(card.stars)}</div>${di}${mi}<div style="color:#777;font-size:8px">${card.tags.join(', ')}</div></div>`;
+    }
+    h+=`<div class="sl${en?'':' off'}" onclick="${en?'oM('+i+')':'void(0)'}"><span class="lb">${i}</span>${inn}</div>`;
+  }
+  document.getElementById('grid').innerHTML=h;
+}
+
+function rR(){
+  const res=calcFull(S.grid,S.se,S.foil,S.B,S.bL);
+  document.getElementById('tot').textContent=`Total: ${fmt(res.total)}`;
+  let h='<h3 style="color:#e94560;font-size:11px;margin:3px 0">Slot Breakdown</h3><table class="r"><tr><th>#</th><th>Card</th><th>Base</th><th>+Flats</th><th>×Factor</th><th>Effective</th><th>Targets</th></tr>';
+  for(let i=0;i<8;i++){
+    if(!S.se[i]){h+=`<tr><td>${i}</td><td colspan="6" style="color:#333">Locked</td></tr>`;continue}
+    const d=res.det[i];
+    if(!d){h+=`<tr><td>${i}</td><td colspan="6" style="color:#555">Empty</td></tr>`;continue}
+    if(d.type==='dir'){
+      const dc=d.card,t=TM[i][dc.dir],tc=t>=0&&S.grid[t]?MAP[S.grid[t]]:null;
+      h+=`<tr><td>${i}</td><td>${dc.name} ${DS[dc.dir]}</td><td colspan="4" style="color:#777;font-size:9px">→ ${tc?tc.name:'empty'} (slot ${t})</td><td>—</td></tr>`;
+      continue;
+    }
+    h+=`<tr><td>${i}</td><td>${d.card.name}${d.foil?' ✦':''}</td><td>${fmt(d.base)}</td><td style="color:#88ccff">+${fmt(d.fS)}</td><td style="color:#ffaa88">×${d.mP<1e4?d.mP.toFixed(1):fmt(d.mP)}</td><td style="color:#90ee90;font-weight:bold">${fmt(d.ev)}</td><td style="font-size:9px">${d.tgts.join(', ')}</td></tr>`;
+    if(d.boosts.length){for(const b of d.boosts){
+      const s=b.eff.t==='flat'?'+':'×(1+';
+      const e=b.eff.t==='flat'?')':')';
+      const v=fmt(b.eff.v);
+      const cst=b.card.dt==='fm'?` [${b.eff.t==='mult'?'✓cond':'flat'}]`:(b.cm?' [✓]':'');
+      h+=`<tr><td></td><td style="color:#555;padding-left:10px;font-size:9px">↳ ${b.card.name} ${DS[b.card.dir]}</td><td colspan="5" style="color:#555;font-size:9px">${s}${v}${e}${cst}</td></tr>`;
+    }}
+  }
+  h+='</table>';
+  document.getElementById('sBrk').innerHTML=h;
+  let bh='<h3 style="color:#e94560;font-size:11px;margin:3px 0">Building Output</h3><table class="r"><tr><th>Building</th><th>Boost</th></tr>';
+  const sorted=Object.entries(res.bOut).sort((a,b)=>b[1]-a[1]);
+  for(const[b,v]of sorted)bh+=`<tr><td>${b}</td><td style="color:#90ee90">${fmt(v)}</td></tr>`;
+  if(!sorted.length)bh+='<tr><td colspan="2" style="color:#555">No output</td></tr>';
+  bh+='</table>';
+  document.getElementById('bBrk').innerHTML=bh;
+  const tSec=document.getElementById('tgSec');
+  if(tSec){const tags=[...res.tags].sort();tSec.innerHTML=tags.length?'<div class="tagbox">'+tags.map(t=>`<span>${t}</span>`).join('')+'</div>':'<span style="color:#555;font-size:10px">None</span>'}
+}
+
+function rBr(){
+  let h='<div class="bg"><div class="bi"><label>Add (Flat Dirs) +1000%/r</label><input type="number" min="0" max="1000" value="'+(S.B.Add||0)+'" onchange="sB(\'Add\',this.value)"></div>';
+  h+='<div class="bi"><label>Directional +20%/r</label><input type="number" min="0" max="1000" value="'+(S.B.Dir||0)+'" onchange="sB(\'Dir\',this.value)"></div>';
+  for(const b of BT)h+=`<div class="bi"><label>${b} +10%/r</label><input type="number" min="0" max="1000" value="${S.B[b]||0}" onchange="sB('${b}',this.value)"></div>`;
+  h+='</div><div style="margin-top:3px"><button class="btn bc" style="font-size:10px;padding:2px 6px" onclick="setAB(1000)">All Max</button> <button class="btn bc" style="font-size:10px;padding:2px 6px" onclick="setAB(0)">All Zero</button></div>';
+  h+='<div class="note">At max rank (1000) + Foil → values match the spreadsheet exactly.</div>';
+  document.getElementById('brSec').innerHTML=h;
+}
+function rBl(){
+  let h='<div class="bg">';
+  for(const b of BLDGS)h+=`<div class="bi"><label>${b}</label><input type="number" min="0" value="${S.bL[b]||0}" onchange="sBl('${b}',this.value)"></div>`;
+  h+='</div><div class="note">Multiplied Bonus assets: value × ⌊source_level / 10⌋</div>';
+  document.getElementById('blSec').innerHTML=h;
+}
+
+// Modal
+function oM(s){mSlot=s;document.getElementById('mT').textContent=`Slot ${s}`;document.getElementById('mS').value='';document.getElementById('modal').style.display='flex';rM();document.getElementById('mS').focus()}
+function cM(){document.getElementById('modal').style.display='none';mSlot=-1}
+function rM(){
+  const q=(document.getElementById('mS').value||'').toLowerCase();
+  const placed=new Set(S.grid.filter(Boolean));
+  const av=C.filter(c=>{
+    if(!S.owned[c.id])return false;
+    if(placed.has(c.id)&&S.grid[mSlot]!==c.id)return false;
+    if(q&&!c.name.toLowerCase().includes(q)&&!c.tags.some(t=>t.toLowerCase().includes(q)))return false;
+    if(c.type==='dir'){const t=TM[mSlot][c.dir];if(t<0||!S.se[t])return false}
+    return true;
+  }).sort((a,b)=>{if(a.type!==b.type)return a.type==='asset'?-1:1;return b.stars-a.stars||a.name.localeCompare(b.name)});
+  let h='',lt='';
+  for(const c of av){
+    if(c.type!==lt){lt=c.type;h+=`<div style="font-size:9px;color:#e94560;padding:3px 0 1px;border-bottom:1px solid #333;font-weight:bold">${c.type==='asset'?'📦 Assets':'🔀 Directionals'}</div>`}
+    const fb=S.foil[c.id]?'✦ ':'';
+    const tl=c.type==='asset'?(c.at==='mult'?'Asset(M)':'Asset'):`${DS[c.dir]} → slot ${TM[mSlot][c.dir]}`;
+    h+=`<div class="mo" onclick="pC('${c.id}')"><span style="color:#ffd700;min-width:32px;font-size:9px">${ss(c.stars)}</span><span style="flex:1">${fb}${c.name}</span><span style="font-size:9px;color:#999">${tl}</span></div>`;
+  }
+  document.getElementById('mL').innerHTML=h||'<div style="padding:8px;color:#555">No cards available</div>';
+}
+function pC(id){S.grid[mSlot]=id;cM();save();rG();rR()}
+
+// Events
+function tO(id,ch){S.owned[id]=ch;if(!ch){S.foil[id]=false;for(let i=0;i<8;i++)if(S.grid[i]===id)S.grid[i]=null}save();rI();rG();rR()}
+function tF(id,ch){S.foil[id]=ch;save();rR()}
+function tAV(ch){
+  const q=(document.getElementById('fS').value||'').toLowerCase(),ft=document.getElementById('fT').value,fs=document.getElementById('fSt').value;
+  C.forEach(c=>{let ok=true;
+    if(q&&!c.name.toLowerCase().includes(q)&&!c.tags.some(t=>t.toLowerCase().includes(q)))ok=false;
+    if(ft==='asset'&&c.type!=='asset')ok=false;if(ft==='dir'&&c.type!=='dir')ok=false;
+    if(fs&&c.stars!==+fs)ok=false;
+    if(ok){S.owned[c.id]=ch;if(!ch){S.foil[c.id]=false;for(let i=0;i<8;i++)if(S.grid[i]===c.id)S.grid[i]=null}}
+  });save();rI();rG();rR()}
+function rmC(i){S.grid[i]=null;save();rG();rR()}
+function tSl(i){S.se[i]=!S.se[i];if(!S.se[i])S.grid[i]=null;save();rG();rR()}
+function sB(k,v){S.B[k]=Math.max(0,Math.min(1000,parseInt(v)||0));save();rR()}
+function sBl(b,v){S.bL[b]=parseInt(v)||0;save();rR()}
+function setAB(v){S.B.Add=v;S.B.Dir=v;BT.forEach(b=>S.B[b]=v);save();rBr();rR()}
+function clrG(){S.grid=new Array(8).fill(null);save();rG();rR()}
+function tC(el){el.classList.toggle('open');el.nextElementSibling.classList.toggle('open')}
+
+function doOpt(){
+  const ids=Object.keys(S.owned).filter(id=>S.owned[id]);
+  if(!ids.length){alert('Mark some cards as owned first!');return}
+  const btn=document.getElementById('oB');
+  btn.textContent='⏳ Working...';btn.disabled=true;
+  document.getElementById('oS').textContent='Running 20 restarts...';
+  setTimeout(()=>{
+    const t0=performance.now();
+    S.grid=optimize(ids,S.foil,S.B,S.bL,S.se);
+    const dt=((performance.now()-t0)/1000).toFixed(1);
+    save();rG();rR();
+    btn.textContent='⚡ Optimize';btn.disabled=false;
+    document.getElementById('oS').textContent=`Done in ${dt}s`;
+  },50);
+}
+
+// Init
+load();rI();rG();rR();rBr();rBl();
+</script>
+</body>
+</html>

@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MTG Commander Recommendator</title>
+<style>
+  :root {
+    --bg: #f4f4f4; --panel: #ffffff; --text: #1a1a1a; --muted: #666;
+    --border: #ddd; --accent: #007bff; --accent-hover: #0056b3;
+    --success: #28a745; --warn: #b8860b; --error: #dc3545;
+    --chip: #eef3fb;
+  }
+  [data-theme="dark"] {
+    --bg: #15181d; --panel: #1e232b; --text: #e6e6e6; --muted: #9aa3ad;
+    --border: #2e3640; --accent: #4ea3ff; --accent-hover: #77b8ff;
+    --success: #49d178; --warn: #f0c449; --error: #ff6b6b;
+    --chip: #252c36;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    margin: 0; padding: clamp(8px, 2vw, 24px);
+    background: var(--bg); color: var(--text);
+    transition: background 0.2s, color 0.2s;
+  }
+  .container {
+    max-width: 900px; margin: auto; background: var(--panel);
+    padding: clamp(12px, 2.5vw, 24px); border-radius: 8px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+  header { display: flex; justify-content: space-between; align-items: center;
+           gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
+  h1 { font-size: clamp(1.2rem, 3vw, 1.6rem); margin: 0; }
+  .header-actions { display: flex; gap: 8px; }
+  fieldset { border: 1px solid var(--border); border-radius: 6px; padding: 10px 14px; margin: 12px 0; }
+  legend { padding: 0 6px; font-weight: 600; }
+  .mode-options { display: flex; gap: 16px; flex-wrap: wrap; }
+  input[type="text"], input[type="url"], textarea {
+    width: 100%; padding: 10px; border: 1px solid var(--border);
+    border-radius: 4px; background: var(--panel); color: var(--text);
+    font-family: inherit; font-size: 0.95rem;
+  }
+  textarea { font-family: ui-monospace, Menlo, Consolas, monospace; resize: vertical; }
+  .dropzone { position: relative; }
+  .dropzone.drag-over textarea { border-color: var(--accent); background: var(--chip); }
+  button {
+    background: var(--accent); color: white; border: none;
+    padding: 10px 18px; cursor: pointer; border-radius: 4px;
+    font-size: 0.95rem; transition: background 0.15s;
+  }
+  button:hover:not(:disabled) { background: var(--accent-hover); }
+  button:disabled { background: #999; cursor: not-allowed; opacity: 0.7; }
+  button.secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
+  button.secondary:hover:not(:disabled) { background: var(--chip); }
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+  .rec { border: 1px solid var(--border); border-radius: 6px; padding: 12px;
+         margin-bottom: 8px; background: var(--panel); }
+  .rec h4 { margin: 0 0 4px; }
+  .rec.cut { border-left: 4px solid var(--warn); }
+  .score { font-weight: bold; color: var(--success); }
+  .muted { color: var(--muted); font-size: 0.9em; }
+  .progress { margin: 12px 0; }
+  .progress-bar { width: 100%; height: 8px; background: var(--chip);
+                  border-radius: 4px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--accent); transition: width 0.2s; }
+  .error { color: var(--error); padding: 10px; border: 1px solid var(--error);
+           border-radius: 4px; background: rgba(220,53,69,0.08); }
+  .warning-banner {
+    background: rgba(240,196,73,0.12); border: 1px solid var(--warn);
+    color: var(--text); padding: 10px 12px; border-radius: 6px;
+    margin-bottom: 12px; display: flex; gap: 10px; align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .warning-banner strong { color: var(--warn); }
+  .warning-banner .dismiss {
+    margin-left: auto; background: transparent; border: none; color: var(--text);
+    cursor: pointer; padding: 0 6px; font-size: 1.2rem;
+  }
+  .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+                gap: 12px; }
+  .stat-card { background: var(--chip); padding: 10px; border-radius: 6px; }
+  .stat-card h5 { margin: 0 0 8px; font-size: 0.9rem; color: var(--muted); text-transform: uppercase; }
+  .bar-row { display: flex; align-items: center; gap: 6px; margin: 2px 0; font-size: 0.85rem; }
+  .bar-label { width: 40px; text-align: right; }
+  .bar-track { flex: 1; height: 10px; background: var(--panel); border-radius: 3px; overflow: hidden; }
+  .bar-fill { height: 100%; background: var(--accent); }
+  .pip { display: inline-flex; align-items: center; justify-content: center;
+         width: 22px; height: 22px; border-radius: 50%; font-weight: bold;
+         font-size: 0.75rem; margin-right: 2px; border: 1px solid rgba(0,0,0,0.15); }
+  .pip-W { background: #fffbd5; color: #5a4d1e; }
+  .pip-U { background: #aae0fa; color: #0a3a5a; }
+  .pip-B { background: #333; color: #e0e0e0; }
+  .pip-R { background: #f9aa8f; color: #611; }
+  .pip-G { background: #9bd3ae; color: #123b1b; }
+  .pip-C { background: #ccc; color: #333; }
+  details { margin: 10px 0; }
+  summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+  .settings-panel { display: none; padding: 10px; background: var(--chip);
+                    border-radius: 6px; margin-bottom: 12px; }
+  .settings-panel.open { display: block; }
+  .settings-panel .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 8px; }
+  [role="alert"] { margin: 10px 0; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+  a[data-preview-img] { text-decoration: underline dotted; text-underline-offset: 2px; }
+  #cardPreview {
+    position: fixed; z-index: 1000; pointer-events: none; display: none;
+    filter: drop-shadow(0 6px 16px rgba(0,0,0,0.4));
+    transition: opacity 0.1s;
+  }
+  #cardPreview img { width: 220px; border-radius: 10px; display: block; }
+  @media (hover: none) { a[data-preview-img] { text-decoration: underline; } }
+  @media (max-width: 540px) {
+    .mode-options { flex-direction: column; gap: 8px; }
+    .header-actions { width: 100%; justify-content: flex-end; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>MTG Commander Recommendator</h1>
+    <div class="header-actions">
+      <button class="secondary" id="settingsBtn" aria-expanded="false" aria-controls="settingsPanel">⚙ Settings</button>
+      <button class="secondary" id="themeBtn" aria-label="Toggle dark mode">🌙</button>
+    </div>
+  </header>
+
+  <div id="mixedContentWarning" class="warning-banner" style="display:none;" role="alert">
+    <span><strong>⚠ Mixed-content risk:</strong>
+      This page is served over HTTPS but your EDHRec API base is an <code>http://</code> URL.
+      Modern browsers will block those requests. Update the API base in
+      <a href="#" id="openSettingsFromBanner">Settings</a>.</span>
+    <button class="dismiss" id="dismissWarning" aria-label="Dismiss warning">×</button>
+  </div>
+
+  <div id="settingsPanel" class="settings-panel" role="region" aria-label="Settings">
+    <label for="apiBaseInput"><strong>EDHRec API Base URL:</strong></label>
+    <input type="text" id="apiBaseInput" placeholder="https://your-proxy.example.com">
+    <p class="muted">Persisted to localStorage. Used only for URL mode.</p>
+    <div class="row">
+      <button class="secondary" id="refreshCommandersBtn">🔄 Refresh Commander Pool</button>
+      <span class="muted" id="commanderPoolStatus">Loading commander pool…</span>
+    </div>
+  </div>
+
+  <p class="muted">Select a mode: fetch real EDHRec-style recs from a deck URL, or paste a decklist for local Scryfall-based analysis.</p>
+
+  <fieldset>
+    <legend>Mode</legend>
+    <div class="mode-options" role="radiogroup">
+      <label><input type="radio" name="mode" value="url" checked> Deck URL</label>
+      <label><input type="radio" name="mode" value="paste"> Paste Decklist</label>
+    </div>
+  </fieldset>
+
+  <div id="urlSection">
+    <label for="deckUrl" class="sr-only">Deck URL</label>
+    <input id="deckUrl" type="url" placeholder="e.g., https://tappedout.net/mtg-decks/name-of-deck">
+  </div>
+
+  <div id="pasteSection" style="display:none;">
+    <div class="dropzone" id="dropzone">
+      <label for="decklist" class="sr-only">Decklist</label>
+      <textarea id="decklist" rows="14"
+        placeholder="Paste your decklist here, or drag a .txt file. Mark commander with * if needed:
+*Atraxa, Praetors' Voice
+1 Sol Ring
+1 Cultivate
+..."></textarea>
+    </div>
+    <p class="muted">Supports plain text, Arena/MTGO format (set codes stripped), and <code>SB:</code> sideboard markers.</p>
+  </div>
+
+  <div class="btn-row">
+    <button id="analyzeBtn">Analyze</button>
+    <button class="secondary" id="clearCacheBtn" title="Clear cached Scryfall lookups">Clear Card Cache</button>
+  </div>
+
+  <div id="progress" class="progress" style="display:none;" aria-live="polite">
+    <div id="progressText" class="muted"></div>
+    <div class="progress-bar"><div id="progressFill" class="progress-fill" style="width:0%"></div></div>
+  </div>
+
+  <div id="results" aria-live="polite" aria-busy="false"></div>
+</div>
+
+<div id="cardPreview" aria-hidden="true"></div>
+
+<script>
+(() => {
+  'use strict';
+
+  // ===== Config & State =====
+  const DEFAULT_API_BASE = 'http://localhost:8080';
+  const SCRYFALL_BASE = 'https://api.scryfall.com';
+  const COLLECTION_BATCH_SIZE = 75;
+  const SCRYFALL_RATE_MS = 120;
+  const SCRYFALL_RATE_MS_HEAVY = 600;
+  const FETCH_TIMEOUT_MS = 12000;
+
+  const CACHE_KEY = 'mtg-rec:cardCache:v2';           // bumped: added produced_mana
+  const CACHE_MAX_ENTRIES = 5000;
+  const SETTINGS_KEY = 'mtg-rec:settings:v1';
+  const INPUT_KEY = 'mtg-rec:lastInput:v1';
+  const COMMANDER_CACHE_KEY = 'mtg-rec:commanders:v1';
+  const COMMANDER_CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
+  const COMMANDER_FETCH_LIMIT = 400;                    // top-N by EDHREC rank
+  const WARNING_DISMISS_KEY = 'mtg-rec:dismissedMixedWarn:v1';
+
+  // Seed list — used as fallback if Scryfall is unreachable
+  const SEED_COMMANDERS = [
+    { name: "Atraxa, Praetors' Voice", color: "WUBG", themes: ["Counters","Creatures"], score: 90, edhrec_rank: 50 },
+    { name: "The Ur-Dragon", color: "WUBRG", themes: ["Creatures","Ramp"], score: 88, edhrec_rank: 30 },
+    { name: "Muldrotha, the Gravetide", color: "BGU", themes: ["Graveyard","Control"], score: 85, edhrec_rank: 100 },
+    { name: "Korvold, Fae-Cursed King", color: "BRG", themes: ["Tokens","Graveyard"], score: 83, edhrec_rank: 120 },
+    { name: "Urza, Lord High Artificer", color: "U", themes: ["Artifacts","Control"], score: 84, edhrec_rank: 150 },
+    { name: "Edgar Markov", color: "WBR", themes: ["Tokens","Creatures"], score: 87, edhrec_rank: 20 },
+    { name: "Meren of Clan Nel Toth", color: "BG", themes: ["Graveyard","Creatures"], score: 83, edhrec_rank: 180 },
+    { name: "Yuriko, the Tiger's Shadow", color: "UB", themes: ["Control","Creatures"], score: 84, edhrec_rank: 90 },
+    { name: "Krenko, Mob Boss", color: "R", themes: ["Tokens","Creatures"], score: 78, edhrec_rank: 220 },
+    { name: "Kenrith, the Returned King", color: "WUBRG", themes: ["Creatures","Control"], score: 79, edhrec_rank: 80 },
+  ];
+
+  const settings = loadJSON(SETTINGS_KEY, { apiBase: DEFAULT_API_BASE, theme: null });
+  const cardCache = loadJSON(CACHE_KEY, {});
+  let activeAbort = null;
+  let commandersPromise = null;
+  let commandersData = null;
+
+  // ===== Utilities =====
+  function loadJSON(key, fallback) {
+    try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch { return fallback; }
+  }
+  function saveJSON(key, value) {
+    try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+  }
+  function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+  function normalizeName(n) { return n.toLowerCase().replace(/\s+/g, ' ').trim(); }
+
+  async function fetchWithTimeout(url, options = {}, timeoutMs = FETCH_TIMEOUT_MS) {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), timeoutMs);
+    try { return await fetch(url, { ...options, signal: ctrl.signal }); }
+    finally { clearTimeout(t); }
+  }
+
+  function el(tag, attrs = {}, children = []) {
+    const node = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (v == null || v === false) continue;
+      if (k === 'className') node.className = v;
+      else if (k === 'text') node.textContent = v;
+      else if (k === 'html') node.innerHTML = v;
+      else if (k.startsWith('on') && typeof v === 'function') node.addEventListener(k.slice(2), v);
+      else node.setAttribute(k, v);
+    }
+    for (const c of [].concat(children)) {
+      if (c == null) continue;
+      node.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+    }
+    return node;
+  }
+
+  // ===== Theme =====
+  function applyTheme(theme) {
+    const resolved = theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    document.documentElement.dataset.theme = resolved;
+    document.getElementById('themeBtn').textContent = resolved === 'dark' ? '☀' : '🌙';
+  }
+
+  // ===== Mixed-content detection =====
+  function checkMixedContent() {
+    const banner = document.getElementById('mixedContentWarning');
+    const dismissed = localStorage.getItem(WARNING_DISMISS_KEY) === settings.apiBase;
+    const unsafe = location.protocol === 'https:' && /^http:\/\//i.test(settings.apiBase);
+    banner.style.display = (unsafe && !dismissed) ? 'flex' : 'none';
+  }
+
+  // ===== Decklist parsing =====
+  function parseDecklist(text) {
+    const entries = [];
+    for (let raw of text.split(/\r?\n/)) {
+      let line = raw.trim();
+      if (!line || line.startsWith('//') || line.startsWith('#')) continue;
+      if (/^sb:/i.test(line)) continue;
+      if (/^(deck|sideboard|commander|companion)$/i.test(line)) continue;
+      let isCommander = false;
+      if (line.startsWith('*')) { isCommander = true; line = line.slice(1).trim(); }
+      line = line.replace(/\s*\([^)]+\)\s*\d+\w*\s*$/i, '')
+                 .replace(/\s*\*\w\*\s*$/, '').trim();
+      const m = line.match(/^(\d+)?\s*x?\s+?(.+)$/i) || line.match(/^(.+)$/);
+      if (!m) continue;
+      const qty = m[1] ? parseInt(m[1], 10) : 1;
+      const name = (m[2] || m[1] || '').trim();
+      if (!name || /^\d+$/.test(name)) continue;
+      entries.push({ name, qty, isCommander });
+    }
+    return entries;
+  }
+
+  // ===== Scryfall card lookup (batched + cached) =====
+  async function fetchCardsBatched(names, onProgress) {
+    const uniqueNames = [...new Set(names.map(n => n.replace(/^\*/, '')))];
+    const results = {};
+    const toFetch = [];
+    for (const name of uniqueNames) {
+      const key = normalizeName(name);
+      if (cardCache[key]) results[key] = cardCache[key];
+      else toFetch.push(name);
+    }
+    let done = uniqueNames.length - toFetch.length;
+    onProgress?.(done, uniqueNames.length);
+
+    for (let i = 0; i < toFetch.length; i += COLLECTION_BATCH_SIZE) {
+      const batch = toFetch.slice(i, i + COLLECTION_BATCH_SIZE);
+      try {
+        const res = await fetchWithTimeout(`${SCRYFALL_BASE}/cards/collection`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: JSON.stringify({ identifiers: batch.map(n => ({ name: n })) }),
+        });
+        if (res.status === 429) { await sleep(2000); i -= COLLECTION_BATCH_SIZE; continue; }
+        if (!res.ok) throw new Error(`Scryfall ${res.status}`);
+        const data = await res.json();
+        for (const card of (data.data || [])) {
+          const slim = slimCard(card);
+          results[normalizeName(slim.name)] = slim;
+          cardCache[normalizeName(slim.name)] = slim;
+        }
+        for (const nf of (data.not_found || [])) {
+          results[normalizeName(nf.name)] = null;
+        }
+      } catch (err) {
+        if (err.name === 'AbortError') throw err;
+        console.warn('Batch fetch failed:', err);
+      }
+      done += batch.length;
+      onProgress?.(Math.min(done, uniqueNames.length), uniqueNames.length);
+      if (i + COLLECTION_BATCH_SIZE < toFetch.length) await sleep(SCRYFALL_RATE_MS_HEAVY);
+    }
+
+    const keys = Object.keys(cardCache);
+    if (keys.length > CACHE_MAX_ENTRIES) {
+      for (const k of keys.slice(0, keys.length - CACHE_MAX_ENTRIES)) delete cardCache[k];
+    }
+    saveJSON(CACHE_KEY, cardCache);
+    return results;
+  }
+
+  function slimCard(card) {
+    const face = card.card_faces?.[0];
+    return {
+      name: card.name,
+      type_line: card.type_line || face?.type_line || '',
+      oracle_text: card.oracle_text || face?.oracle_text || '',
+      mana_cost: card.mana_cost || face?.mana_cost || '',
+      cmc: card.cmc ?? 0,
+      colors: card.colors || face?.colors || [],
+      color_identity: card.color_identity || [],
+      produced_mana: card.produced_mana || [],
+      keywords: card.keywords || [],
+      edhrec_rank: card.edhrec_rank ?? null,
+      image_small: card.image_uris?.small || face?.image_uris?.small || null,
+      image_normal: card.image_uris?.normal || face?.image_uris?.normal || null,
+      scryfall_uri: card.scryfall_uri || '',
+    };
+  }
+
+  // ===== Commander pool: fetch from Scryfall =====
+  function inferThemesFromText(oracleText, typeLine) {
+    const text = (oracleText || '').toLowerCase();
+    const type = (typeLine || '').toLowerCase();
+    const themes = new Set();
+    if (/artifact/.test(text) || type.includes('artifact')) themes.add('Artifacts');
+    if (/graveyard|mill|dredge|unearth|flashback/.test(text)) themes.add('Graveyard');
+    if (/create .*token/.test(text)) themes.add('Tokens');
+    if (/\+1\/\+1 counter|proliferate|charge counter/.test(text)) themes.add('Counters');
+    if (/sacrifice (a |another |two )?creature|dies,/.test(text)) themes.add('Aristocrats');
+    if (/draw (a|two|three|\w+) card/.test(text)) themes.add('Draw');
+    if (/search your library for (a |any |up to \w+ )?(basic )?land|add \{[wubrgc]\}/.test(text)) themes.add('Ramp');
+    if (/counter target (spell|ability)/.test(text)) themes.add('Control');
+    if (/landfall|\bland enters\b|play an additional land/.test(text)) themes.add('Lands');
+    if (/lifelink|gain \d+ life|whenever you gain life/.test(text)) themes.add('Lifegain');
+    if (/equipment|equip \{/.test(text)) themes.add('Equipment');
+    if (/enchantment/.test(text) && type.includes('enchantment')) themes.add('Enchantress');
+    if (/flying|deals combat damage to a player/.test(text) && type.includes('creature')) themes.add('Creatures');
+    return [...themes];
+  }
+
+  function rankToScore(rank) {
+    if (!rank) return 55;
+    // Rank 1 → ~100, rank 100 → ~80, rank 1000 → ~60, rank 10000 → ~40
+    return Math.max(35, Math.min(100, 100 - Math.log10(rank + 1) * 15));
+  }
+
+  function processCommanderCard(card) {
+    // Handle partner/background/background-having by just taking the front face
+    const face = card.card_faces?.[0];
+    const oracleText = card.oracle_text || face?.oracle_text || '';
+    const typeLine = card.type_line || face?.type_line || '';
+    const ci = card.color_identity || [];
+    const colorStr = ci.length === 0 ? 'C' : [...ci].sort().join('');
+    const themes = inferThemesFromText(oracleText, typeLine);
+    return {
+      name: card.name,
+      color: colorStr,
+      themes: themes.length ? themes : ['General'],
+      score: rankToScore(card.edhrec_rank),
+      edhrec_rank: card.edhrec_rank ?? null,
+      image_small: card.image_uris?.small || face?.image_uris?.small || null,
+      image_normal: card.image_uris?.normal || face?.image_uris?.normal || null,
+      scryfall_uri: card.scryfall_uri || '',
+    };
+  }
+
+  async function fetchCommanderPool(force = false) {
+    if (!force) {
+      const cached = loadJSON(COMMANDER_CACHE_KEY, null);
+      if (cached && (Date.now() - cached.timestamp) < COMMANDER_CACHE_TTL) {
+        return cached.data;
+      }
+    }
+    updatePoolStatus('Fetching commander pool from Scryfall…');
+    const results = [];
+    let url = `${SCRYFALL_BASE}/cards/search?q=${encodeURIComponent('is:commander legal:commander')}&order=edhrec&dir=asc&unique=cards`;
+    while (url && results.length < COMMANDER_FETCH_LIMIT) {
+      const res = await fetchWithTimeout(url);
+      if (res.status === 429) { await sleep(2000); continue; }
+      if (!res.ok) throw new Error(`Scryfall search ${res.status}`);
+      const data = await res.json();
+      for (const card of (data.data || [])) {
+        results.push(processCommanderCard(card));
+        if (results.length >= COMMANDER_FETCH_LIMIT) break;
+      }
+      updatePoolStatus(`Loaded ${results.length} commanders…`);
+      url = (data.has_more && results.length < COMMANDER_FETCH_LIMIT) ? data.next_page : null;
+      if (url) await sleep(SCRYFALL_RATE_MS_HEAVY);
+    }
+    if (results.length === 0) throw new Error('No commanders returned');
+    saveJSON(COMMANDER_CACHE_KEY, { timestamp: Date.now(), data: results });
+    return results;
+  }
+
+  function updatePoolStatus(msg) {
+    const el = document.getElementById('commanderPoolStatus');
+    if (el) el.textContent = msg;
+  }
+
+  async function getCommanders() {
+    if (commandersData) return commandersData;
+    if (!commandersPromise) {
+      commandersPromise = fetchCommanderPool()
+        .then(data => {
+          commandersData = data;
+          updatePoolStatus(`${data.length} commanders cached (refreshes weekly)`);
+          return data;
+        })
+        .catch(err => {
+          console.warn('Commander pool fetch failed, using seed list:', err);
+          updatePoolStatus(`⚠ Scryfall unreachable — using ${SEED_COMMANDERS.length} seed commanders`);
+          commandersData = SEED_COMMANDERS;
+          return SEED_COMMANDERS;
+        });
+    }
+    return commandersPromise;
+  }
+
+  // ===== Deck analysis =====
+  function analyzeDeck(entries, cardsByName) {
+    const colors = new Set();
+    const themes = {};
+    const curve = {};
+    const landCurve = {};
+    const typeCounts = {};
+    const pipCounts = { W:0, U:0, B:0, R:0, G:0, C:0 };
+    const landProduction = { W:0, U:0, B:0, R:0, G:0, C:0 };
+    let basicLands = 0, nonbasicLands = 0, lands = 0, resolvedCount = 0;
+    let commanderEntry = entries.find(e => e.isCommander);
+
+    for (const entry of entries) {
+      const card = cardsByName[normalizeName(entry.name)];
+      if (!card) continue;
+      resolvedCount++;
+      card.color_identity.forEach(c => colors.add(c));
+
+      const type = card.type_line.toLowerCase();
+      const isLand = type.includes('land');
+
+      if (isLand) {
+        lands += entry.qty;
+        if (/basic/.test(type)) basicLands += entry.qty; else nonbasicLands += entry.qty;
+        for (const c of (card.produced_mana || [])) {
+          if (landProduction[c] !== undefined) landProduction[c] += entry.qty;
+        }
+        if (card.cmc > 0) {
+          const cmc = Math.min(7, Math.floor(card.cmc));
+          landCurve[cmc] = (landCurve[cmc] || 0) + entry.qty;
+        }
+      } else {
+        const cmc = Math.min(7, Math.floor(card.cmc));
+        curve[cmc] = (curve[cmc] || 0) + entry.qty;
+      }
+
+      for (const t of ['Creature','Artifact','Enchantment','Instant','Sorcery','Planeswalker','Land','Battle']) {
+        if (type.includes(t.toLowerCase())) typeCounts[t] = (typeCounts[t] || 0) + entry.qty;
+      }
+
+      const pips = (card.mana_cost || '').match(/\{[^}]+\}/g) || [];
+      for (const p of pips) {
+        ['W','U','B','R','G','C'].forEach(c => { if (p.includes(c)) pipCounts[c] += entry.qty; });
+      }
+
+      const text = card.oracle_text.toLowerCase();
+      const addTheme = (k, v=entry.qty) => { themes[k] = (themes[k] || 0) + v; };
+      if (type.includes('artifact')) addTheme('Artifacts');
+      if (type.includes('creature')) addTheme('Creatures');
+      if (type.includes('instant') || type.includes('sorcery')) addTheme('Spells');
+      if (/create .*token/.test(text)) addTheme('Tokens');
+      if (/graveyard/.test(text)) addTheme('Graveyard');
+      if (/\+1\/\+1 counter|proliferate/.test(text)) addTheme('Counters');
+      if (/search your library for.* land|add \{[wubrgc]\}/.test(text)) addTheme('Ramp');
+      if (/draw (a|two|three|\w+) card/.test(text)) addTheme('Draw');
+      if (/counter target/.test(text)) addTheme('Control');
+      if (/sacrifice (a |another )?creature|dies,/.test(text)) addTheme('Aristocrats');
+      if (/lifelink|gain \d+ life/.test(text)) addTheme('Lifegain');
+      if (/equipment|equip \{/.test(text)) addTheme('Equipment');
+      if (/landfall|\bland enters\b/.test(text)) addTheme('Lands', Math.min(entry.qty, 1));
+    }
+
+    if (!commanderEntry) {
+      commanderEntry = entries.find(e => {
+        const c = cardsByName[normalizeName(e.name)];
+        return c && /legendary/i.test(c.type_line) && /creature|planeswalker/i.test(c.type_line);
+      });
+    }
+
+    return {
+      commanderEntry,
+      commanderCard: commanderEntry ? cardsByName[normalizeName(commanderEntry.name)] : null,
+      colors: [...colors].sort(),
+      themes, curve, landCurve, typeCounts, pipCounts, landProduction,
+      basicLands, nonbasicLands, lands,
+      resolvedCount, totalEntries: entries.length,
+    };
+  }
+
+  // ===== Scoring =====
+  function scoreCommanders(deckStats, commanderPool) {
+    const deckColors = new Set(deckStats.colors);
+    const totalThemeWeight = Object.values(deckStats.themes).reduce((a,b)=>a+b, 0) || 1;
+    const currentCommanderName = deckStats.commanderCard?.name;
+
+    return commanderPool.map(cmd => {
+      const cmdColors = cmd.color === 'C' ? [] : cmd.color.split('');
+      const deckFits = [...deckColors].every(c => cmdColors.includes(c));
+      const colorScore = deckFits ? 30 : 0;
+
+      let themeScore = 0;
+      const matchedThemes = [];
+      for (const theme of cmd.themes) {
+        const weight = deckStats.themes[theme] || 0;
+        if (weight > 0) {
+          themeScore += Math.min(35, (weight / totalThemeWeight) * 120);
+          matchedThemes.push(`${theme} (${weight})`);
+        }
+      }
+      const popularityScore = cmd.score / 10;
+      const total = Math.round(colorScore + themeScore + popularityScore);
+      return { ...cmd, synergy: total, matchedThemes, deckFitsCommander: deckFits };
+    })
+    .filter(c => c.synergy > 25 && c.name !== currentCommanderName)
+    .sort((a, b) => b.synergy - a.synergy)
+    .slice(0, 6);
+  }
+
+  // ===== Rendering =====
+  function renderManaPips(colors) {
+    const order = ['W','U','B','R','G','C'];
+    return order.filter(c => colors.includes(c))
+                .map(c => el('span', { className: `pip pip-${c}`, text: c }));
+  }
+
+  function cardLink({ name, href, previewImg }) {
+    const attrs = { href: href || '#', target: '_blank', rel: 'noopener', text: name };
+    if (previewImg) attrs['data-preview-img'] = previewImg;
+    return el('a', attrs);
+  }
+
+  function renderProgress(cur, total, label = 'Fetching cards') {
+    const p = document.getElementById('progress');
+    p.style.display = 'block';
+    document.getElementById('progressText').textContent = `${label}: ${cur} / ${total}`;
+    document.getElementById('progressFill').style.width = `${total ? (cur/total)*100 : 0}%`;
+  }
+  function hideProgress() { document.getElementById('progress').style.display = 'none'; }
+
+  function renderError(msg) {
+    const results = document.getElementById('results');
+    results.innerHTML = '';
+    results.appendChild(el('div', { className: 'error', role: 'alert', text: msg }));
+  }
+
+  function renderBarList(rows, maxVal) {
+    const max = maxVal ?? Math.max(1, ...rows.map(r => r[1]));
+    return rows.map(([label, count]) => el('div', { className: 'bar-row' }, [
+      el('span', { className: 'bar-label', text: String(label) }),
+      el('div', { className: 'bar-track' }, [
+        el('div', { className: 'bar-fill', style: `width:${(count/max)*100}%` })
+      ]),
+      el('span', { className: 'muted', text: String(count) }),
+    ]));
+  }
+
+  function renderDeckStats(stats) {
+    const grid = el('div', { className: 'stats-grid' });
+
+    // Color identity
+    grid.appendChild(el('div', { className: 'stat-card' }, [
+      el('h5', { text: 'Color Identity' }),
+      el('div', {}, renderManaPips(stats.colors.length ? stats.colors : ['C'])),
+      el('p', { className: 'muted', text: `${stats.resolvedCount} of ${stats.totalEntries} cards resolved` }),
+    ]));
+
+    // Nonland mana curve
+    const curveRows = [];
+    for (let i = 0; i <= 7; i++) curveRows.push([i === 7 ? '7+' : String(i), stats.curve[i] || 0]);
+    grid.appendChild(el('div', { className: 'stat-card' }, [
+      el('h5', { text: 'Mana Curve (nonland)' }), ...renderBarList(curveRows)
+    ]));
+
+    // Type breakdown
+    const typeRows = Object.entries(stats.typeCounts).sort((a,b) => b[1]-a[1]);
+    grid.appendChild(el('div', { className: 'stat-card' }, [
+      el('h5', { text: 'Type Breakdown' }),
+      ...typeRows.map(([t,n]) => el('div', { className: 'bar-row' }, [
+        el('span', { className: 'bar-label', style: 'width:auto;', text: t }),
+        el('span', { className: 'muted', text: String(n) }),
+      ]))
+    ]));
+
+    // Lands panel
+    const landChildren = [
+      el('h5', { text: 'Lands' }),
+      el('div', { className: 'bar-row' }, [
+        el('span', { className: 'bar-label', style: 'width:auto;', text: 'Total' }),
+        el('span', { className: 'muted', text: String(stats.lands) }),
+      ]),
+      el('div', { className: 'bar-row' }, [
+        el('span', { className: 'bar-label', style: 'width:auto;', text: 'Basic' }),
+        el('span', { className: 'muted', text: String(stats.basicLands) }),
+      ]),
+      el('div', { className: 'bar-row' }, [
+        el('span', { className: 'bar-label', style: 'width:auto;', text: 'Nonbasic' }),
+        el('span', { className: 'muted', text: String(stats.nonbasicLands) }),
+      ]),
+    ];
+    const totalProduction = Object.values(stats.landProduction).reduce((a,b)=>a+b,0);
+    if (totalProduction > 0) {
+      landChildren.push(el('h5', { style: 'margin-top:10px;', text: 'Mana Produced' }));
+      const prodRows = ['W','U','B','R','G','C']
+        .filter(c => stats.landProduction[c] > 0)
+        .map(c => [c, stats.landProduction[c]]);
+      landChildren.push(...renderBarList(prodRows));
+    }
+    // Utility/nonzero-CMC lands curve
+    const utilityLands = Object.values(stats.landCurve).reduce((a,b)=>a+b,0);
+    if (utilityLands > 0) {
+      landChildren.push(el('h5', { style: 'margin-top:10px;', text: 'Land CMC (nonzero)' }));
+      const landCurveRows = [];
+      for (let i = 1; i <= 7; i++) {
+        const count = stats.landCurve[i] || 0;
+        if (count > 0) landCurveRows.push([i === 7 ? '7+' : String(i), count]);
+      }
+      landChildren.push(...renderBarList(landCurveRows));
+    }
+    grid.appendChild(el('div', { className: 'stat-card' }, landChildren));
+
+    // Themes
+    const themeRows = Object.entries(stats.themes).sort((a,b) => b[1]-a[1]).slice(0, 8);
+    grid.appendChild(el('div', { className: 'stat-card' }, [
+      el('h5', { text: 'Detected Themes' }),
+      ...(themeRows.length
+        ? themeRows.map(([t,n]) => el('div', { className: 'bar-row' }, [
+            el('span', { className: 'bar-label', style: 'width:auto;', text: t }),
+            el('span', { className: 'muted', text: String(n) }),
+          ]))
+        : [el('p', { className: 'muted', text: 'No clear themes detected.' })])
+    ]));
+
+    return grid;
+  }
+
+  function renderRecommendations(recs) {
+    const container = el('div');
+    if (!recs.length) {
+      container.appendChild(el('p', { className: 'muted',
+        text: 'No strong commander matches found for this deck.' }));
+      return container;
+    }
+    for (const rec of recs) {
+      const rankText = rec.edhrec_rank ? ` · EDHREC #${rec.edhrec_rank}` : '';
+      const card = el('div', { className: 'rec' }, [
+        el('h4', {}, [
+          ...renderManaPips(rec.color === 'C' ? ['C'] : rec.color.split('')),
+          ' ',
+          cardLink({
+            name: rec.name,
+            href: rec.scryfall_uri || `https://scryfall.com/search?q=${encodeURIComponent('!"' + rec.name + '"')}`,
+            previewImg: rec.image_normal || rec.image_small,
+          }),
+        ]),
+        el('div', {}, [
+          'Synergy: ', el('span', { className: 'score', text: String(rec.synergy) }), ' / 100',
+          el('span', { className: 'muted', text: rankText }),
+        ]),
+        el('div', { className: 'muted', text:
+          `Themes matched: ${rec.matchedThemes.join(', ') || '(none)'}` }),
+        rec.deckFitsCommander ? null : el('div', { className: 'muted',
+          text: "⚠ Deck colors exceed this commander's identity." }),
+      ]);
+      container.appendChild(card);
+    }
+    return container;
+  }
+
+  // ===== Export =====
+  function exportResults(deckStats, recs) {
+    const lines = ['# MTG Commander Recommendations', ''];
+    if (deckStats.commanderCard) lines.push(`**Current commander:** ${deckStats.commanderCard.name}`);
+    lines.push(`**Color Identity:** ${deckStats.colors.join('') || 'C'}`);
+    lines.push(`**Resolved cards:** ${deckStats.resolvedCount} / ${deckStats.totalEntries}`);
+    lines.push(`**Lands:** ${deckStats.lands} (${deckStats.basicLands} basic / ${deckStats.nonbasicLands} nonbasic)`, '');
+    lines.push('## Top Themes');
+    Object.entries(deckStats.themes).sort((a,b)=>b[1]-a[1]).slice(0,8)
+      .forEach(([t,n]) => lines.push(`- ${t}: ${n}`));
+    lines.push('', '## Recommended Commanders');
+    recs.forEach(r => lines.push(`- **${r.name}** (${r.color}) — ${r.synergy}/100 — ${r.matchedThemes.join(', ')}`));
+    navigator.clipboard.writeText(lines.join('\n'))
+      .then(() => alert('Results copied to clipboard as Markdown!'))
+      .catch(() => alert('Copy failed; check console.'));
+  }
+
+  // ===== Analysis flows =====
+  async function analyzeUrl() {
+    const url = document.getElementById('deckUrl').value.trim();
+    if (!url) { renderError('Please enter a deck URL.'); return; }
+    const supported = ['tappedout.net', 'mtgsalvation.com', 'deckstats.net', 'gracefulstats.com'];
+    if (!supported.some(s => url.includes(s))) {
+      renderError('URL must be from TappedOut, MTGSalvation, Deckstats, or Gracefulstats.');
+      return;
+    }
+    const results = document.getElementById('results');
+    results.innerHTML = '';
+    results.appendChild(el('p', { className: 'muted', text: 'Fetching from EDHRec API…' }));
+
+    const apiUrl = `${settings.apiBase}/rec?to=${encodeURIComponent(url)}`;
+    const res = await fetchWithTimeout(apiUrl);
+    if (!res.ok) throw new Error(`API error ${res.status}: ${res.statusText}`);
+    const data = await res.json();
+    if (typeof data === 'string') throw new Error(data);
+    renderApiResults(data);
+    saveJSON(INPUT_KEY, { mode: 'url', value: url });
+  }
+
+  function renderApiResults(data) {
+    const results = document.getElementById('results');
+    results.innerHTML = '';
+    results.appendChild(el('h2', { text: 'EDHRec Recommendations' }));
+    const section = (title, items, cutClass=false) => {
+      if (!items?.length) return;
+      results.appendChild(el('h3', { text: title }));
+      items.forEach(r => {
+        results.appendChild(el('div', { className: `rec ${cutClass ? 'cut' : ''}` }, [
+          el('strong', { text: r.card_info?.name || '(unknown)' }),
+          ' — ', (r.card_info?.types || []).join(', '), el('br'),
+          'Score: ', el('span', { className: 'score', text: `${(r.score*100).toFixed(1)}%` }),
+        ]));
+      });
+    };
+    section('In-Color Suggestions', data.recs);
+    section('Cut Candidates (Out of Color)', data.cuts, true);
+    if (data.stats) {
+      results.appendChild(el('details', {}, [
+        el('summary', { text: 'Raw Stats' }),
+        el('pre', { text: JSON.stringify(data.stats, null, 2) }),
+      ]));
+    }
+  }
+
+  async function analyzePaste() {
+    const text = document.getElementById('decklist').value.trim();
+    if (!text) { renderError('Please paste a decklist.'); return; }
+    saveJSON(INPUT_KEY, { mode: 'paste', value: text });
+
+    const entries = parseDecklist(text);
+    if (!entries.length) { renderError('Could not parse any cards from the input.'); return; }
+
+    // Kick off commander pool load in parallel with card lookups
+    const commanderPoolP = getCommanders();
+    const names = entries.map(e => e.name);
+    const cards = await fetchCardsBatched(names, (cur, total) =>
+      renderProgress(cur, total, 'Fetching cards'));
+    renderProgress(1, 1, 'Loading commander pool');
+    const commanderPool = await commanderPoolP;
+    hideProgress();
+
+    const stats = analyzeDeck(entries, cards);
+    const recs = scoreCommanders(stats, commanderPool);
+
+    const results = document.getElementById('results');
+    results.innerHTML = '';
+    results.appendChild(el('h2', { text: 'Deck Analysis' }));
+
+    if (stats.commanderCard) {
+      const c = stats.commanderCard;
+      results.appendChild(el('p', {}, [
+        'Detected commander: ',
+        cardLink({
+          name: c.name,
+          href: c.scryfall_uri,
+          previewImg: c.image_normal || c.image_small,
+        }),
+        ` (${c.type_line})`,
+      ]));
+    } else {
+      results.appendChild(el('p', { className: 'muted',
+        text: 'No commander auto-detected. Prefix a line with * to mark one explicitly.' }));
+    }
+
+    results.appendChild(renderDeckStats(stats));
+
+    results.appendChild(el('h2', { text: 'Recommended Commanders' }));
+    results.appendChild(el('p', { className: 'muted',
+      text: `Scored against ${commanderPool.length} commanders from the Scryfall pool.` }));
+    results.appendChild(renderRecommendations(recs));
+
+    results.appendChild(el('div', { style: 'margin-top:14px;' }, [
+      el('button', { className: 'secondary',
+        onclick: () => exportResults(stats, recs), text: '📋 Copy as Markdown' })
+    ]));
+
+    const missing = entries.length - stats.resolvedCount;
+    if (missing > 0) {
+      results.appendChild(el('p', { className: 'muted',
+        text: `Note: ${missing} card name(s) could not be resolved via Scryfall.` }));
+    }
+  }
+
+  async function analyze() {
+    const btn = document.getElementById('analyzeBtn');
+    const results = document.getElementById('results');
+    if (activeAbort) activeAbort.abort();
+    activeAbort = new AbortController();
+    btn.disabled = true; btn.textContent = 'Analyzing…';
+    results.setAttribute('aria-busy', 'true'); results.innerHTML = '';
+    try {
+      const mode = document.querySelector('input[name="mode"]:checked').value;
+      if (mode === 'url') await analyzeUrl();
+      else await analyzePaste();
+    } catch (err) {
+      console.error(err);
+      renderError(err.name === 'AbortError'
+        ? 'Request timed out. Try again or check your API.'
+        : `Error: ${err.message}`);
+    } finally {
+      btn.disabled = false; btn.textContent = 'Analyze';
+      results.setAttribute('aria-busy', 'false');
+      hideProgress();
+      activeAbort = null;
+    }
+  }
+
+  // ===== Hover preview =====
+  function initHoverPreview() {
+    const preview = document.getElementById('cardPreview');
+    let currentTarget = null;
+
+    const show = (target) => {
+      const img = target.getAttribute('data-preview-img');
+      if (!img) return;
+      preview.innerHTML = '';
+      preview.appendChild(el('img', { src: img, alt: '' }));
+      preview.style.display = 'block';
+      currentTarget = target;
+    };
+    const hide = () => {
+      preview.style.display = 'none';
+      preview.innerHTML = '';
+      currentTarget = null;
+    };
+    const position = (ev) => {
+      if (preview.style.display !== 'block') return;
+      const pad = 16, w = 240, h = 340;
+      let x = ev.clientX + pad;
+      let y = ev.clientY + pad;
+      if (x + w > innerWidth) x = ev.clientX - w - pad;
+      if (y + h > innerHeight) y = innerHeight - h - pad;
+      if (y < pad) y = pad;
+      preview.style.left = x + 'px';
+      preview.style.top = y + 'px';
+    };
+
+    document.addEventListener('mouseover', (e) => {
+      const t = e.target.closest('[data-preview-img]');
+      if (t && t !== currentTarget) show(t);
+    });
+    document.addEventListener('mouseout', (e) => {
+      const t = e.target.closest('[data-preview-img]');
+      if (t && !t.contains(e.relatedTarget)) hide();
+    });
+    document.addEventListener('mousemove', position);
+    document.addEventListener('scroll', hide, true);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') hide(); });
+    // Touch: tap to toggle
+    document.addEventListener('touchstart', (e) => {
+      const t = e.target.closest('[data-preview-img]');
+      if (t) { e.preventDefault(); currentTarget === t ? hide() : show(t); }
+      else hide();
+    }, { passive: false });
+  }
+
+  // ===== Init =====
+  function init() {
+    applyTheme(settings.theme);
+    checkMixedContent();
+
+    // Mode toggle
+    document.querySelectorAll('input[name="mode"]').forEach(r => {
+      r.addEventListener('change', () => {
+        const isUrl = document.querySelector('input[name="mode"]:checked').value === 'url';
+        document.getElementById('urlSection').style.display = isUrl ? 'block' : 'none';
+        document.getElementById('pasteSection').style.display = isUrl ? 'none' : 'block';
+      });
+    });
+
+    // Buttons
+    document.getElementById('analyzeBtn').addEventListener('click', analyze);
+    document.getElementById('clearCacheBtn').addEventListener('click', () => {
+      localStorage.removeItem(CACHE_KEY);
+      for (const k of Object.keys(cardCache)) delete cardCache[k];
+      alert('Card cache cleared.');
+    });
+    document.getElementById('themeBtn').addEventListener('click', () => {
+      const current = document.documentElement.dataset.theme;
+      settings.theme = current === 'dark' ? 'light' : 'dark';
+      saveJSON(SETTINGS_KEY, settings);
+      applyTheme(settings.theme);
+    });
+
+    // Settings panel
+    const settingsBtn = document.getElementById('settingsBtn');
+    const panel = document.getElementById('settingsPanel');
+    const togglePanel = (force) => {
+      const open = typeof force === 'boolean' ? force : !panel.classList.contains('open');
+      panel.classList.toggle('open', open);
+      settingsBtn.setAttribute('aria-expanded', String(open));
+    };
+    settingsBtn.addEventListener('click', () => togglePanel());
+
+    const apiInput = document.getElementById('apiBaseInput');
+    apiInput.value = settings.apiBase;
+    apiInput.addEventListener('change', () => {
+      const v = apiInput.value.trim() || DEFAULT_API_BASE;
+      try { new URL(v); } catch {
+        alert('Invalid URL format.'); apiInput.value = settings.apiBase; return;
+      }
+      settings.apiBase = v;
+      saveJSON(SETTINGS_KEY, settings);
+      localStorage.removeItem(WARNING_DISMISS_KEY); // re-evaluate warning for new URL
+      checkMixedContent();
+    });
+
+    document.getElementById('refreshCommandersBtn').addEventListener('click', async () => {
+      commandersPromise = null; commandersData = null;
+      localStorage.removeItem(COMMANDER_CACHE_KEY);
+      updatePoolStatus('Refreshing…');
+      try {
+        commandersData = await fetchCommanderPool(true);
+        updatePoolStatus(`${commandersData.length} commanders cached (refreshes weekly)`);
+      } catch (e) {
+        updatePoolStatus(`⚠ Refresh failed: ${e.message}`);
+      }
+    });
+
+    // Warning banner
+    document.getElementById('dismissWarning').addEventListener('click', () => {
+      localStorage.setItem(WARNING_DISMISS_KEY, settings.apiBase);
+      document.getElementById('mixedContentWarning').style.display = 'none';
+    });
+    document.getElementById('openSettingsFromBanner').addEventListener('click', (e) => {
+      e.preventDefault(); togglePanel(true);
+      document.getElementById('apiBaseInput').focus();
+    });
+
+    // Drag & drop
+    const dz = document.getElementById('dropzone');
+    ['dragenter', 'dragover'].forEach(e => dz.addEventListener(e, ev => {
+      ev.preventDefault(); dz.classList.add('drag-over');
+    }));
+    ['dragleave', 'drop'].forEach(e => dz.addEventListener(e, ev => {
+      ev.preventDefault(); dz.classList.remove('drag-over');
+    }));
+    dz.addEventListener('drop', async ev => {
+      const file = ev.dataTransfer?.files?.[0];
+      if (!file) return;
+      const text = await file.text();
+      document.getElementById('decklist').value = text;
+    });
+
+    // Restore last input
+    const last = loadJSON(INPUT_KEY, null);
+    if (last) {
+      if (last.mode === 'url') document.getElementById('deckUrl').value = last.value;
+      else {
+        const pasteRadio = document.querySelector('input[name="mode"][value="paste"]');
+        pasteRadio.checked = true;
+        pasteRadio.dispatchEvent(new Event('change'));
+        document.getElementById('decklist').value = last.value;
+      }
+    }
+
+    // Keyboard shortcut
+    document.addEventListener('keydown', ev => {
+      if ((ev.ctrlKey || ev.metaKey) && ev.key === 'Enter') { ev.preventDefault(); analyze(); }
+    });
+
+    initHoverPreview();
+
+    // Kick off commander pool load in background
+    getCommanders();
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,2163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MTG Commander Recommender</title>
+<style>
+:root{--bg:#1a1a2e;--card:#16213e;--input:#0f3460;--accent:#e94560;--gold:#c9a227;--goldL:#f0d060;--txt:#eee;--muted:#b0b0c0;--ok:#4caf50;--cut:#e05050;--fill:#4a9df8;
+--border:#253a5e;--border-soft:#335;--inset:#0d1b36;--card-grad-a:#1c2e50;--card-grad-b:#162040;--card-border:#2a3f6a;--matchbar:#0c1530;--tooltip-bg:#0a1424;--oracle:#ccd;--scrollthumb:#445}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:var(--bg);color:var(--txt);min-height:100vh;line-height:1.5}
+header{text-align:center;padding:24px 20px 10px;background:linear-gradient(180deg,#0f3460,var(--bg))}
+header h1{font-size:2em;background:linear-gradient(90deg,var(--gold),var(--goldL),var(--gold));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+header p{color:var(--muted);margin-top:4px;font-size:.88em}
+.container{max-width:1160px;margin:0 auto;padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:820px){.container{grid-template-columns:1fr}}
+.panel{background:var(--card);border-radius:12px;padding:20px;border:1px solid var(--border)}
+.panel h2{font-size:1.05em;margin-bottom:9px;color:var(--gold);display:flex;align-items:center;gap:7px}
+.textarea-wrap{position:relative}
+textarea{width:100%;height:270px;background:var(--input);color:var(--txt);border:1px solid var(--border-soft);border-radius:8px;padding:11px;font-family:Consolas,'Courier New',monospace;font-size:.83em;resize:vertical;line-height:1.5}
+textarea::placeholder{color:#778}textarea:focus{outline:none;border-color:var(--gold)}
+.counter-bar{display:flex;justify-content:space-between;align-items:center;margin-top:4px;font-size:.76em;color:var(--muted);font-family:Consolas,monospace}
+.counter-bar strong{font-size:1.08em}
+.counter-bar .c-ok{color:var(--ok)}.counter-bar .c-warn{color:var(--gold)}.counter-bar .c-err{color:var(--cut)}
+.btn-row{display:flex;gap:7px;margin-top:8px;flex-wrap:wrap}
+button{padding:8px 15px;border:none;border-radius:8px;font-size:.85em;font-weight:600;cursor:pointer;transition:all .2s;font-family:inherit}
+.btn-primary{background:linear-gradient(135deg,var(--accent),#c0392b);color:#fff;flex:1}
+.btn-primary:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 16px #e9456044}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed;transform:none;box-shadow:none}
+.btn-secondary{background:var(--border);color:var(--muted)}.btn-secondary:hover{background:#2e4a72}
+.btn-sample{background:#1a5e3a;color:#afdfc5;font-size:.73em;padding:5px 10px}.btn-sample:hover{background:#237a4a}
+.btn-import{background:#2a3e6e;color:#a0c0f8;font-size:.73em;padding:5px 10px}.btn-import:hover{background:#3a4e8e}
+.url-input{flex:1;padding:5px 10px;border-radius:6px;border:1px solid var(--border-soft);background:var(--input);color:var(--txt);font-size:.78em;font-family:inherit}
+.url-input:focus{outline:none;border-color:var(--gold)}
+.toggle-row{display:flex;align-items:center;gap:9px;margin:9px 0 2px}
+.toggle{position:relative;width:40px;height:22px;flex-shrink:0}
+.toggle input{opacity:0;width:0;height:0;position:absolute}
+.toggle-sl{position:absolute;cursor:pointer;inset:0;background:var(--border);border-radius:22px;transition:.3s}
+.toggle-sl::before{content:'';position:absolute;width:16px;height:16px;left:3px;bottom:3px;background:#667;border-radius:50%;transition:.3s}
+.toggle input:checked+.toggle-sl{background:#1a5e3a}
+.toggle input:checked+.toggle-sl::before{transform:translateX(18px);background:#5f5}
+.toggle input:focus-visible+.toggle-sl{box-shadow:0 0 0 2px var(--gold)}
+.toggle-label{font-size:.78em;color:var(--muted);cursor:pointer}
+.color-bar{display:flex;gap:6px;margin:9px 0;align-items:center;flex-wrap:wrap}
+.mana-pip{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.78em;border:2px solid #444;opacity:.18;transition:all .3s;position:relative}
+.mana-pip.active{opacity:1;border-color:var(--gold);transform:scale(1.1)}
+.mana-pip .pip-count{position:absolute;bottom:-4px;right:-4px;font-size:.6em;background:#0008;color:#fff;border-radius:8px;padding:0 4px;border:1px solid #555}
+.pip-W{background:#f9faf4;color:#555}.pip-U{background:#0e68ab;color:#fff}.pip-B{background:#2b1a10;color:#a08060}.pip-R{background:#d3202a;color:#fff}.pip-G{background:#00733e;color:#dff}.pip-C{background:#bbb2b0;color:#444}
+.color-name{color:var(--muted);font-size:.82em;margin-left:7px}
+.color-alt{color:#889;font-size:.72em;font-style:italic}
+.ms{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;font-size:9px;font-weight:800;vertical-align:middle;margin:0 1px;border:1px solid #0003}
+.ms-W{background:#f9faf4;color:#665}.ms-U{background:#0e68ab;color:#fff}.ms-B{background:#39291d;color:#c0a884}.ms-R{background:#d3202a;color:#fff}.ms-G{background:#00733e;color:#dfe}.ms-C{background:#bbb;color:#444}.ms-generic{background:#7a7a7a;color:#fff}.ms-X{background:#8a7;color:#222}
+.stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:8px 0}
+.stat-item{background:var(--inset);border-radius:7px;padding:8px 10px;font-size:.8em}
+.stat-item .label{color:var(--muted);font-size:.72em;text-transform:uppercase;letter-spacing:.4px}
+.stat-item .value{font-weight:700;font-size:1.05em;margin-top:1px}
+.curve-box{background:var(--inset);border-radius:7px;padding:10px;margin:8px 0}
+.curve-title{font-size:.72em;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;display:flex;justify-content:space-between}
+.curve-bars{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;height:80px;align-items:end}
+.curve-bar{display:flex;flex-direction:column;align-items:center;gap:3px;height:100%;justify-content:flex-end}
+.curve-bar-fill{width:100%;background:linear-gradient(180deg,var(--gold),#8a6d15);border-radius:3px 3px 0 0;min-height:2px;position:relative;transition:height .4s}
+.curve-bar-fill:hover{background:linear-gradient(180deg,var(--goldL),var(--gold))}
+.curve-bar-label{font-size:.66em;color:var(--muted);font-weight:600}
+.curve-bar-count{font-size:.64em;color:var(--txt);font-weight:700;margin-bottom:2px}
+.theme-section-header{font-size:.66em;text-transform:uppercase;letter-spacing:1px;margin:8px 0 3px;font-weight:700}
+.th-strat{color:#b070e0}.th-mech{color:#4a9df8}.th-type{color:#e68a30}.th-tribal{color:#40b868}.th-otag{color:#40c8d0}
+.theme-tags{display:flex;flex-wrap:wrap;gap:4px;margin:2px 0 5px}
+.tag{padding:2px 8px;border-radius:14px;font-size:.69em;font-weight:600;border:1px solid var(--border-soft);white-space:nowrap;cursor:help}
+.tag[tabindex]:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+.tag-strat{background:#2a1540;border-color:#5530a0;color:#c8a0f0}.tag-strat.strong{background:#3e1e6e;border-color:#8060d0;color:#e8d0ff}
+.tag-mech{background:#102840;border-color:#2060a0;color:#8ab4f8}.tag-mech.strong{background:#153860;border-color:#4080d0;color:#c0daff}
+.tag-type{background:#3a2210;border-color:#a06020;color:#f0c888}.tag-type.strong{background:#4e2e15;border-color:#d08030;color:#ffe0b0}
+.tag-tribal{background:#0e2e18;border-color:#207040;color:#80d0a0}.tag-tribal.strong{background:#184028;border-color:#30a060;color:#a0f0c0}
+.tag-otag{background:#0e2e30;border-color:#208088;color:#80d8e0}.tag-otag.strong{background:#184048;border-color:#30a8b8;color:#a0f0f8}
+.not-found-list{font-size:.74em;color:var(--muted);max-height:60px;overflow-y:auto;padding:5px 9px;background:#1a1020;border-radius:5px;margin-top:4px;border:1px solid #3a2040}
+.not-found-list span{color:#f8a0b0}
+.results-area{grid-column:1/-1}
+.results-controls{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center}
+.results-controls select{padding:5px 8px;border-radius:6px;background:var(--input);color:var(--txt);border:1px solid var(--border-soft);font-size:.78em;font-family:inherit}
+.results-controls label{font-size:.76em;color:var(--muted);display:flex;align-items:center;gap:5px;cursor:pointer}
+.commander-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:14px;margin-top:12px}
+.commander-grid.list-view{grid-template-columns:1fr}
+.commander-grid.list-view .commander-card{flex-direction:row}
+.commander-grid.list-view .card-top{flex:1}
+.commander-grid.list-view .card-img-wrap{width:80px;min-width:80px}
+.commander-grid.list-view .oracle{max-height:50px}
+.commander-card{background:linear-gradient(145deg,var(--card-grad-a),var(--card-grad-b));border-radius:12px;overflow:hidden;border:2px solid var(--card-border);transition:all .3s;display:flex;flex-direction:column;position:relative}
+.commander-card:hover{border-color:var(--gold);transform:translateY(-2px);box-shadow:0 8px 24px #0008}
+.commander-card.cmd-selected{border-color:#5f5!important;box-shadow:0 0 25px #4f84!important}
+.commander-card.partner-selected{border-color:#c8a0f0!important;box-shadow:0 0 25px #80609044!important}
+.commander-card.dismissed{opacity:.4;filter:grayscale(.6)}
+.cmd-dismiss{position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:#0008;color:#f88;border:1px solid #444;font-size:.9em;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;z-index:2;padding:0;line-height:1}
+.cmd-dismiss:hover{background:#5a1020;color:#fff}
+.card-top{display:flex;gap:12px;padding:13px 13px 9px}
+.card-img-wrap{width:120px;min-width:120px;border-radius:8px;overflow:hidden;box-shadow:0 2px 10px #0005;align-self:flex-start;cursor:zoom-in}
+.card-img-wrap img{width:100%;display:block}
+.card-info{flex:1;min-width:0}
+.card-info h3{font-size:.9em;color:var(--gold);margin-bottom:1px;line-height:1.25}
+.card-info .type-line{font-size:.7em;color:var(--muted);margin-bottom:3px;font-style:italic}
+.card-info .oracle{font-size:.68em;color:var(--oracle);line-height:1.35;max-height:85px;overflow-y:auto;padding-right:3px}
+.match-bar{padding:7px 12px;background:var(--matchbar);display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:auto;border-top:1px solid #1e2e50}
+.match-score{font-weight:800;font-size:1.05em;min-width:42px;cursor:help}
+.score-high{color:#5f5}.score-mid{color:#ff5}.score-low{color:#fa0}
+.match-reasons{font-size:.66em;color:var(--muted);flex:1}
+.card-links{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.card-links a{font-size:.7em;text-decoration:none;font-weight:600}
+.link-scryfall{color:#ffa040}.link-edhrec{color:var(--accent)}.card-links a:hover{text-decoration:underline}
+.partner-badge,.in-deck-badge,.companion-badge,.illegal-badge,.price-badge,.otag-badge{font-size:.63em;padding:2px 6px;border-radius:10px;font-weight:600;margin-left:4px;vertical-align:middle}
+.partner-badge{background:#3a2060;color:#c8a0f0}
+.in-deck-badge{background:#1a4a1a;color:#8f8}
+.companion-badge{background:#2a3060;color:#a0b0f8}
+.illegal-badge{background:#5a1020;color:#f88}
+.price-badge{background:#2a3a1a;color:#bf8}
+.otag-badge{background:#0e3a3e;color:#80d8e0}
+.btn-select{padding:4px 10px;border-radius:6px;font-size:.68em;font-weight:700;background:var(--border);color:#8ab4f8;border:1px solid var(--border-soft);cursor:pointer;transition:all .2s;white-space:nowrap}
+.btn-select:hover{background:#2e5a8e;border-color:#5a8af0}
+.btn-select.selected{background:#1a5e3a;color:#5f5;border-color:#3a8}
+.btn-compare{padding:4px 8px;border-radius:6px;font-size:.68em;font-weight:700;background:#2a1540;color:#c8a0f0;border:1px solid #5530a0;cursor:pointer;white-space:nowrap}
+.btn-compare:hover{background:#3e1e6e}.btn-compare.active{background:#5530a0;color:#fff}
+.partner-info{background:#1a1030;border:1px solid #3a2060;border-radius:8px;padding:10px 13px;margin-bottom:10px;font-size:.82em;color:#c8a0f0}
+.partner-info strong{color:#e0c0ff}
+.btn-solo{background:linear-gradient(135deg,#2a5e3a,#1a4a2a);color:#afdfc5;border:1px solid #3a8a5a;padding:6px 14px;border-radius:8px;font-size:.78em;font-weight:700;cursor:pointer;margin-top:8px;display:inline-block}
+.btn-solo:hover{background:linear-gradient(135deg,#3a7e4a,#2a5e3a);transform:translateY(-1px)}
+.loader{display:none;text-align:center;padding:30px 20px;grid-column:1/-1}.loader.active{display:block}
+.spinner{width:44px;height:44px;border:4px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loader>p{color:var(--muted);font-size:.84em}
+.progress-text{color:var(--gold);font-size:.76em;margin-top:6px;min-height:1.1em}
+.step-list{list-style:none;text-align:left;max-width:400px;margin:9px auto 0;font-size:.76em}
+.step-list li{padding:2px 0;color:var(--muted);display:flex;align-items:center;gap:6px}
+.step-list li.done{color:var(--ok)}.step-list li.active{color:var(--gold)}.step-list li.skip{color:#557;opacity:.5}
+.step-list li .icon{width:14px;text-align:center}
+.msg{padding:9px 13px;border-radius:8px;margin-top:8px;font-size:.8em;display:none}
+.msg.error{background:#3a1020;border:1px solid #a03050;color:#f8a0b0;display:block}
+.msg.warn{background:#3a2a10;border:1px solid #a08040;color:#f8d898;display:block}
+.msg.info{background:#102a3a;border:1px solid #306090;color:#a0d0f8;display:block}
+.msg .btn-inline{margin-left:8px;padding:3px 8px;background:var(--border);color:var(--goldL);border:1px solid var(--border-soft);border-radius:4px;cursor:pointer;font-size:.9em}
+.circuit-msg{background:#3a2010;border:1px solid #a06030;color:#f8c898;padding:9px 13px;border-radius:8px;margin-top:8px;font-size:.8em}
+.trim-header{display:flex;align-items:center;gap:14px;margin-bottom:12px;flex-wrap:wrap}
+.trim-cmd-img{width:80px;border-radius:6px;overflow:hidden;box-shadow:0 2px 8px #0005}
+.trim-cmd-img img{width:100%;display:block}
+.trim-cmd-info h3{color:var(--gold);font-size:1em;margin-bottom:2px}
+.trim-stat{font-size:.82em;color:var(--muted)}.trim-stat strong{color:var(--txt)}
+.need-cut{color:var(--cut);font-weight:700}.perfect{color:var(--ok);font-weight:700}.need-more{color:var(--gold);font-weight:700}
+.roles-box{margin:10px 0;padding:10px 12px;background:var(--inset);border-radius:8px}
+.roles-title{font-size:.75em;font-weight:700;color:var(--gold);margin-bottom:6px}
+.role-bar{display:flex;align-items:center;gap:8px;font-size:.76em;margin:3px 0}
+.role-label{min-width:80px;color:var(--muted)}.role-count{min-width:60px;text-align:right;font-weight:600}
+.bar{width:100px;height:8px;background:var(--border);border-radius:4px;overflow:hidden}
+.bar-fill{height:100%;border-radius:4px;transition:width .3s}
+.bar-ok .bar-fill{background:var(--ok)}.bar-warn .bar-fill{background:var(--gold)}.bar-low .bar-fill{background:var(--cut)}
+.trim-section{margin:10px 0}
+.trim-section-title{font-size:.76em;font-weight:700;margin-bottom:5px;display:flex;align-items:center;gap:6px}
+.cut-title{color:var(--cut)}.keep-title{color:var(--ok)}.fill-title{color:var(--fill)}.illegal-title{color:#f88}.basic-title{color:var(--muted)}
+.trim-list{display:flex;flex-direction:column;gap:3px;max-height:300px;overflow-y:auto;padding-right:4px}
+.trim-item{display:flex;align-items:center;gap:8px;padding:4px 9px;border-radius:6px;font-size:.76em}
+.trim-item.cut-item{background:#2a1418;border:1px solid #5a2030}.trim-item.cut-item .ti-name{color:#f8a0a0}
+.trim-item.keep-item{background:var(--inset);border:1px solid var(--border)}.trim-item.keep-item .ti-name{color:#a0e0b0}
+.trim-item.fill-item{background:#0d1830;border:1px solid #205080}.trim-item.fill-item .ti-name{color:#80c0ff}
+.trim-item.basic-item{background:#141420;border:1px solid #2a2a3a}.trim-item.basic-item .ti-name{color:#a0a0b0}
+.trim-item.illegal-item{background:#3a1018;border:1px solid #802040}.trim-item.illegal-item .ti-name{color:#f88}
+.trim-item.unknown-item{background:#1a1a2a;border:1px solid #333}.trim-item.unknown-item .ti-name{color:#aaa}
+.ti-qty{font-weight:700;min-width:24px;color:var(--muted)}.ti-name{flex:1;font-weight:600}
+.ti-reason{font-size:.85em;color:var(--muted);text-align:right;max-width:50%}
+.trim-details{margin-top:4px}
+.trim-details summary{cursor:pointer;font-size:.76em;color:var(--gold);font-weight:600;padding:3px 0}
+.trim-details summary:hover{text-decoration:underline}
+.btn-copy{padding:10px 20px;border-radius:8px;font-size:.86em;font-weight:700;background:linear-gradient(135deg,#1a6e3a,#15503a);color:#afdfc5;border:1px solid #2a8a5a;cursor:pointer;margin-top:10px;margin-right:8px;transition:all .2s}
+.btn-copy:hover{background:linear-gradient(135deg,#228844,#1a6640);transform:translateY(-1px)}
+.btn-copy.copied{background:#2a8a5a;color:#fff}
+.assist-loading{text-align:center;padding:16px}
+.assist-loading .spinner{width:30px;height:30px;margin:8px auto}
+.assist-loading p{color:var(--muted);font-size:.78em}
+.hover-preview{position:fixed;pointer-events:none;z-index:9999;width:280px;border-radius:12px;box-shadow:0 8px 32px #000c;display:none;transition:opacity .15s}
+.hover-preview.show{display:block}
+.hover-preview img{width:100%;display:block;border-radius:12px}
+.toast-container{position:fixed;top:20px;right:20px;z-index:10000;display:flex;flex-direction:column;gap:8px;max-width:340px}
+.toast{background:var(--card);border:1px solid var(--border);border-left:4px solid var(--gold);border-radius:8px;padding:12px 16px;color:var(--txt);font-size:.84em;box-shadow:0 4px 16px #0008;animation:slidein .25s ease-out;display:flex;align-items:center;gap:10px}
+.toast.toast-ok{border-left-color:var(--ok)}
+.toast.toast-err{border-left-color:var(--cut)}
+.toast.toast-info{border-left-color:var(--fill)}
+.toast.fade{opacity:0;transition:opacity .3s}
+.toast button{margin-left:auto;background:transparent;color:var(--muted);border:none;cursor:pointer;font-size:1.1em;padding:0 4px}
+@keyframes slidein{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+.score-breakdown{position:fixed;background:var(--tooltip-bg);border:1px solid var(--gold);border-radius:8px;padding:10px 12px;font-size:.76em;z-index:9998;max-width:280px;box-shadow:0 4px 20px #000b;display:none}
+.score-breakdown.show{display:block}
+.score-breakdown h4{color:var(--gold);font-size:.9em;margin-bottom:6px}
+.score-breakdown .sb-row{display:flex;justify-content:space-between;padding:2px 0;color:var(--muted);gap:8px}
+.score-breakdown .sb-row span:last-child{color:#5f5;font-weight:700;white-space:nowrap}
+.score-breakdown .sb-total{border-top:1px solid var(--border-soft);margin-top:6px;padding-top:6px;font-weight:700;color:var(--txt)}
+.tag-tooltip{position:fixed;background:var(--tooltip-bg);border:1px solid var(--border-soft);border-radius:6px;padding:8px 10px;font-size:.72em;z-index:9998;max-width:240px;box-shadow:0 4px 16px #000b;display:none;color:var(--txt)}
+.tag-tooltip.show{display:block}
+.tag-tooltip .tt-title{color:var(--gold);font-weight:700;margin-bottom:4px;font-size:.9em}
+.tag-tooltip .tt-item{color:var(--muted);padding:1px 0}
+.compare-bar{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--card);border:2px solid var(--gold);border-radius:12px;padding:10px 16px;z-index:100;box-shadow:0 4px 20px #000a;display:none;align-items:center;gap:10px;flex-wrap:wrap;max-width:90vw}
+.compare-bar.show{display:flex}
+.compare-bar .cb-names{font-size:.84em;color:var(--txt)}
+.compare-modal{position:fixed;inset:0;background:#000c;z-index:200;display:none;align-items:center;justify-content:center;padding:20px;overflow:auto}
+.compare-modal.show{display:flex}
+.compare-modal .cm-content{background:var(--card);border:2px solid var(--gold);border-radius:12px;padding:20px;max-width:1100px;width:100%;max-height:90vh;overflow:auto}
+.compare-grid{display:grid;gap:12px;margin-top:12px}
+.compare-grid.c2{grid-template-columns:1fr 1fr}.compare-grid.c3{grid-template-columns:1fr 1fr 1fr}
+@media(max-width:700px){.compare-grid.c2,.compare-grid.c3{grid-template-columns:1fr}}
+.compare-col{background:var(--inset);padding:12px;border-radius:8px;border:1px solid var(--border)}
+.compare-col h4{color:var(--gold);font-size:.95em;margin-bottom:8px}
+.compare-col .cc-row{font-size:.78em;padding:3px 0;color:var(--muted);border-bottom:1px solid #1e2e50}
+.compare-col .cc-row strong{color:var(--txt);display:block;font-size:.72em;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px}
+.confetti{position:fixed;top:-10px;font-size:1.4em;pointer-events:none;z-index:10001;animation:confetti-fall 3s linear forwards}
+@keyframes confetti-fall{to{transform:translateY(110vh) rotate(720deg);opacity:0}}
+.textarea-wrap.dragover textarea{border-color:var(--gold);background:#1a3460}
+.textarea-wrap.dragover::after{content:'📥 Drop file here';position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#0f3460cc;color:var(--goldL);font-size:1.1em;font-weight:700;border-radius:8px;pointer-events:none}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:0 0}::-webkit-scrollbar-thumb{background:var(--scrollthumb);border-radius:3px}
+@media(prefers-reduced-motion:reduce){*,::before,::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+@media print{
+body{background:#fff;color:#000}
+header,.btn-row,.toggle-row,.results-controls,#loader,#assistArea,#partnerArea,.cmd-dismiss,.btn-select,.btn-compare,.compare-bar,.toast-container,.hover-preview,.card-links{display:none!important}
+.panel{background:#fff;border:1px solid #ccc;box-shadow:none}
+.commander-card{page-break-inside:avoid;background:#fff;border:1px solid #999}
+.card-info h3,.panel h2{color:#000}
+}
+/* ── QoL additions ── */
+.img-modal{position:fixed;inset:0;background:#000d;z-index:10002;display:none;align-items:center;justify-content:center;padding:20px;cursor:zoom-out}
+.img-modal.show{display:flex}
+.img-modal img{max-width:90vw;max-height:90vh;border-radius:14px;box-shadow:0 8px 40px #000}
+.toast-undo{background:var(--input);color:var(--goldL);border:1px solid var(--border-soft);border-radius:5px;padding:3px 10px;cursor:pointer;font-size:.9em;font-weight:600}
+.toast .toast-x{background:transparent;color:var(--muted);border:none;cursor:pointer;font-size:1.1em;padding:0 4px}
+/* ── Light theme (full surface override) ── */
+html[data-theme="light"]{--bg:#eef0f6;--card:#ffffff;--input:#e6e9f2;--accent:#d6304b;--gold:#9a7b15;--goldL:#7a5f0a;--txt:#1a1a2e;--muted:#555a70;--ok:#2e8b40;--cut:#c0392b;--fill:#2a6fc0;
+--border:#d3d7e3;--border-soft:#c2c7d6;--inset:#eef1f8;--card-grad-a:#ffffff;--card-grad-b:#eef1fa;--card-border:#d3d7e3;--matchbar:#eef1f8;--tooltip-bg:#ffffff;--oracle:#2a2f44;--scrollthumb:#bcc2d4}
+html[data-theme="light"] body{background:var(--bg)}
+html[data-theme="light"] header{background:linear-gradient(180deg,#dde3f2,var(--bg))}
+html[data-theme="light"] textarea,html[data-theme="light"] .url-input{background:#f4f5fb}
+html[data-theme="light"] textarea::placeholder{color:#99a}
+html[data-theme="light"] .commander-card:hover{box-shadow:0 8px 24px #0003}
+html[data-theme="light"] .toast,html[data-theme="light"] .score-breakdown,html[data-theme="light"] .tag-tooltip,html[data-theme="light"] .compare-bar{box-shadow:0 4px 16px #0002}
+html[data-theme="light"] .card-img-wrap,html[data-theme="light"] .trim-cmd-img{box-shadow:0 2px 8px #0002}
+html[data-theme="light"] .color-alt{color:#778}
+html[data-theme="light"] .score-breakdown .sb-row span:last-child,html[data-theme="light"] .score-high{color:#2e8b40}
+html[data-theme="light"] .btn-select{color:#2a6fc0}
+html[data-theme="light"] .compare-modal,html[data-theme="light"] .img-modal{background:#0007}
+</style>
+</head>
+<body>
+<header>
+<h1>⚔️ MTG Commander Recommender</h1>
+<p>Paste your decklist and discover the perfect Commander for your 99.</p>
+</header>
+<div class="container">
+<div class="panel">
+<h2>📋 Your Decklist</h2>
+<div class="textarea-wrap" id="textareaWrap">
+<textarea id="deckInput" placeholder="Paste your decklist here…&#10;Formats: 1 Sol Ring / 1x Lightning Bolt / Swords to Plowshares&#10;Tip: drag &amp; drop a .txt file, or press Ctrl+Enter to analyze" aria-label="Decklist input"></textarea>
+</div>
+<div class="counter-bar">
+  <span><strong id="cardCounter">0</strong> cards <span id="cardCounterDelta"></span></span>
+  <span id="counterHint">Target: 99 + commander</span>
+</div>
+<div class="btn-row" style="margin-top:8px">
+  <input type="text" id="urlImport" class="url-input" placeholder="Or paste a Moxfield / Archidekt deck URL…" aria-label="Deck URL import">
+  <button class="btn-import" onclick="importFromUrl()" aria-label="Import from URL">📥 Import</button>
+</div>
+<div class="toggle-row">
+  <label class="toggle"><input type="checkbox" id="findInDeck" checked><span class="toggle-sl"></span></label>
+  <label class="toggle-label" for="findInDeck">Find potential commanders in my decklist</label>
+</div>
+<div class="toggle-row">
+  <label class="toggle"><input type="checkbox" id="useOtags"><span class="toggle-sl"></span></label>
+  <label class="toggle-label" for="useOtags">🔖 Use Scryfall Oracle Tags (slower first run, far more accurate)</label>
+</div>
+<div class="btn-row">
+  <button class="btn-primary" id="analyzeBtn" onclick="runAnalysis()" aria-label="Analyze and recommend commanders (Ctrl+Enter)">🔍 Analyze &amp; Recommend</button>
+  <button class="btn-secondary" onclick="clearAll()" aria-label="Clear decklist">✕ Clear</button>
+</div>
+<div class="btn-row">
+  <button class="btn-sample" onclick="loadSample('elfball')">🌿 Elfball</button>
+  <button class="btn-sample" onclick="loadSample('spellslinger')">🔥 Spellslinger</button>
+  <button class="btn-sample" onclick="loadSample('artifacts')">⚙️ Artifacts</button>
+  <button class="btn-sample" onclick="loadSample('graveyard')">💀 Graveyard</button>
+  <button class="btn-sample" onclick="loadSample('tokens')">👥 Tokens</button>
+  <button class="btn-sample" onclick="loadSample('lands')">🏔️ Lands</button>
+  <button class="btn-sample" onclick="loadSample('voltron')">⚔️ Voltron</button>
+  <button class="btn-sample" onclick="loadSample('counters')">➕ +1/+1</button>
+  <button class="btn-sample" onclick="loadSample('random')">🎲 Surprise me</button>
+</div>
+<div class="btn-row" style="margin-top:8px;align-items:center">
+  <select id="deckSlots" class="url-input" style="flex:0 0 auto;max-width:150px" onchange="loadDeckSlot()" aria-label="Saved decks"><option value="">— Saved decks —</option></select>
+  <button class="btn-secondary" onclick="saveDeckSlot()" style="font-size:.73em;padding:5px 10px">💾 Save</button>
+  <button class="btn-secondary" onclick="deleteDeckSlot()" style="font-size:.73em;padding:5px 10px">🗑 Delete</button>
+  <button class="btn-secondary" onclick="copyShareLink()" style="font-size:.73em;padding:5px 10px">🔗 Share</button>
+  <button class="btn-secondary" onclick="downloadDeckFile('raw')" style="font-size:.73em;padding:5px 10px">⬇ .txt</button>
+</div>
+<div class="btn-row" style="margin-top:6px;align-items:center;gap:6px">
+  <input type="text" id="cmdLookup" class="url-input" placeholder="Test a specific commander (e.g. Atraxa)…" aria-label="Commander lookup" style="flex:1">
+  <button class="btn-secondary" onclick="lookupCommander()" style="font-size:.73em;padding:5px 10px">🔎 Use</button>
+  <button class="btn-secondary" onclick="clearCache()" title="Clear cached Scryfall data" style="font-size:.73em;padding:5px 10px">🧹 Cache</button>
+  <button class="btn-secondary" onclick="toggleTheme()" title="Toggle light/dark" style="font-size:.73em;padding:5px 10px">🌓</button>
+</div>
+<div id="inputMsg"></div>
+</div>
+<div class="panel" style="overflow-y:auto;max-height:780px">
+<h2>📊 Deck Analysis</h2>
+<div class="color-bar" role="group" aria-label="Color identity">
+  <div class="mana-pip pip-W" data-c="W" aria-label="White mana">W</div>
+  <div class="mana-pip pip-U" data-c="U" aria-label="Blue mana">U</div>
+  <div class="mana-pip pip-B" data-c="B" aria-label="Black mana">B</div>
+  <div class="mana-pip pip-R" data-c="R" aria-label="Red mana">R</div>
+  <div class="mana-pip pip-G" data-c="G" aria-label="Green mana">G</div>
+  <div class="mana-pip pip-C" data-c="C" aria-label="Colorless">C</div>
+  <span id="colorLabel" class="color-name">—</span>
+</div>
+<div id="colorAlt" class="color-alt" style="margin:-4px 0 5px"></div>
+<div class="stats-grid">
+  <div class="stat-item"><div class="label">Cards Parsed</div><div class="value" id="statParsed">—</div></div>
+  <div class="stat-item"><div class="label">Cards Found</div><div class="value" id="statFound">—</div></div>
+  <div class="stat-item"><div class="label">Creatures</div><div class="value" id="statCreatures">—</div></div>
+  <div class="stat-item"><div class="label">Instants/Sorceries</div><div class="value" id="statSpells">—</div></div>
+  <div class="stat-item"><div class="label">Artifacts</div><div class="value" id="statArtifacts">—</div></div>
+  <div class="stat-item"><div class="label">Enchantments</div><div class="value" id="statEnchantments">—</div></div>
+  <div class="stat-item"><div class="label">Lands</div><div class="value" id="statLands">—</div></div>
+  <div class="stat-item"><div class="label">Avg Mana Value</div><div class="value" id="statAvgMV">—</div></div>
+  <div class="stat-item"><div class="label">Est. Price</div><div class="value" id="statPrice">—</div></div>
+  <div class="stat-item"><div class="label">Banned / Illegal</div><div class="value" id="statIllegal">—</div></div>
+</div>
+<div class="curve-box" id="curveBox" style="display:none">
+  <div class="curve-title"><span>Mana Curve (non-lands)</span><span id="curveHint"></span></div>
+  <div class="curve-bars" id="curveBars"></div>
+</div>
+<h2 style="margin-top:3px">🏷️ Detected Themes</h2>
+<div id="themeArea" aria-live="polite"><span style="color:var(--muted);font-size:.8em">Analyze a deck to detect themes.</span></div>
+<div id="analysisMsg" aria-live="polite"></div>
+</div>
+<div class="loader" id="loader" aria-live="polite">
+<div class="spinner"></div><p>Searching the multiverse for your ideal Commander…</p>
+<div class="progress-text" id="progressText"></div>
+<ul class="step-list">
+  <li id="step-parse"><span class="icon">○</span> Parsing decklist</li>
+  <li id="step-fetch"><span class="icon">○</span> Fetching card data from Scryfall</li>
+  <li id="step-analyze"><span class="icon">○</span> Analyzing composition &amp; themes</li>
+  <li id="step-otags"><span class="icon">○</span> Cross-referencing Oracle Tags</li>
+  <li id="step-search"><span class="icon">○</span> Searching for matching commanders</li>
+  <li id="step-score"><span class="icon">○</span> Scoring &amp; ranking results</li>
+</ul>
+</div>
+<div class="results-area" id="inDeckArea" style="display:none"><div class="panel">
+  <h2 id="inDeckHeading" tabindex="-1">⭐ Commanders Found in Your Decklist</h2>
+  <p style="color:var(--muted);font-size:.8em;margin-bottom:4px" id="inDeckSummary"></p>
+  <div class="results-controls">
+    <label>Sort: <select id="inDeckSort" onchange="resortGrid('inDeck')">
+      <option value="score">Best match</option><option value="rank">EDHREC rank</option>
+      <option value="cmc">Mana value</option><option value="price">Price</option><option value="name">Name</option>
+    </select></label>
+    <label><input type="checkbox" id="inDeckList" onchange="$('inDeckGrid').classList.toggle('list-view',this.checked)"> List view</label>
+    <button class="btn-secondary" onclick="copyRecommendationsMarkdown('inDeck')" style="padding:5px 10px;font-size:.75em">📋 Copy Top 5 as Markdown</button>
+  </div>
+  <div class="commander-grid" id="inDeckGrid"></div>
+</div></div>
+<div class="results-area" id="resultsArea" style="display:none"><div class="panel">
+  <h2 id="resultsHeading" tabindex="-1">👑 Recommended Commanders</h2>
+  <p style="color:var(--muted);font-size:.8em;margin-bottom:4px" id="resultsSummary"></p>
+  <div class="results-controls">
+    <label>Sort: <select id="resultsSort" onchange="resortGrid('results')">
+      <option value="score">Best match</option><option value="rank">EDHREC rank</option>
+      <option value="cmc">Mana value</option><option value="price">Price</option><option value="name">Name</option>
+    </select></label>
+    <label>Filter: <select id="resultsFilter" onchange="refilterResults()">
+      <option value="all">All</option><option value="solo">Solo only</option><option value="partner">Partner only</option><option value="budget">Budget</option>
+    </select></label>
+    <label>Max: <input type="number" id="budgetMax" value="10" min="1" step="1" onchange="refilterResults()" style="width:56px;padding:4px 6px;border-radius:6px;background:var(--input);color:var(--txt);border:1px solid var(--border-soft);font-size:.78em"></label>
+    <label>Currency: <select id="currencySelect" onchange="setCurrency(this.value)"><option value="usd">USD $</option><option value="eur">EUR €</option><option value="tix">MTGO tix</option></select></label>
+    <label><input type="checkbox" id="resultsList" onchange="$('commanderGrid').classList.toggle('list-view',this.checked)"> List view</label>
+    <label><input type="checkbox" id="showDismissed" onchange="refilterResults()"> Show dismissed</label>
+    <button class="btn-secondary" onclick="copyRecommendationsMarkdown('results')" style="padding:5px 10px;font-size:.75em">📋 Copy Top 5</button>
+    <button class="btn-secondary" onclick="window.print()" style="padding:5px 10px;font-size:.75em">🖨️ Print</button>
+  </div>
+  <div class="commander-grid" id="commanderGrid"></div>
+</div></div>
+<div class="results-area" id="partnerArea" style="display:none"><div class="panel">
+  <h2 id="partnerTitle" tabindex="-1">👥 Choose a Partner</h2>
+  <div id="partnerInfo" class="partner-info"></div>
+  <div id="partnerLoading" class="assist-loading" style="display:none"><div class="spinner"></div><p>Searching…</p></div>
+  <div id="partnerInDeckSection" style="display:none">
+    <p style="color:var(--gold);font-size:.82em;font-weight:600;margin:8px 0 4px">⭐ Partners in Your Deck</p>
+    <div class="commander-grid" id="partnerInDeckGrid"></div>
+  </div>
+  <div id="partnerRecSection" style="display:none">
+    <p style="color:var(--gold);font-size:.82em;font-weight:600;margin:8px 0 4px">👑 Recommended Partners</p>
+    <div class="commander-grid" id="partnerRecGrid"></div>
+  </div>
+</div></div>
+<div class="results-area" id="assistArea" style="display:none"><div class="panel">
+  <h2 id="assistTitle" tabindex="-1">✂️ Deck Assistant</h2>
+  <div id="assistContent"></div>
+</div></div>
+</div>
+
+<div class="hover-preview" id="hoverPreview" aria-hidden="true"><img id="hoverPreviewImg" alt=""></div>
+<div class="score-breakdown" id="scoreBreakdown" role="tooltip"></div>
+<div class="tag-tooltip" id="tagTooltip" role="tooltip"></div>
+<div class="toast-container" id="toastContainer" aria-live="polite" aria-atomic="true"></div>
+<div class="compare-bar" id="compareBar">
+  <span class="cb-names" id="compareNames"></span>
+  <button class="btn-compare" onclick="openCompare()">Compare</button>
+  <button class="btn-secondary" onclick="clearCompare()" style="padding:4px 10px;font-size:.72em">Clear</button>
+</div>
+<div class="compare-modal" id="compareModal" onclick="if(event.target===this)closeCompare()">
+  <div class="cm-content" id="compareContent"></div>
+</div>
+<div class="img-modal" id="imgModal" onclick="closeImgModal()"><img id="imgModalImg" alt="Card preview"></div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   §1  CONSTANTS & STATE
+   ═══════════════════════════════════════════════════════════════ */
+const API='https://api.scryfall.com',RATE_MS=1520,BATCH_MAX=75,MAX_FUZZY=8,MAX_FAILURES=3,WUBRG=['W','U','B','R','G'];
+const CACHE_TTL_MS=7*24*60*60*1000;
+const LS_KEYS={deck:'mtgcr_deck',toggle:'mtgcr_findInDeck',cache:'mtgcr_cache',dismissed:'mtgcr_dismissed',lastCmd:'mtgcr_lastCmd',otags:'mtgcr_useOtags',decks:'mtgcr_decks',currency:'mtgcr_currency',theme:'mtgcr_theme'};
+const SCORING={exactColor:30,extraColor1:22,extraColor2:14,extraColor3p:6,subsetColor:10,themeMax:16,themeMult:2,tribalMin:3,tribalMax:10,spellHeavy:5,rankTop100:20,rankTop300:17,rankTop800:13,rankTop2k:9,rankTop5k:5,rankTop15k:2,otagBonus:3};
+const ROLE_TARGET={ramp:10,draw:10,removal:8,wipe:3,lands:36};
+
+/* Curated Scryfall Oracle Tags — verified against tagger.scryfall.com.
+   Grouped by Commander archetype. Unknown names silently skip (0 results).
+   First-run cost ≈ 45s (rate-limited 1.5s/req), then cached 7 days. */
+const OTAGS=[
+  {tag:'card-advantage',   label:'Card Advantage',     min:4},
+  {tag:'draw',             label:'Card Draw',          min:5},
+  {tag:'tutor',            label:'Tutors',             min:3},
+  {tag:'wheel',            label:'Wheel Effects',      min:1},
+  {tag:'cantrip',          label:'Cantrips',           min:4},
+  {tag:'ramp',             label:'Ramp',               min:5},
+  {tag:'land-ramp',        label:'Land Ramp',          min:3},
+  {tag:'mana-rock',        label:'Mana Rocks',         min:3},
+  {tag:'mana-dork',        label:'Mana Dorks',         min:3},
+  {tag:'mana-doubler',     label:'Mana Doublers',      min:1},
+  {tag:'cost-reducer',     label:'Cost Reducers',      min:2},
+  {tag:'removal-creature', label:'Creature Removal',   min:4},
+  {tag:'removal-artifact', label:'Artifact Removal',   min:2},
+  {tag:'removal',          label:'Targeted Removal',   min:5},
+  {tag:'sweeper',          label:'Sweepers',           min:2},
+  {tag:'mass-removal',     label:'Mass Removal',       min:2},
+  {tag:'counterspell',     label:'Counterspells',      min:3},
+  {tag:'hand-disruption',  label:'Hand Disruption',    min:3},
+  {tag:'fog',              label:'Fog Effects',        min:2},
+  {tag:'lockdown',         label:'Stax / Lockdown',    min:2},
+  {tag:'mass-land-denial', label:'Mass Land Denial',   min:1},
+  {tag:'recursion',        label:'Recursion',          min:3},
+  {tag:'reanimate',        label:'Reanimation',        min:2},
+  {tag:'mass-reanimation', label:'Mass Reanimation',   min:1},
+  {tag:'graveyard-hate',   label:'Graveyard Hate',     min:2},
+  {tag:'self-mill',        label:'Self-Mill',          min:3},
+  {tag:'sacrifice-outlet', label:'Sacrifice Outlets',  min:2},
+  {tag:'flicker',          label:'Flicker / Blink',    min:2},
+  {tag:'landfall',         label:'Landfall',           min:3},
+  {tag:'lifegain',         label:'Lifegain',           min:4},
+  {tag:'extra-turn',       label:'Extra Turns',        min:1},
+  {tag:'extra-combat',     label:'Extra Combats',      min:1},
+  {tag:'theft',            label:'Theft Effects',      min:2},
+  {tag:'enchantress',      label:'Enchantress',        min:2},
+  {tag:'pillowfort',       label:'Pillowfort',         min:2},
+  {tag:'group-hug',        label:'Group Hug',          min:2},
+  {tag:'group-slug',       label:'Group Slug',         min:2},
+  {tag:'polymorph',        label:'Polymorph Effects',  min:1},
+  {tag:'burn',             label:'Burn',               min:3},
+  {tag:'damage-doubler',   label:'Damage Doublers',    min:1},
+  {tag:'evasion',          label:'Evasion Grants',     min:2},
+  {tag:'token-doubler',    label:'Token Doublers',     min:1},
+  {tag:'counter-doubler',  label:'Counter Doublers',   min:1},
+  {tag:'life-doubler',     label:'Life Doublers',      min:1},
+  // ── QoL expansion: archetype-relevant Oracle Tags ──
+  {tag:'repeatable-removal',        label:'Repeatable Removal',      min:2},
+  {tag:'removal-toughness',         label:'-X/-X Removal',           min:2},
+  {tag:'saboteur',                  label:'Saboteurs',               min:3},
+  {tag:'gives-unblockable',         label:'Unblockable Grants',      min:2},
+  {tag:'gives-haste',               label:'Haste Grants',            min:2},
+  {tag:'gives-trample',             label:'Trample Grants',          min:2},
+  {tag:'keyword-anthem',            label:'Keyword Anthems',         min:2},
+  {tag:'synergy-modified',          label:'Modified Matters',        min:3},
+  {tag:'repeatable-pp-counters',    label:'Repeatable +1/+1',        min:3},
+  {tag:'repeatable-creature-tokens',label:'Repeatable Tokens',       min:3},
+  {tag:'repeatable-food',           label:'Food (Repeatable)',       min:2},
+  {tag:'repeatable-lifegain',       label:'Repeatable Lifegain',     min:3},
+  {tag:'lifegain-matters',          label:'Lifegain Payoffs',        min:3},
+  {tag:'self-life-loss-matters',    label:'Life Loss Matters',       min:3},
+  {tag:'storm-count-matters',       label:'Storm / Spell Count',     min:2},
+  {tag:'synergy-instant',           label:'Instants Matter',         min:4},
+  {tag:'synergy-sorcery',           label:'Sorceries Matter',        min:4},
+  {tag:'synergy-bounce',            label:'Bounce Synergy',          min:3},
+  {tag:'synergy-cascade',           label:'Cascade',                 min:1},
+  {tag:'copy-creature',             label:'Clone Creatures',         min:2},
+  {tag:'copy-permanent-spell',      label:'Copy Spells',             min:2},
+  {tag:'greed-ability',             label:'Greed (Pay Life: Draw)',  min:1},
+  {tag:'bottomless-mana-sink',      label:'Bottomless Mana Sink',    min:1},
+  {tag:'mana-sink',                 label:'Mana Sinks',              min:3},
+  {tag:'multi-land-ramp',           label:'Multi-Land Ramp',         min:2},
+  {tag:'tutor-land-basic',          label:'Basic Land Fetch',        min:3},
+  {tag:'tutor-land-to-battlefield', label:'Land-to-Battlefield Ramp',min:3},
+  {tag:'repeatable-crime',          label:'Crime (Repeatable)',      min:3},
+  {tag:'scry',                      label:'Scry',                    min:4},
+  {tag:'quietus-effect',            label:'Quietus (Halve Life)',    min:1},
+  {tag:'typal-coupling',            label:'Typal Payoffs',           min:2},
+];
+
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function $(id){return document.getElementById(id)}
+const S={parsedList:[],deckCardData:[],themes:[],allCmdCards:new Map(),partnerCards:new Map(),selectedCmd:null,selectedPartner:null,deckColorIdentity:new Set(),lastScoreDetails:new Map(),currentRanked:[],currentInDeck:[],dismissed:new Set(),compareSet:new Set(),currentAbortController:null,analysisRunning:false,cmdOtagMap:new Map(),otagThemes:[],deckOtagMap:new Map(),lastTrim:null,currency:'usd'};
+
+/* ═══════════════════════════════════════════════════════════════
+   §2  LOCALSTORAGE
+   ═══════════════════════════════════════════════════════════════ */
+const LS={
+  get(k,def){try{const v=localStorage.getItem(k);return v?JSON.parse(v):def}catch(e){return def}},
+  set(k,v){try{localStorage.setItem(k,JSON.stringify(v));return true}catch(e){return false}},
+  del(k){try{localStorage.removeItem(k)}catch(e){}}
+};
+
+/* ═══════════════════════════════════════════════════════════════
+   §3  PERSISTENT CACHE
+   ═══════════════════════════════════════════════════════════════ */
+const _cache=new Map();
+(function loadPersistCache(){
+  const raw=LS.get(LS_KEYS.cache,{});const now=Date.now();let kept=0;
+  for(const[k,v]of Object.entries(raw)){if(v&&v.t&&(now-v.t)<CACHE_TTL_MS){_cache.set(k,{ok:true,status:200,json:async()=>v.d,_raw:v.d,_t:v.t});kept++}}
+  if(kept>0)console.log(`[MTGCR] Loaded ${kept} cached Scryfall responses`);
+})();
+let _cacheDirty={},_cacheFlush=null;
+function persistCacheEntry(k,data){
+  _cacheDirty[k]={t:Date.now(),d:data};
+  if(!_cacheFlush)_cacheFlush=setTimeout(flushCache,1000);
+}
+function flushCache(){
+  _cacheFlush=null;
+  try{
+    const raw=LS.get(LS_KEYS.cache,{});
+    Object.assign(raw,_cacheDirty);_cacheDirty={};
+    const keys=Object.keys(raw);
+    if(keys.length>500){const sorted=keys.map(x=>[x,raw[x].t]).sort((a,b)=>a[1]-b[1]);for(let i=0;i<sorted.length-500;i++)delete raw[sorted[i][0]]}
+    LS.set(LS_KEYS.cache,raw);
+  }catch(e){}
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   §4  API
+   ═══════════════════════════════════════════════════════════════ */
+let _lastReq=0,_failures=0;
+function isCircuitOpen(){return _failures>=MAX_FAILURES}
+function resetCircuit(){_failures=0}
+async function apiFetch(url,opts={},_r429=0){
+  const isGet=!opts.method||opts.method==='GET',ck=url+(opts.body||'');
+  if(isGet&&_cache.has(ck))return _cache.get(ck);
+  if(isCircuitOpen())return{ok:false,status:0,json:async()=>({data:[]})};
+  const w=RATE_MS-(Date.now()-_lastReq);if(w>0)await sleep(w);_lastReq=Date.now();
+  const ctrl=new AbortController(),tid=setTimeout(()=>ctrl.abort(),45000);
+  if(S.currentAbortController){S.currentAbortController.signal.addEventListener('abort',()=>ctrl.abort(),{once:true})}
+  try{
+    const r=await fetch(url,{...opts,headers:{'Accept':'application/json;q=0.9,*/*;q=0.8',...(opts.headers||{})},signal:ctrl.signal});
+    clearTimeout(tid);
+    if(r.status===429){_failures++;if(_r429>=3)return{ok:false,status:429,json:async()=>({data:[]})};await sleep(30000);_lastReq=Date.now();return apiFetch(url,opts,_r429+1)}
+    if(r.status===404&&isGet){const c={ok:false,status:404,json:async()=>({data:[],total_cards:0})};_cache.set(ck,c);persistCacheEntry(ck,{data:[],total_cards:0,not_found:true});return c}
+    _failures=0;
+    if(r.ok&&isGet){const j=await r.json();const c={ok:true,status:r.status,json:async()=>j,_raw:j,_t:Date.now()};_cache.set(ck,c);persistCacheEntry(ck,j);return c}
+    return r;
+  }catch(e){clearTimeout(tid);if(e.name==='AbortError')throw e;_failures++;return{ok:false,status:0,json:async()=>({data:[]})}}
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   §5  COLOR IDENTITY
+   ═══════════════════════════════════════════════════════════════ */
+const CC={'':{n:'Colorless',a:[]},W:{n:'Mono-White',a:[]},U:{n:'Mono-Blue',a:[]},B:{n:'Mono-Black',a:[]},R:{n:'Mono-Red',a:[]},G:{n:'Mono-Green',a:[]},WU:{n:'Azorius',a:[]},UB:{n:'Dimir',a:[]},BR:{n:'Rakdos',a:[]},RG:{n:'Gruul',a:[]},WG:{n:'Selesnya',a:[]},WB:{n:'Orzhov',a:[]},UR:{n:'Izzet',a:[]},BG:{n:'Golgari',a:[]},WR:{n:'Boros',a:[]},UG:{n:'Simic',a:[]},WUG:{n:'Bant',a:[]},WUB:{n:'Esper',a:[]},UBR:{n:'Grixis',a:[]},BRG:{n:'Jund',a:[]},WRG:{n:'Naya',a:[]},WBG:{n:'Abzan',a:[]},WUR:{n:'Jeskai',a:[]},UBG:{n:'Sultai',a:[]},WBR:{n:'Mardu',a:[]},URG:{n:'Temur',a:[]},WUBR:{n:'Non-Green',a:[]},UBRG:{n:'Non-White',a:[]},WBRG:{n:'Non-Blue',a:[]},WURG:{n:'Non-Black',a:[]},WUBG:{n:'Non-Red',a:[]},WUBRG:{n:'Five-Color',a:[]}};
+function ciKey(s){return WUBRG.filter(c=>s.has(c)).join('')}
+function ciKeyArr(a){return WUBRG.filter(c=>a.includes(c)).join('')}
+function ciInfo(k){return CC[k]||{n:k||'Colorless',a:[]}}
+function renderMana(c){if(!c)return'';return c.replace(/\{([^}]+)\}/g,(_,s)=>{let cl='ms ms-generic';if(/^[WUBRG]$/.test(s))cl='ms ms-'+s;else if(s==='C')cl='ms ms-C';else if(s==='X')cl='ms ms-X';return`<span class="${cl}">${s.length>3?s.slice(0,2):s}</span>`})}
+
+/* ═══════════════════════════════════════════════════════════════
+   §6  PARSER
+   ═══════════════════════════════════════════════════════════════ */
+function parseDecklist(raw){
+  const cards=[];let skip=false;const badLines=[];
+  const lines=raw.split(/\r?\n/);
+  for(let idx=0;idx<lines.length;idx++){
+    let line=lines[idx].trim();if(!line||/^(\/\/|#)/.test(line))continue;
+    if(/^(sideboard|companion|maybeboard)/i.test(line)){skip=true;continue}
+    if(/^(commander)\s*$/i.test(line)){skip=true;continue}
+    if(/^(mainboard|main\s*deck|deck)\s*$/i.test(line)){skip=false;continue}
+    if(skip)continue;
+    const m=line.match(/^(\d+)\s*[xX]?\s+(.+?)(?:\s+\([A-Z0-9]{2,6}\).*)?$/)||line.match(/^(\d+)[xX]\s*(.+?)(?:\s+\([A-Z0-9]{2,6}\).*)?$/)||line.match(/^()(.+?)(?:\s+\([A-Z0-9]{2,6}\).*)?$/);
+    if(!m){badLines.push(idx);continue}
+    let name=m[2].trim().replace(/\s*\[.*?\]$/,'').replace(/\s*<.*?>$/,'').replace(/\s*\*+$/,'').replace(/\s*#.*$/,'').replace(/\s*\/{1,2}\s*/g,' // ');
+    if(name.length<2){badLines.push(idx);continue}
+    cards.push({name,qty:parseInt(m[1])||1});
+  }
+  const dupMap=new Map(),dupWarnings=[];
+  for(const c of cards){
+    const k=c.name.toLowerCase();
+    if(dupMap.has(k)){dupMap.get(k).qty+=c.qty;if(!dupWarnings.includes(c.name))dupWarnings.push(c.name)}
+    else dupMap.set(k,{...c});
+  }
+  return{cards:[...dupMap.values()],badLines,dupWarnings};
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   §7  FETCHER
+   ═══════════════════════════════════════════════════════════════ */
+async function fetchCards(parsed,prog){
+  const unique=[...new Set(parsed.map(c=>c.name))],found=[],notFound=[];
+  for(let i=0;i<unique.length;i+=BATCH_MAX){
+    if(isCircuitOpen()){unique.slice(i).forEach(n=>notFound.push({name:n}));break}
+    const batch=unique.slice(i,i+BATCH_MAX);prog(`Fetching ${i+1}–${Math.min(i+BATCH_MAX,unique.length)} of ${unique.length}…`);
+    let ok=false;
+    try{const r=await apiFetch(`${API}/cards/collection`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({identifiers:batch.map(n=>({name:n.split(' // ')[0].trim()}))})});if(r.ok){const j=await r.json();if(j.data)found.push(...j.data);if(j.not_found)notFound.push(...j.not_found);ok=true}}catch(e){if(e.name==='AbortError')throw e}
+    if(!ok)batch.forEach(n=>notFound.push({name:n}));
+  }
+  const retryNF=[],retryList=notFound.slice(0,MAX_FUZZY);
+  for(let i=0;i<retryList.length;i++){
+    if(isCircuitOpen()){retryNF.push(...retryList.slice(i));break}
+    const nm=retryList[i].name||'';if(!nm){retryNF.push(retryList[i]);continue}
+    prog(`Retrying ${i+1}/${retryList.length}: ${nm}…`);
+    try{const r=await apiFetch(`${API}/cards/named?fuzzy=${encodeURIComponent(nm)}`);if(r.ok)found.push(await r.json());else retryNF.push(retryList[i])}catch(e){if(e.name==='AbortError')throw e;retryNF.push(retryList[i])}
+  }
+  if(notFound.length>MAX_FUZZY)retryNF.push(...notFound.slice(MAX_FUZZY));
+  return{found,notFound:retryNF};
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   §8  CARD PREP
+   ═══════════════════════════════════════════════════════════════ */
+const ANY_NUMBER_RX=/\ba deck can have any number of cards named\b/i;
+const NON_TRIBE=/^(creature|legendary|token|enchantment|artifact|battle|siege|land|planeswalker|sorcery|instant|tribal)$/i;
+function prep(c){
+  if(c._prep)return c._prep;
+  const faces=c.card_faces||[];
+  const t=((c.oracle_text||'')+' '+faces.map(f=>f.oracle_text||'').join(' ')).toLowerCase();
+  const kw=new Set((c.keywords||[]).map(k=>k.toLowerCase()));
+  const type=(c.type_line||'').toLowerCase();
+  const mc=c.mana_cost||(faces[0]&&faces[0].mana_cost)||'';
+  const p={...c,_t:t,_kw:kw,_type:type,_mc:mc,_layout:c.layout||''};
+  try{Object.defineProperty(c,'_prep',{value:p,enumerable:false,configurable:true})}catch(e){}
+  return p;
+}
+function getCreatureSubtypes(typeLine){
+  const subs=new Set();
+  for(const face of (typeLine||'').split('//')){
+    const fl=face.toLowerCase().trim();
+    if(!fl.includes('—')||!/\bcreature\b/.test(fl))continue;
+    for(const s of fl.split('—')[1].trim().split(/\s+/))
+      if(s.length>1&&!NON_TRIBE.test(s)) subs.add(s);
+  }
+  return subs;
+}
+function cardPrice(c){const cur=S.currency||'usd';const p=parseFloat(c.prices?.[cur]);return isNaN(p)?0:p}
+function cardImg(c){if(c.image_uris)return c.image_uris.normal||c.image_uris.small||'';if(c.card_faces?.[0]?.image_uris)return c.card_faces[0].image_uris.normal||c.card_faces[0].image_uris.small||'';return''}
+
+/* ═══════════════════════════════════════════════════════════════
+   §9  THEME ENGINE (regex-based)
+   ═══════════════════════════════════════════════════════════════ */
+const TD=[
+['Tokens','strat',c=>/\bcreates?\b.{0,30}\btoken/.test(c._t),5,'o:create o:token'],
+['Aristocrats','strat',c=>/\bwhen(ever)?.{0,25}\bdies\b/.test(c._t)||(/\bsacrific/.test(c._t)&&/\bdamage|\blose|\bdrain|\bgain/.test(c._t)),3,'o:dies o:sacrifice'],
+['Sacrifice','strat',c=>/\bsacrific/.test(c._t),6,'o:sacrifice'],
+['Voltron','strat',c=>/\bequip\b.*\bgets?\b|\benchant.*\bgets?\b|\battach/.test(c._t),3,'o:equip o:attach'],
+['Spellslinger','strat',c=>/\bwhen(ever)?\s?you\scast\s(a|an)\s(instant|sorcery|noncreature)/.test(c._t)||c._kw.has('magecraft'),3,'o:magecraft'],
+['Stax','strat',c=>/\bopponents?\scan.?t\b/.test(c._t)||/\beach opponent.{0,25}\b(sacrifice|discard|lose|pay)/.test(c._t),3,"o:\"can't\" o:opponent"],
+['Burn','strat',c=>/\bdeals?\s\d+\sdamage\b.*\b(any|each|target)\s?(player|opponent)/.test(c._t),4,'o:damage o:opponent'],
+['Aggro','strat',c=>/creature/.test(c._type)&&(c.cmc||0)<=3&&c._kw.has('haste'),6,'t:creature cmc<=3 o:haste'],
+['Control','strat',c=>/\bcounter target (spell|ability)/.test(c._t)||/\bdestroy (all|each)/.test(c._t),5,'o:"counter target spell"'],
+['Mill','strat',c=>/\bmill\b/.test(c._t),3,'o:mill'],
+['Graveyard','strat',c=>/\bfrom.{0,15}\bgraveyard/.test(c._t)||/\bin your graveyard/.test(c._t),4,'o:graveyard'],
+['Reanimator','strat',c=>/\breturn.{0,40}\bfrom.{0,15}\bgraveyard.{0,25}\bbattlefield/.test(c._t)||c._kw.has('unearth'),3,'o:graveyard o:battlefield'],
+['Lifegain','strat',c=>/\bgains?\s.{0,15}\blife\b/.test(c._t)||c._kw.has('lifelink'),5,'o:"gain" o:"life"'],
+['Blink','strat',c=>/\bexile.{0,30}\breturn.{0,25}\bbattlefield/.test(c._t),3,'o:exile o:return o:battlefield'],
+['Wheels','strat',c=>/\bdiscard.{0,15}\bhand/.test(c._t)&&/\bdraw/.test(c._t),2,'o:discard o:hand o:draw'],
+['Ramp','strat',c=>/\bsearch.{0,25}\bland.{0,20}\bbattlefield/.test(c._t),5,'o:search o:land o:battlefield'],
+['Enchantress','strat',c=>/\bwhen(ever)?.{0,25}\benchant/.test(c._t)&&/\bdraw/.test(c._t),2,'o:enchantment o:draw'],
+['Card Draw','strat',c=>/\bdraws?\s(a|two|three|four|\d+)\s?card/.test(c._t),7,'o:"draw a card"'],
+['Discard','strat',c=>/\bdiscard/.test(c._t),5,'o:discard'],
+['Looting','strat',c=>/\bdraw.{0,25}\bdiscard|\bdiscard.{0,25}\bdraw/.test(c._t),4,'o:draw o:discard'],
+['Theft','strat',c=>/\bgain control\b/.test(c._t),3,'o:"gain control"'],
+['Forced Combat','strat',c=>/\bgoad\b|\bmust attack\b/.test(c._t),3,'o:goad'],
+['Group Slug','strat',c=>/\beach (player|opponent).{0,25}\b(loses?|sacrifice|damage)/.test(c._t),3,'o:"each opponent" o:damage'],
+['Pillow Fort','strat',c=>/\bcan.?t attack you\b/.test(c._t)||/\bprevent.{0,20}\ball.{0,15}\bdamage/.test(c._t),3,"o:\"can't attack\""],
+['Stompy','strat',c=>/creature/.test(c._type)&&parseInt(c.power)>=5,5,'pow>=5 t:creature'],
+['Weenies','strat',c=>/creature/.test(c._type)&&(c.cmc||0)<=2,10,'cmc<=2 t:creature'],
+['Extra Turns','strat',c=>/\bextra turn/.test(c._t),2,'o:"extra turn"'],
+['Lands Matter','strat',c=>/\blands? you control\b|\bplay.{0,10}\badditional land/.test(c._t),4,'o:"lands you control"'],
+['Topdeck','strat',c=>/\blook at the top\b/.test(c._t)||c._kw.has('scry'),5,'o:"top of" o:"library"'],
+['Clones','strat',c=>/\bcopy of\b|\bcopy target (creature|permanent)\b/.test(c._t),3,'o:copy o:creature'],
+['Unblockable','strat',c=>/\bcan.?t be blocked\b/.test(c._t),3,"o:\"can't be blocked\""],
+['Chaos','strat',c=>/\brandom\b|\bflip a coin\b/.test(c._t),4,'o:"flip a coin"'],
+['Saboteurs','strat',c=>/\bwhen(ever)?.{0,30}\bdeals combat damage to (a player|an opponent)/.test(c._t),3,'o:"deals combat damage to"'],
+['X Spells','strat',c=>/\{X\}/.test(c._mc),3,'mana:{X}'],
+['Anthems','strat',c=>/\bcreatures? you control get \+\d/.test(c._t),4,'o:"creatures you control get"'],
+['Boardwipes','strat',c=>/\bdestroy all (creatures?|permanents?|nonland)/.test(c._t),3,'o:"destroy all creatures"'],
+['Counterspells','strat',c=>/\bcounter target (spell|ability)/.test(c._t),5,'o:"counter target spell"'],
+['+1/+1 Counters','mech',c=>/\+1\/\+1 counter/.test(c._t),4,'o:"+1/+1 counter"'],
+['Proliferate','mech',c=>/\bproliferate\b/.test(c._t),3,'o:proliferate'],
+['Landfall','mech',c=>/\blandfall\b/.test(c._t)||c._kw.has('landfall')||/\bwhen(ever)?\s(a|another)?\s?land\s(enters|you play)/.test(c._t),3,'o:landfall'],
+['ETB Effects','mech',c=>/\bwhen.{0,25}\benters\b/.test(c._t),7,'o:"enters the battlefield"'],
+['Death Triggers','mech',c=>/\bwhen(ever)?.{0,25}\bdies\b/.test(c._t),4,'o:whenever o:dies'],
+['Attack Triggers','mech',c=>/\bwhen(ever)?.{0,25}\battacks\b/.test(c._t),4,'o:whenever o:attacks'],
+['Treasure','mech',c=>/\btreasure\b/.test(c._t),4,'o:treasure'],
+['Cascade','mech',c=>c._kw.has('cascade'),3,'o:cascade'],
+['Cycling','mech',c=>c._kw.has('cycling'),4,'o:cycling'],
+['Flashback','mech',c=>c._kw.has('flashback'),4,'o:flashback'],
+['Storm','mech',c=>c._kw.has('storm'),2,'o:storm'],
+['Madness','mech',c=>c._kw.has('madness'),3,'o:madness'],
+['Infect','mech',c=>c._kw.has('infect')||c._kw.has('toxic'),3,'o:infect'],
+['Ninjutsu','mech',c=>c._kw.has('ninjutsu'),3,'o:ninjutsu'],
+['Prowess','mech',c=>c._kw.has('prowess'),3,'o:prowess'],
+['Affinity','mech',c=>c._kw.has('affinity'),3,'o:affinity'],
+['Convoke','mech',c=>c._kw.has('convoke'),3,'o:convoke'],
+['Evoke','mech',c=>c._kw.has('evoke'),3,'o:evoke'],
+['Mutate','mech',c=>c._kw.has('mutate'),3,'o:mutate'],
+['Foretell','mech',c=>c._kw.has('foretell'),3,'o:foretell'],
+['Surveil','mech',c=>c._kw.has('surveil')||/\bsurveil\b/.test(c._t),3,'o:surveil'],
+['Energy','mech',c=>/\{E\}/.test(c._t),3,'o:{E}'],
+['Flying','mech',c=>c._kw.has('flying'),8,'o:flying'],
+['Deathtouch','mech',c=>c._kw.has('deathtouch'),5,'o:deathtouch'],
+['Haste','mech',c=>c._kw.has('haste'),7,'o:haste'],
+['Flash','mech',c=>c._kw.has('flash'),5,'o:flash'],
+['Devotion','mech',c=>/\bdevotion\b/.test(c._t),3,'o:devotion'],
+['Monarch','mech',c=>/\bmonarch\b/.test(c._t),3,'o:monarch'],
+['Trample','mech',c=>c._kw.has('trample'),5,'o:trample'],
+['Double Strike','mech',c=>c._kw.has('double strike'),3,'o:"double strike"'],
+['Vigilance','mech',c=>c._kw.has('vigilance'),5,'o:vigilance'],
+['Ward','mech',c=>c._kw.has('ward'),4,'o:ward'],
+['Artifacts','type',c=>/\bartifact\b/.test(c._type)&&!/\bland\b/.test(c._type),7,'t:artifact'],
+['Enchantments','type',c=>/\benchantment\b/.test(c._type),6,'t:enchantment'],
+['Equipment','type',c=>/\bequipment\b/.test(c._type),4,'t:equipment'],
+['Auras','type',c=>/\baura\b/.test(c._type),4,'t:aura'],
+['Planeswalkers','type',c=>/\bplaneswalker\b/.test(c._type),3,'t:planeswalker'],
+['Vehicles','type',c=>/\bvehicle\b/.test(c._type),3,'t:vehicle'],
+['Sagas','type',c=>/\bsaga\b/.test(c._type),3,'t:saga'],
+['Legends','type',c=>/\blegendary\b/.test(c._type)&&/creature/.test(c._type),6,'t:legendary t:creature'],
+];
+const THEME_SQ={};for(const[tag,,,,sq]of TD)if(sq)THEME_SQ[tag]=sq;
+
+function detectThemes(cards,parsed){
+  const prepped=cards.map(prep),counts={},catOf={},examples={};
+  for(const[tag,cat,test,min]of TD){
+    let n=0,ex=[];
+    for(const c of prepped)if(test(c)){n++;if(ex.length<5)ex.push(c.name)}
+    if(n>=min){counts[tag]=n;catOf[tag]=cat;examples[tag]=ex}
+  }
+  const tribes={},tribeEx={};
+  for(const c of prepped)for(const s of getCreatureSubtypes(c.type_line)){tribes[s]=(tribes[s]||0)+1;if(!tribeEx[s])tribeEx[s]=[];if(tribeEx[s].length<5)tribeEx[s].push(c.name)}
+  for(const[tribe,n]of Object.entries(tribes))if(n>=5){counts[tribe]=n;catOf[tribe]='tribal';examples[tribe]=tribeEx[tribe]}
+  for(const c of prepped)if(ANY_NUMBER_RX.test(c._t)){const cn=c.name.split(' // ')[0];const e=parsed.find(p=>p.name.toLowerCase()===cn.toLowerCase());if(e?.qty>=4){counts[cn]=e.qty;catOf[cn]='strat';examples[cn]=[cn]}}
+  return Object.entries(counts).map(([tag,n])=>({tag,count:n,cat:catOf[tag],examples:examples[tag]||[]})).sort((a,b)=>b.count-a.count);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   §9b  ORACLE TAG DETECTION
+   ═══════════════════════════════════════════════════════════════ */
+async function detectOtags(deckCards,prog){
+  if(!deckCards.length)return[];
+  const deckNames=new Set();
+  for(const c of deckCards){
+    const n=(c.name||'').toLowerCase().split(' // ')[0].trim();
+    if(n)deckNames.add(n);
+  }
+  S.deckOtagMap.clear();
+  const results=[];
+  for(let i=0;i<OTAGS.length;i++){
+    if(isCircuitOpen()){console.warn('[Otag] Circuit open, stopping');break}
+    const o=OTAGS[i];
+    prog(`Otag ${i+1}/${OTAGS.length}: ${o.label}…`);
+    let cards=[];
+    try{
+      cards=await fetchSR(`otag:${o.tag} game:paper`,250);
+    }catch(e){
+      if(e.name==='AbortError')throw e;
+      console.warn(`[Otag] Failed: ${o.tag}`,e);
+      continue;
+    }
+    if(!cards.length){console.warn(`[Otag] "${o.tag}" returned 0 cards — tag may not exist on Scryfall`);continue}
+    let count=0;const examples=[];const matchedNames=[];
+    for(const c of cards){
+      const n=(c.name||'').toLowerCase().split(' // ')[0].trim();
+      if(deckNames.has(n)){
+        count++;
+        matchedNames.push(c.name);
+        if(examples.length<5)examples.push(c.name);
+        if(!S.deckOtagMap.has(n))S.deckOtagMap.set(n,new Set());
+        S.deckOtagMap.get(n).add(o.tag);
+      }
+    }
+    if(count>=o.min){
+      results.push({tag:o.label,count,cat:'otag',examples,otagKey:o.tag});
+    }
+  }
+  results.sort((a,b)=>b.count-a.count);
+  return results;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   §10  PARTNER & COMPANION
+   ═══════════════════════════════════════════════════════════════ */
+function getPartnerType(card){
+  const oT=((card.oracle_text||'')+(card.card_faces||[]).map(f=>f.oracle_text||'').join(' ')).toLowerCase();
+  const kws=new Set((card.keywords||[]).map(k=>k.toLowerCase()));
+  const pw=oT.match(/partner with\s+([^.(]+)/);
+  if(pw)return{type:'partner-with',partnerName:pw[1].trim()};
+  if(/choose a background/.test(oT))return{type:'background'};
+  if(kws.has('friends forever')||/friends forever/.test(oT))return{type:'friends-forever'};
+  if(/doctor's companion/.test(oT))return{type:'doctors-companion'};
+  if(kws.has('partner'))return{type:'partner'};
+  return{type:'none'};
+}
+function hasCompanion(card){
+  const oT=((card.oracle_text||'')+(card.card_faces||[]).map(f=>f.oracle_text||'').join(' ')).toLowerCase();
+  return/companion\s*[—–-]/.test(oT);
+}
+function isValidPartnerFor(card,pt){
+  const ct=getPartnerType(card);
+  switch(pt.type){
+    case'partner':return ct.type==='partner';
+    case'partner-with':{const t=pt.partnerName.toLowerCase(),cn=card.name.toLowerCase().split(' // ')[0];return cn===t||cn.startsWith(t)||t.startsWith(cn)}
+    case'background':return/\bbackground\b/i.test(card.type_line||'');
+    case'friends-forever':return ct.type==='friends-forever';
+    case'doctors-companion':return/\bdoctor\b/i.test(card.type_line||'')&&/\bcreature\b/i.test(card.type_line||'');
+    default:return false;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   §11  COMMANDER ELIGIBILITY & SEARCH
+   ═══════════════════════════════════════════════════════════════ */
+function isCommanderEligible(card){
+  if(card.legalities?.commander!=='legal')return false;
+  const t=(card.type_line||'').toLowerCase();
+  const o=((card.oracle_text||'')+(card.card_faces||[]).map(f=>f.oracle_text||'').join(' ')).toLowerCase();
+  if(/can be your commander/.test(o))return true;
+  const front=(card.card_faces&&card.card_faces.length>=2)?(card.card_faces[0].type_line||'').toLowerCase():t;
+  if(/\bbattle\b/.test(front)||/\binstant\b/.test(front)||/\bsorcery\b/.test(front))return false;
+  if(/\blegendary\b/.test(front)&&/\bcreature\b/.test(front))return true;
+  if(/\blegendary\b/.test(front)&&(/\bvehicle\b/.test(front)||/\bspacecraft\b/.test(front))){
+    const pw=card.power||(card.card_faces?.[0]?.power);
+    const tw=card.toughness||(card.card_faces?.[0]?.toughness);
+    if(pw!=null&&tw!=null)return true;
+  }
+  return false;
+}
+function buildCIF(ci,mode){if(!ci)return' id<=C';if(mode==='exact')return` id=${ci}`;return` id>=${ci}`}
+async function fetchSR(q,max){
+  const cards=[];let url=`${API}/cards/search?q=${encodeURIComponent(q)}`;
+  while(url&&cards.length<max){if(isCircuitOpen())break;try{const r=await apiFetch(url);if(!r.ok)break;const j=await r.json();if(j.data)cards.push(...j.data);url=(j.has_more&&j.next_page&&cards.length<max)?j.next_page:null}catch(e){if(e.name==='AbortError')throw e;break}}
+  return cards.slice(0,max);
+}
+
+async function searchCommanders(ci,themes,prog){
+  const map=new Map();
+  const add=(cards,otagKey)=>{
+    for(const c of cards){
+      if(!map.has(c.name)&&c.legalities?.commander==='legal')map.set(c.name,c);
+      if(otagKey){
+        if(!S.cmdOtagMap.has(c.name))S.cmdOtagMap.set(c.name,new Set());
+        S.cmdOtagMap.get(c.name).add(otagKey);
+      }
+    }
+  };
+  if(isCircuitOpen())return map;
+  prog('Searching commanders…');add(await fetchSR(`is:commander game:paper${buildCIF(ci,'exact')} order:edhrec`,60));
+  const used=new Set();let sc=0;
+  for(const th of themes){
+    if(sc>=4||isCircuitOpen())break;
+    let sq=null,otagKey=null;
+    if(th.cat==='otag'&&th.otagKey){sq=`otag:${th.otagKey}`;otagKey=th.otagKey}
+    else sq=THEME_SQ[th.tag]||(th.cat==='tribal'?`t:"${th.tag}"`:null);
+    if(!sq||used.has(sq))continue;
+    used.add(sq);
+    prog(`Theme: ${th.tag}…`);
+    add(await fetchSR(`is:commander game:paper${buildCIF(ci,'super')} ${sq} order:edhrec`,25),otagKey);
+    sc++;
+  }
+  if(!isCircuitOpen()&&ci.length>0&&ci.length<5){
+    const ext=WUBRG.filter(c=>!ci.includes(c));
+    if(ext.length){const exp=ciKey(new Set([...ci,ext[0]]));prog(`Searching ${ciInfo(exp).n}…`);add(await fetchSR(`is:commander game:paper id=${exp} order:edhrec`,20))}
+  }
+  return map;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   §12  SCORING
+   ═══════════════════════════════════════════════════════════════ */
+function getDeckStats(deckCards){
+  const deckTribes={};let nCre=0,nIS=0,nArt=0,nEnch=0;
+  for(const c of deckCards){
+    const t=(c.type_line||'').toLowerCase();
+    if(/creature/.test(t)){nCre++;for(const s of getCreatureSubtypes(c.type_line))deckTribes[s]=(deckTribes[s]||0)+1}
+    if(/instant|sorcery/.test(t))nIS++;if(/artifact/.test(t)&&!/land/.test(t))nArt++;if(/enchantment/.test(t))nEnch++;
+  }
+  return{deckTribes,nCre,nIS,nArt,nEnch,N:deckCards.length||1};
+}
+function extractCardDisplay(card){
+  const p=prep(card),oT=p._t;
+  const img=cardImg(card);
+  let oracle=card.oracle_text||'';if(!oracle&&card.card_faces)oracle=card.card_faces.map(f=>f.oracle_text||'').filter(Boolean).join('\n—\n');
+  const mc=card.mana_cost||(card.card_faces?.[0]?.mana_cost)||'';
+  const kws=(card.keywords||[]).map(k=>k.toLowerCase());
+  const isPart=kws.includes('partner')||/\bpartner\b/.test(oT)||/\bchoose a background\b/.test(oT)||kws.includes('friends forever')||/friends forever/.test(oT)||/doctor's companion/.test(oT);
+  return{imageUri:img,oracleText:oracle,manaCost:mc,typeLine:card.type_line||'',scryfallUri:card.scryfall_uri||'',isPartner:isPart,isCompanion:hasCompanion(card),edhrecRank:card.edhrec_rank??99999,cmc:card.cmc||0,price:cardPrice(card),color_identity:card.color_identity||[]};
+}
+function rankBonus(rank){const SC=SCORING;if(rank<100)return SC.rankTop100;if(rank<300)return SC.rankTop300;if(rank<800)return SC.rankTop800;if(rank<2000)return SC.rankTop2k;if(rank<5000)return SC.rankTop5k;if(rank<15000)return SC.rankTop15k;return 0}
+
+function scoreCommanders(cmdMap,deckCI,themes,deckCards){
+  const dk=ciKey(deckCI),results=[];const{deckTribes,nIS,nArt,nEnch,N}=getDeckStats(deckCards);
+  for(const[name,card]of cmdMap){
+    let score=0;const reasons=[],breakdown=[];const cmdCI=ciKeyArr(card.color_identity||[]);
+    const p=prep(card),oT=p._t,tL=p._type;
+    if(cmdCI===dk){score+=SCORING.exactColor;reasons.push('Exact color match');breakdown.push(['Exact color match',SCORING.exactColor])}
+    else{const x=cmdCI.length-dk.length;if(x===1){score+=SCORING.extraColor1;reasons.push(`+1 color (${ciInfo(cmdCI).n})`);breakdown.push([`+1 color (${ciInfo(cmdCI).n})`,SCORING.extraColor1])}else if(x===2){score+=SCORING.extraColor2;breakdown.push(['+2 colors',SCORING.extraColor2])}else if(x>=3){score+=SCORING.extraColor3p;breakdown.push(['+3 colors',SCORING.extraColor3p])}else{score+=SCORING.subsetColor;breakdown.push(['Color subset',SCORING.subsetColor])}}
+    let otagHits=0;
+    for(const th of themes){
+      let hit=false;
+      if(th.cat==='otag'){
+        hit=S.cmdOtagMap.get(name)?.has(th.otagKey)||false;
+        if(hit)otagHits++;
+      }else if(th.cat==='tribal'){
+        if(oT.includes(th.tag.toLowerCase())||tL.includes(th.tag.toLowerCase()))hit=true;
+      }else{
+        for(const[dtag,,test]of TD)if(dtag===th.tag&&test(p)){hit=true;break}
+      }
+      if(hit){
+        const pts=Math.min(th.count*SCORING.themeMult,SCORING.themeMax);
+        score+=pts;
+        const label=th.cat==='otag'?`🔖 ${th.tag}`:th.tag;
+        reasons.push(label);
+        breakdown.push([`Theme: ${label}`,pts]);
+      }
+    }
+    if(otagHits>=2){const b=SCORING.otagBonus*(otagHits-1);score+=b;breakdown.push([`🔖 Multi-otag synergy (×${otagHits})`,b])}
+    const rb=rankBonus(card.edhrec_rank??99999);if(rb>0){score+=rb;breakdown.push(['EDHREC popularity',rb])}
+    for(const lc of getCreatureSubtypes(card.type_line||'')){if(deckTribes[lc]>=3){const pts=Math.min(deckTribes[lc],SCORING.tribalMax);score+=pts;const cap=lc.charAt(0).toUpperCase()+lc.slice(1);if(!reasons.some(r=>r.toLowerCase()===lc))reasons.push(cap);breakdown.push([`Tribal: ${cap}`,pts])}}
+    if(nIS/N>.25&&/instant|sorcery|noncreature/.test(oT)){score+=SCORING.spellHeavy;reasons.push('Spell-heavy');breakdown.push(['Spell-heavy synergy',SCORING.spellHeavy])}
+    if(nArt/N>.2&&/artifact/.test(oT)){score+=SCORING.spellHeavy;reasons.push('Artifact-heavy');breakdown.push(['Artifact-heavy synergy',SCORING.spellHeavy])}
+    if(nEnch/N>.15&&/enchantment/.test(oT)){score+=SCORING.spellHeavy;reasons.push('Enchantment-heavy');breakdown.push(['Enchantment-heavy synergy',SCORING.spellHeavy])}
+    results.push({name,score,reasons:[...new Set(reasons)],breakdown,otagHits,...extractCardDisplay(card)});
+  }
+  results.sort((a,b)=>b.score-a.score);return results.slice(0,15);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   §13  PARTNER SCORING & SEARCH
+   ═══════════════════════════════════════════════════════════════ */
+let _partnerSearchId=0;
+async function searchExternalPartners(pt,prog){
+  const map=new Map(),add=cards=>{for(const c of cards)if(!map.has(c.name))map.set(c.name,c)};
+  if(isCircuitOpen())return map;
+  switch(pt.type){
+    case'partner-with':prog(`Fetching ${pt.partnerName}…`);try{const r=await apiFetch(`${API}/cards/named?exact=${encodeURIComponent(pt.partnerName)}`);if(r.ok)add([await r.json()])}catch(e){if(e.name==='AbortError')throw e}break;
+    case'background':prog('Searching Backgrounds…');add(await fetchSR('t:background game:paper order:edhrec',50));break;
+    case'friends-forever':prog('Searching Friends Forever…');add(await fetchSR('is:commander game:paper o:"friends forever" order:edhrec',50));break;
+    case'doctors-companion':prog('Searching Doctors…');add(await fetchSR('is:commander game:paper t:doctor t:creature order:edhrec',40));break;
+    default:prog('Searching Partners…');add(await fetchSR("is:commander game:paper keyword:partner -o:\"partner with\" -o:\"choose a background\" -o:\"friends forever\" -o:\"doctor's companion\" order:edhrec",60));break;
+  }
+  return map;
+}
+function scorePartners(pMap,primaryCmd,deckCI,themes,deckCards){
+  const dk=ciKey(deckCI),results=[];const primaryCISet=new Set(primaryCmd.color_identity||[]);
+  const{deckTribes,nIS,nArt,nEnch,N}=getDeckStats(deckCards);
+  const primaryP=prep(primaryCmd),primaryThemes=new Set();for(const[tag,,test]of TD)if(test(primaryP))primaryThemes.add(tag);
+  const primarySubs=getCreatureSubtypes(primaryCmd.type_line||'');
+  for(const[name,card]of pMap){
+    let score=0;const reasons=[],breakdown=[];const pCISet=new Set(card.color_identity||[]);
+    const p=prep(card),oT=p._t,tL=p._type;
+    const deckColors=dk.split(''),missing=deckColors.filter(c=>!primaryCISet.has(c)),filled=missing.filter(c=>pCISet.has(c));
+    const combined=new Set([...primaryCISet,...pCISet]),combinedKey=ciKey(combined);
+    if(combinedKey===dk){score+=25;reasons.push('Exact combined colors');breakdown.push(['Exact combined colors',25])}
+    else if(filled.length===missing.length&&missing.length>0){score+=20;reasons.push('Covers missing colors');breakdown.push(['Covers missing colors',20])}
+    else if(filled.length>0){score+=10*filled.length;reasons.push(`Adds ${filled.join('')}`);breakdown.push([`Adds ${filled.join('')}`,10*filled.length])}
+    const extra=[...pCISet].filter(c=>!deckColors.includes(c));if(extra.length){score-=extra.length*3;breakdown.push(['Extra colors penalty',-extra.length*3])}
+    for(const th of themes){
+      let hit=false;
+      if(th.cat==='otag'){hit=S.cmdOtagMap.get(name)?.has(th.otagKey)||false}
+      else if(th.cat==='tribal'){if(oT.includes(th.tag.toLowerCase())||tL.includes(th.tag.toLowerCase()))hit=true}
+      else{for(const[dtag,,test]of TD)if(dtag===th.tag&&test(p)){hit=true;break}}
+      if(hit){
+        const pts=Math.min(th.count*2,12);score+=pts;
+        const label=th.cat==='otag'?`🔖 ${th.tag}`:th.tag;
+        reasons.push(label);breakdown.push([`Theme: ${label}`,pts]);
+      }
+    }
+    for(const[tag,,test]of TD)if(primaryThemes.has(tag)&&test(p)){score+=4;if(!reasons.includes(tag)&&reasons.length<6)reasons.push('↔'+tag);breakdown.push([`Shared w/ primary: ${tag}`,4])}
+    for(const s of getCreatureSubtypes(card.type_line||'')){if(primarySubs.has(s)){score+=6;reasons.push('Shared: '+s);breakdown.push([`Shared tribe: ${s}`,6])}else if(deckTribes[s]>=3){const pts=Math.min(deckTribes[s],8);score+=pts;reasons.push(s.charAt(0).toUpperCase()+s.slice(1));breakdown.push([`Tribal: ${s}`,pts])}}
+    const rb=rankBonus(card.edhrec_rank??99999);if(rb>0){score+=rb;breakdown.push(['EDHREC popularity',rb])}
+    if(nIS/N>.25&&/instant|sorcery|noncreature/.test(oT)){score+=4;reasons.push('Spell-heavy');breakdown.push(['Spell-heavy synergy',4])}
+    if(nArt/N>.2&&/artifact/.test(oT)){score+=4;reasons.push('Artifact-heavy');breakdown.push(['Artifact-heavy synergy',4])}
+    if(nEnch/N>.15&&/enchantment/.test(oT)){score+=4;reasons.push('Enchantment-heavy');breakdown.push(['Enchantment-heavy synergy',4])}
+    results.push({name,score,reasons:[...new Set(reasons)],breakdown,...extractCardDisplay(card)});
+  }
+  results.sort((a,b)=>b.score-a.score);return results.slice(0,12);
+}
+
+async function showPartnerArea(primaryCmd,pt){
+  const myId=++_partnerSearchId;
+  const area=$('partnerArea'),info=$('partnerInfo'),loading=$('partnerLoading');
+  const idSec=$('partnerInDeckSection'),rSec=$('partnerRecSection'),idGrid=$('partnerInDeckGrid'),rGrid=$('partnerRecGrid');
+  let msg=pt.type==='partner-with'?`Partners with <strong>${esc(pt.partnerName)}</strong>.`:pt.type==='background'?'<strong>Choose a Background</strong>.':pt.type==='friends-forever'?'<strong>Friends Forever</strong> — pick another.':pt.type==='doctors-companion'?"<strong>Doctor's Companion</strong> — pick a Doctor.":'<strong>Partner</strong> — pick a second.';
+  info.innerHTML=msg+`<div><button class="btn-solo" onclick="useSoloCommander()">⚔️ Use as Solo Commander Instead</button></div>`;
+  area.style.display='';idSec.style.display='none';rSec.style.display='none';loading.style.display='';
+  area.scrollIntoView({behavior:'smooth',block:'start'});$('partnerTitle').focus();
+  resetCircuit();const prog=t=>{const p=loading.querySelector('p');if(p)p.textContent=t};
+  const inDeck=S.deckCardData.filter(c=>c.name!==primaryCmd.name&&isValidPartnerFor(c,pt));
+  const ext=await searchExternalPartners(pt,prog);if(myId!==_partnerSearchId)return;
+  const inDeckNames=new Set(inDeck.map(c=>c.name.toLowerCase()));inDeckNames.add(primaryCmd.name.toLowerCase());
+  for(const[n]of ext)if(inDeckNames.has(n.toLowerCase()))ext.delete(n);
+  S.partnerCards.clear();inDeck.forEach(c=>S.partnerCards.set(c.name,c));for(const[n,c]of ext)S.partnerCards.set(n,c);
+  const idScored=scorePartners(new Map(inDeck.map(c=>[c.name,c])),primaryCmd,S.deckColorIdentity,S.themes,S.deckCardData);
+  const extScored=scorePartners(ext,primaryCmd,S.deckColorIdentity,S.themes,S.deckCardData);
+  const all=[...idScored,...extScored];const top=all[0]?.score||1;all.forEach(r=>{r._pct=Math.max(1,Math.round(r.score/top*100));S.lastScoreDetails.set(r.name,r.breakdown||[])});
+  loading.style.display='none';
+  if(idScored.length){idGrid.innerHTML=idScored.map((c,i)=>renderCmdCard(c,i,'partner-deck','partner')).join('');idSec.style.display=''}
+  if(extScored.length){rGrid.innerHTML=extScored.map((c,i)=>renderCmdCard(c,i,'partner-recommended','partner')).join('');rSec.style.display=''}
+  if(!idScored.length&&!extScored.length){rGrid.innerHTML='<p style="color:var(--muted);padding:16px">No partners found.</p>';rSec.style.display=''}
+}
+async function showCompanionCommanderArea(compCard){
+  const myId=++_partnerSearchId;
+  const area=$('partnerArea'),info=$('partnerInfo'),loading=$('partnerLoading');
+  const idSec=$('partnerInDeckSection'),rSec=$('partnerRecSection'),idGrid=$('partnerInDeckGrid'),rGrid=$('partnerRecGrid');
+  info.innerHTML=`<strong>${esc(compCard.name)}</strong> is a Companion. Select a commander to pair with it.<div><button class="btn-solo" onclick="useSoloCommander()">⚔️ Use as Solo Commander Instead</button></div>`;
+  area.style.display='';idSec.style.display='none';rSec.style.display='none';loading.style.display='';
+  area.scrollIntoView({behavior:'smooth',block:'start'});$('partnerTitle').focus();
+  resetCircuit();const prog=t=>{const p=loading.querySelector('p');if(p)p.textContent=t};
+  const inDeck=S.deckCardData.filter(c=>c.name!==compCard.name&&isCommanderEligible(c));
+  const ck=ciKey(S.deckColorIdentity);prog('Searching commanders…');
+  const ext=await searchCommanders(ck,S.themes,prog);if(myId!==_partnerSearchId)return;
+  const inDeckNames=new Set(inDeck.map(c=>c.name.toLowerCase()));inDeckNames.add(compCard.name.toLowerCase());
+  for(const[n]of ext)if(inDeckNames.has(n.toLowerCase()))ext.delete(n);
+  S.partnerCards.clear();inDeck.forEach(c=>S.partnerCards.set(c.name,c));for(const[n,c]of ext)S.partnerCards.set(n,c);
+  const idScored=scoreCommanders(new Map(inDeck.map(c=>[c.name,c])),S.deckColorIdentity,S.themes,S.deckCardData);
+  const extScored=scoreCommanders(ext,S.deckColorIdentity,S.themes,S.deckCardData);
+  const all=[...idScored,...extScored];const top=all[0]?.score||1;all.forEach(r=>{r._pct=Math.max(1,Math.round(r.score/top*100));S.lastScoreDetails.set(r.name,r.breakdown||[])});
+  loading.style.display='none';
+  if(idScored.length){idGrid.innerHTML=idScored.map((c,i)=>renderCmdCard(c,i,'partner-deck','partner')).join('');document.querySelector('#partnerInDeckSection > p').textContent='⭐ Commanders in Your Deck';idSec.style.display=''}
+  if(extScored.length){rGrid.innerHTML=extScored.map((c,i)=>renderCmdCard(c,i,'partner-recommended','partner')).join('');document.querySelector('#partnerRecSection > p').textContent='👑 Recommended Commanders';rSec.style.display=''}
+  if(!idScored.length&&!extScored.length){rGrid.innerHTML='<p style="color:var(--muted);padding:16px">No commanders found.</p>';rSec.style.display=''}
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   §14  TRIMMER & FILLER
+   ═══════════════════════════════════════════════════════════════ */
+function runTrimmer(commanders,deckCardData,parsedList){
+  const target=99-(commanders.length-1);
+  const cmdCI=new Set();commanders.forEach(cmd=>(cmd.color_identity||[]).forEach(c=>cmdCI.add(c)));
+  const cmdNames=new Set(commanders.map(cmd=>cmd.name.toLowerCase().split(' // ')[0]));
+  const cmdThemes=new Set(),cmdSubs=new Set();
+  for(const cmd of commanders){const p=prep(cmd);for(const[tag,,test]of TD)if(test(p))cmdThemes.add(tag);for(const s of getCreatureSubtypes(cmd.type_line||''))cmdSubs.add(s)}
+  const lookup=new Map();for(const c of deckCardData)lookup.set(c.name.toLowerCase().split(' // ')[0],c);
+  const slots=[];
+  for(const entry of parsedList){
+    const nameL=entry.name.toLowerCase();if(cmdNames.has(nameL))continue;
+    const cd=lookup.get(nameL)||deckCardData.find(c=>c.name.toLowerCase().startsWith(nameL));
+    if(!cd){for(let i=0;i<entry.qty;i++)slots.push({name:entry.name,score:0,flags:['Not found'],isLand:false,isBasic:false,cd:null,category:'unknown'});continue}
+    const p=prep(cd),isLand=/\bland\b/.test(p._type),isBasic=isLand&&/\bbasic\b/.test(p._type);
+    const illegal=(cd.color_identity||[]).some(c=>!cmdCI.has(c));
+    let score=10,flags=[];
+    if(illegal){score=-1000;flags=['Outside color identity']}else{
+      if(isLand){score+=25;if(isBasic)score+=10;flags.push('Land')}
+      if(/\badd(s)?\s\{[WUBRGC]/.test(p._t)||/\bsearch.{0,25}\bland.{0,20}\bbattlefield/.test(p._t)){score+=15;flags.push('Ramp')}
+      if(/\bdraws?\sa\scard/.test(p._t)){score+=8;flags.push('Draw')}
+      if(/\bdestroy target\b|\bexile target\b/.test(p._t)){score+=8;flags.push('Removal')}
+      let th=0;for(const[tag,,test]of TD)if(cmdThemes.has(tag)&&test(p)){score+=5;th++;if(th<=3)flags.push(tag)}
+      const cdName=cd.name.toLowerCase().split(' // ')[0];
+      const cardOtags=S.deckOtagMap.get(cdName);
+      if(cardOtags&&cardOtags.size>0){score+=cardOtags.size*4;if(flags.length<5)flags.push('🔖×'+cardOtags.size)}
+      for(const s of getCreatureSubtypes(cd.type_line||''))if(cmdSubs.has(s)){score+=8;flags.push('Tribal: '+s.charAt(0).toUpperCase()+s.slice(1))}
+      const rank=cd.edhrec_rank||99999;if(rank<50)score+=15;else if(rank<200)score+=12;else if(rank<500)score+=8;else if(rank<2000)score+=5;
+      if((cd.cmc||0)>=7&&th===0&&!isLand)score-=5;
+    }
+    for(let i=0;i<entry.qty;i++){const dup=i>0&&!isBasic&&!ANY_NUMBER_RX.test(p._t);slots.push({name:entry.name,score:dup?-500:score,flags:dup?['Duplicate (singleton)']:flags.slice(),isLand,isBasic,cd,category:illegal?'illegal':dup?'illegal':isLand?'land':'nonland'})}
+  }
+  const illegal=slots.filter(s=>s.category==='illegal').sort((a,b)=>a.score-b.score);
+  const unknown=slots.filter(s=>s.category==='unknown');
+  const lands=slots.filter(s=>s.category==='land').sort((a,b)=>b.score-a.score);
+  const nonlands=slots.filter(s=>s.category==='nonland').sort((a,b)=>b.score-a.score);
+  let totalCMC=0,cN=0;for(const s of nonlands)if(s.cd){totalCMC+=(s.cd.cmc||0);cN++}
+  const avgCMC=cN?totalCMC/cN:3;let targetLands=Math.min(targetLandCount(avgCMC),lands.length);
+  const targetNL=target-targetLands;
+  return{keep:[...lands.slice(0,targetLands),...nonlands.slice(0,Math.min(targetNL,nonlands.length))],cut:[...illegal,...lands.slice(targetLands),...nonlands.slice(Math.min(targetNL,nonlands.length))],illegal,unknown,total:slots.length,target,targetLands,avgCMC};
+}
+async function runFiller(commanders,deckCardData,parsedList,prog){
+  const target=99-(commanders.length-1);
+  const cmdCI=new Set();commanders.forEach(cmd=>(cmd.color_identity||[]).forEach(c=>cmdCI.add(c)));
+  const ci=ciKey(cmdCI),cmdNames=new Set(commanders.map(cmd=>cmd.name.toLowerCase().split(' // ')[0]));
+  const existingNames=new Set(),pool=parsedList.filter(p=>!cmdNames.has(p.name.toLowerCase()));
+  pool.forEach(p=>existingNames.add(p.name.toLowerCase()));
+  const currentQty=pool.reduce((s,p)=>s+p.qty,0),needed=target-currentQty;
+  if(needed<=0)return{suggestions:[],needed:0,existingNames};
+  const roles={ramp:0,draw:0,removal:0,lands:0,wipe:0};
+  for(const c of deckCardData){const p=prep(c),t=p._type;if(/\bland\b/.test(t))roles.lands++;if(/\bsearch.{0,25}\bland/.test(p._t)||/\badd(s)?\s\{[WUBRGC]/.test(p._t))roles.ramp++;if(/\bdraws?\s(a|two|three|\d+)\s?card/.test(p._t))roles.draw++;if(/\bdestroy target\b|\bexile target\b/.test(p._t))roles.removal++;if(/\bdestroy all\b/.test(p._t))roles.wipe++}
+  const cmdThemes=[],cmdSubsList=[];
+  for(const cmd of commanders){const cmdP=prep(cmd);for(const[tag,,test,,sq]of TD)if(test(cmdP)&&sq)cmdThemes.push({tag,sq});for(const s of getCreatureSubtypes(cmd.type_line||''))if(!cmdSubsList.includes(s))cmdSubsList.push(s)}
+  const searches=[],colorF=ci?` id<=${ci}`:'';
+  for(const th of cmdThemes.slice(0,2))searches.push({label:`Theme: ${th.tag}`,q:`game:paper${colorF} ${th.sq} order:edhrec`,role:'theme'});
+  if(S.otagThemes.length){
+    for(const ot of S.otagThemes.slice(0,2))searches.push({label:`🔖 ${ot.tag}`,q:`game:paper${colorF} otag:${ot.otagKey} order:edhrec`,role:'otag-'+ot.otagKey});
+  }
+  for(const sub of cmdSubsList.slice(0,1))searches.push({label:`Tribal: ${sub}`,q:`game:paper${colorF} t:"${sub}" order:edhrec`,role:'tribal'});
+  if(roles.ramp<ROLE_TARGET.ramp)searches.push({label:'Ramp',q:`game:paper${colorF} o:"add" t:creature cmc<=3 order:edhrec`,role:'ramp'});
+  if(roles.draw<ROLE_TARGET.draw)searches.push({label:'Draw',q:`game:paper${colorF} o:"draw a card" order:edhrec`,role:'draw'});
+  if(roles.removal<ROLE_TARGET.removal)searches.push({label:'Removal',q:`game:paper${colorF} o:"destroy target" order:edhrec`,role:'removal'});
+  if(roles.wipe<ROLE_TARGET.wipe)searches.push({label:'Wipes',q:`game:paper${colorF} o:"destroy all creatures" order:edhrec`,role:'wipe'});
+  searches.push({label:'Staples',q:`game:paper${colorF} -t:basic order:edhrec`,role:'staple'});
+  const candidates=new Map();
+  for(const s of searches.slice(0,6)){if(isCircuitOpen())break;prog(`Searching: ${s.label}…`);const cards=await fetchSR(s.q,40);for(const c of cards){if(existingNames.has(c.name.toLowerCase())||cmdNames.has(c.name.toLowerCase().split(' // ')[0]))continue;if(c.legalities?.commander!=='legal')continue;if((c.color_identity||[]).some(x=>!cmdCI.has(x)))continue;if(!candidates.has(c.name))candidates.set(c.name,{card:c,roles:[s.role]});else candidates.get(c.name).roles.push(s.role)}}
+  const scored=[];const allCmdTags=new Set(cmdThemes.map(t=>t.tag));
+  for(const[name,{card,roles:r}]of candidates){
+    const p=prep(card);let score=0;const flags=[];
+    for(const[tag,,test]of TD)if(allCmdTags.has(tag)&&test(p)){score+=8;if(flags.length<3)flags.push(tag)}
+    for(const s of getCreatureSubtypes(card.type_line||''))if(cmdSubsList.includes(s)){score+=10;flags.push('Tribal: '+s.charAt(0).toUpperCase()+s.slice(1))}
+    if(r.includes('ramp')){score+=6;flags.push('Ramp')}if(r.includes('draw')){score+=6;flags.push('Draw')}if(r.includes('removal')){score+=6;flags.push('Removal')}if(r.includes('wipe')){score+=5;flags.push('Wipe')}
+    const otagRoles=r.filter(x=>x.startsWith('otag-'));
+    if(otagRoles.length){score+=8*otagRoles.length;flags.push('🔖×'+otagRoles.length)}
+    const rank=card.edhrec_rank||99999;if(rank<100)score+=18;else if(rank<300)score+=14;else if(rank<800)score+=10;else if(rank<2000)score+=6;else if(rank<5000)score+=3;
+    if((card.cmc||0)<=3&&!/land/.test(p._type))score+=3;if(/\blegendary\b/.test(p._type)&&/\bcreature\b/.test(p._type))score-=3;
+    const img=cardImg(card);
+    scored.push({name,score,flags:[...new Set(flags)],card,imageUri:img,typeLine:card.type_line||'',manaCost:card.mana_cost||(card.card_faces?.[0]?.mana_cost)||'',oracleText:card.oracle_text||'',isLand:/\bland\b/.test(p._type),scryfallUri:card.scryfall_uri||''});
+  }
+  scored.sort((a,b)=>b.score-a.score);
+  const landGap=Math.max(0,ROLE_TARGET.lands-roles.lands),nlGap=needed-landGap;
+  const landSug=scored.filter(s=>s.isLand).slice(0,landGap);
+  const nlSug=scored.filter(s=>!s.isLand).slice(0,Math.max(0,nlGap));
+  const bf=Math.max(0,landGap-landSug.length),basicSug=[];
+  if(bf>0){const ctb={W:'Plains',U:'Island',B:'Swamp',R:'Mountain',G:'Forest'},colors=[...cmdCI].filter(c=>ctb[c]);if(colors.length){const per=Math.floor(bf/colors.length),rem=bf%colors.length;colors.forEach((c,i)=>{const qty=per+(i<rem?1:0);if(qty>0)basicSug.push({name:ctb[c],qty,isBasic:true})})}else basicSug.push({name:'Wastes',qty:bf,isBasic:true})}
+  const totalS=landSug.length+nlSug.length+basicSug.reduce((s,b)=>s+b.qty,0),still=needed-totalS;
+  let extraNL=[];if(still>0){const already=new Set([...landSug,...nlSug].map(s=>s.name));extraNL=scored.filter(s=>!s.isLand&&!already.has(s.name)).slice(0,still)}
+  return{landSuggestions:landSug,nlSuggestions:[...nlSug,...extraNL],basicSuggestions:basicSug,needed,roles,landGap,existingNames,...ROLE_TARGET};
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   §15  UI HELPERS
+   ═══════════════════════════════════════════════════════════════ */
+function setStep(id,st){const el=$(id);if(!el)return;el.className=st;el.querySelector('.icon').textContent=st==='done'?'✓':st==='active'?'▸':st==='skip'?'–':'○'}
+function resetSteps(){['step-parse','step-fetch','step-analyze','step-otags','step-search','step-score'].forEach(id=>setStep(id,''))}
+function showMsg(id,t,tp,html){const el=$(id);el.className='msg '+tp;if(html)el.innerHTML=t;else el.textContent=t;el.style.display='block'}
+function clearMsg(id){const el=$(id);el.style.display='none';el.className='msg';el.innerHTML=''}
+function aggregateSlots(slots){const m=new Map();for(const s of slots){const ex=m.get(s.name);if(ex){ex.qty++;if(s.flags&&s.flags.length>(ex.flags||[]).length)ex.flags=s.flags}else m.set(s.name,{...s,qty:1})}return[...m.values()]}
+
+function toast(msg,type){
+  type=type||'info';const c=$('toastContainer');const t=document.createElement('div');
+  t.className='toast toast-'+type;t.innerHTML=`<span>${esc(msg)}</span><button aria-label="Dismiss">×</button>`;
+  c.appendChild(t);const rm=()=>{t.classList.add('fade');setTimeout(()=>t.remove(),300)};
+  t.querySelector('button').onclick=rm;setTimeout(rm,4500);
+}
+function confetti(){
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches)return;
+  const emojis=['🎉','✨','👑','⚔️','🃏','💎','🌟'];
+  for(let i=0;i<24;i++){
+    const e=document.createElement('div');e.className='confetti';e.textContent=emojis[i%emojis.length];
+    e.style.left=Math.random()*100+'vw';e.style.animationDelay=(Math.random()*.8)+'s';e.style.animationDuration=(2+Math.random()*2)+'s';
+    document.body.appendChild(e);setTimeout(()=>e.remove(),4500);
+  }
+}
+function updateCardCounter(){
+  const raw=$('deckInput').value;if(!raw.trim()){$('cardCounter').textContent='0';$('cardCounterDelta').textContent='';$('cardCounter').className='';return}
+  const{cards,dupWarnings}=parseDecklist(raw);
+  const total=cards.reduce((s,c)=>s+c.qty,0);
+  $('cardCounter').textContent=total;
+  let cls='c-ok',delta='(exactly 99 ✓)';
+  if(total<99){cls='c-warn';delta=`(${99-total} under 99)`}
+  else if(total>99){const d=total-99;if(d===1){cls='c-ok';delta='(100 — includes commander ✓)'}else{cls='c-err';delta=`(${d-1} over 99)`}}
+  $('cardCounter').className=cls;$('cardCounterDelta').textContent=delta;
+  $('counterHint').textContent=dupWarnings.length?`⚠ ${dupWarnings.length} duplicate${dupWarnings.length>1?'s':''} merged`:'Target: 99 + commander';
+}
+function renderManaCurve(deckCards){
+  const box=$('curveBox'),bars=$('curveBars');
+  const buckets=[0,0,0,0,0,0,0,0];
+  let nonLand=0;
+  for(const c of deckCards){const t=(c.type_line||'').toLowerCase();if(/\bland\b/.test(t))continue;const cmc=Math.min(7,Math.round(c.cmc||0));buckets[cmc]++;nonLand++}
+  if(!nonLand){box.style.display='none';return}
+  const max=Math.max(...buckets,1);
+  bars.innerHTML=buckets.map((n,i)=>{const h=Math.round(n/max*100);return`<div class="curve-bar" title="CMC ${i===7?'7+':i}: ${n} card${n===1?'':'s'}"><span class="curve-bar-count">${n||''}</span><div class="curve-bar-fill" style="height:${h}%"></div><span class="curve-bar-label">${i===7?'7+':i}</span></div>`}).join('');
+  $('curveHint').textContent=`${nonLand} non-land`;box.style.display='';
+}
+function renderThemes(themes){
+  const area=$('themeArea');if(!themes.length){area.innerHTML='<span style="color:var(--muted);font-size:.8em">No strong themes detected.</span>';return}
+  const g={strat:[],mech:[],type:[],tribal:[],otag:[]};for(const th of themes)(g[th.cat]||g.strat).push(th);
+  const labs={
+    strat:['🎯 Strategy','th-strat'],
+    mech:['⚙️ Mechanics','th-mech'],
+    type:['🃏 Card Types','th-type'],
+    tribal:['👥 Tribal','th-tribal'],
+    otag:['🔖 Oracle Tags','th-otag']
+  };
+  let h='';for(const[key,[lbl,cls]]of Object.entries(labs)){
+    const arr=g[key];if(!arr?.length)continue;
+    h+=`<div class="theme-section-header ${cls}">${lbl}</div><div class="theme-tags">${arr.map(th=>`<span class="tag tag-${key}${th.count>=6?' strong':''}" tabindex="0" data-theme="${esc(th.tag)}" data-examples="${esc((th.examples||[]).join('|'))}" title="${th.count} signals">${esc(th.tag)} (${th.count})</span>`).join('')}</div>`;
+  }
+  area.innerHTML=h;
+}
+function cmdImage(card){return cardImg(card)}
+
+/* ═══════════════════════════════════════════════════════════════
+   §16  CARD RENDERING
+   ═══════════════════════════════════════════════════════════════ */
+function renderCmdCard(cmd,i,source,role){
+  role=role||'commander';
+  const pct=cmd._pct||100,cls=pct>=75?'score-high':pct>=45?'score-mid':'score-low';
+  const slug=cmd.name.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/-+$/,'');
+  const rText=cmd.reasons.length?cmd.reasons.slice(0,4).join(' · '):'Color match';
+  const pB=cmd.isPartner?'<span class="partner-badge">Partner</span>':'';
+  const cB=cmd.isCompanion?'<span class="companion-badge">Companion</span>':'';
+  const idB=source.includes('deck')?'<span class="in-deck-badge">In Deck</span>':'';
+  const priceB=cmd.price>0?`<span class="price-badge">${fmtPrice(cmd.price)}</span>`:'';
+  const otagB=cmd.otagHits>=2?`<span class="otag-badge">🔖×${cmd.otagHits}</span>`:'';
+  const imgH=cmd.imageUri?`<div class="card-img-wrap" data-img="${esc(cmd.imageUri)}"><img src="${esc(cmd.imageUri)}" alt="${esc(cmd.name)}" loading="lazy"></div>`:'';
+  const isSel=role==='partner'?S.selectedPartner?.name===cmd.name:S.selectedCmd?.name===cmd.name;
+  const cardClass=isSel?(role==='partner'?' partner-selected':' cmd-selected'):'';
+  const dismissed=S.dismissed.has(cmd.name);
+  const inCompare=S.compareSet.has(cmd.name);
+  const compareBtn=role==='commander'?`<button class="btn-compare${inCompare?' active':'' }" data-compare="${esc(cmd.name)}" title="Add to comparison">${inCompare?'✓ Compare':'⚖ Compare'}</button>`:'';
+  const dismissBtn=role==='commander'?`<button class="cmd-dismiss" data-dismiss="${esc(cmd.name)}" title="Dismiss" aria-label="Dismiss this commander">×</button>`:'';
+  return`<div class="commander-card${cardClass}${dismissed?' dismissed':''}" data-name="${esc(cmd.name)}" data-role="${role}" tabindex="0">${dismissBtn}<div class="card-top">${imgH}<div class="card-info"><h3>#${i+1} ${esc(cmd.name)}${pB}${cB}${idB}${priceB}${otagB}</h3><div>${renderMana(cmd.manaCost)}</div><div class="type-line">${esc(cmd.typeLine)}</div><div class="oracle">${esc(cmd.oracleText).replace(/\n/g,'<br>')}</div></div></div><div class="match-bar"><span class="match-score ${cls}" data-score="${esc(cmd.name)}" title="Click for score breakdown">${pct}%</span><span class="match-reasons">${esc(rText)}</span><div class="card-links"><button class="btn-select${isSel?' selected':''}" data-cmd="${esc(cmd.name)}" data-role="${role}">${isSel?'✓ Selected':'Select'}</button>${compareBtn}<a class="link-scryfall" href="${cmd.scryfallUri}" target="_blank" rel="noopener">Scryfall↗</a><a class="link-edhrec" href="https://edhrec.com/commanders/${slug}" target="_blank" rel="noopener">EDHREC↗</a></div></div></div>`;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   §17  DECK ASSISTANT
+   ═══════════════════════════════════════════════════════════════ */
+function getCommanders(){const arr=[S.selectedCmd.card];if(S.selectedPartner?.card)arr.push(S.selectedPartner.card);return arr}
+function renderAssistHeader(cmds,extra){
+  let imgs='';const names=[];for(const cmd of cmds){const img=cmdImage(cmd);if(img)imgs+=`<div class="trim-cmd-img" data-img="${esc(img)}"><img src="${esc(img)}" alt="${esc(cmd.name)}"></div>`;names.push(cmd.name)}
+  const ci=new Set();cmds.forEach(cmd=>(cmd.color_identity||[]).forEach(c=>ci.add(c)));
+  return`<div class="trim-header">${imgs}<div class="trim-cmd-info"><h3>${names.map(n=>esc(n)).join(' + ')}</h3><div class="trim-stat">Color Identity: <strong>${ciKey(ci)||'C'}</strong></div>${extra}</div></div>`;
+}
+function renderRolesBox(roles,targets){
+  const rows=[['Lands',roles.lands,targets.lands],['Ramp',roles.ramp,targets.ramp],['Draw',roles.draw,targets.draw],['Removal',roles.removal,targets.removal],['Wipes',roles.wipe,targets.wipe]];
+  let h='<div class="roles-box"><div class="roles-title">📊 Role Analysis</div>';
+  for(const[label,have,tgt]of rows){const pct=Math.min(100,Math.round(have/tgt*100));const cls=pct>=80?'bar-ok':pct>=50?'bar-warn':'bar-low';h+=`<div class="role-bar"><span class="role-label">${label}</span><div class="bar ${cls}"><div class="bar-fill" style="width:${pct}%"></div></div><span class="role-count">${have}/${tgt}</span></div>`}
+  return h+'</div>';
+}
+function trimItemHtml(s,cls){return`<div class="trim-item ${cls}"><span class="ti-qty">${s.qty||1}x</span><span class="ti-name">${esc(s.name)}</span><span class="ti-reason">${(s.flags||[]).slice(0,3).join(', ')} (${s.score})</span></div>`}
+
+async function runAssistant(){
+  if(!S.selectedCmd||!S.deckCardData.length)return;
+  const cmds=getCommanders(),cmdNames=new Set(cmds.map(c=>c.name.toLowerCase().split(' // ')[0]));
+  const poolQty=S.parsedList.filter(p=>!cmdNames.has(p.name.toLowerCase())).reduce((s,p)=>s+p.qty,0);
+  const target=99-(cmds.length-1);
+  const el=$('assistArea'),content=$('assistContent'),title=$('assistTitle');
+
+  if(poolQty===target){
+    title.textContent='✅ Deck Assistant';
+    const result=getTrimResult();
+    const keepAgg=aggregateSlots(result.keep).sort((a,b)=>b.score-a.score);
+    content.innerHTML=renderAssistHeader(cmds,`<div class="trim-stat"><span class="perfect">Exactly ${target} cards + ${cmds.length>1?'commanders':'commander'}. Perfect!</span></div>`)+`<div class="trim-section"><div class="trim-section-title keep-title">📊 Synergy Scores</div><details class="trim-details"><summary>View all</summary><div class="trim-list">${keepAgg.map(s=>trimItemHtml(s,'keep-item')).join('')}</div></details></div>`;
+    el.style.display='';el.scrollIntoView({behavior:'smooth',block:'start'});title.focus();confetti();toast('Perfect deck size! 🎉','ok');return;
+  }
+  if(poolQty>target){
+    title.textContent='✂️ Deck Trimmer';const excess=poolQty-target;
+    const hdr=renderAssistHeader(cmds,`<div class="trim-stat">Cards: <strong>${poolQty}</strong> → <span class="need-cut">Need to cut ${excess} (target: ${target})</span></div>`);
+    const result=getTrimResult();let body='';
+    const unkAgg=aggregateSlots(result.unknown);
+    if(unkAgg.length)body+=`<div class="trim-section"><div class="trim-section-title" style="color:var(--muted)">❓ Not Found (${unkAgg.reduce((s,c)=>s+c.qty,0)})</div><div class="trim-list">${unkAgg.map(s=>trimItemHtml(s,'unknown-item')).join('')}</div></div>`;
+    const illAgg=aggregateSlots(result.illegal);
+    if(illAgg.length)body+=`<div class="trim-section"><div class="trim-section-title illegal-title">⛔ Auto-Removed (${illAgg.reduce((s,c)=>s+c.qty,0)})</div><div class="trim-list">${illAgg.map(s=>trimItemHtml(s,'illegal-item')).join('')}</div></div>`;
+    const cutAgg=aggregateSlots(result.cut.filter(s=>s.category!=='illegal'));
+    if(cutAgg.length)body+=`<div class="trim-section"><div class="trim-section-title cut-title">🔻 Suggested Cuts (${cutAgg.reduce((s,c)=>s+c.qty,0)})</div><div class="trim-list">${cutAgg.sort((a,b)=>a.score-b.score).map(s=>trimItemHtml(s,'cut-item')).join('')}</div></div>`;
+    const keepAgg=aggregateSlots(result.keep).sort((a,b)=>b.score-a.score);const kc=keepAgg.reduce((s,c)=>s+c.qty,0);
+    body+=`<div class="trim-section"><div class="trim-section-title keep-title">✅ Kept (${kc})</div><details class="trim-details"><summary>Expand</summary><div class="trim-list">${keepAgg.map(s=>trimItemHtml(s,'keep-item')).join('')}</div></details></div>`;
+    body+=`<button class="btn-copy" onclick="copyDeck(this,'trim')">📋 Copy Trimmed Decklist</button><button class="btn-copy" onclick="downloadDeckFile('trim')">⬇ Download .txt</button>`;
+    content.innerHTML=hdr+body;el.style.display='';el.scrollIntoView({behavior:'smooth',block:'start'});title.focus();return;
+  }
+  title.textContent='🔧 Deck Filler';const needed=target-poolQty;
+  const hdr=renderAssistHeader(cmds,`<div class="trim-stat">Cards: <strong>${poolQty}</strong> → <span class="need-more">Need ${needed} more (target: ${target})</span></div>`);
+  content.innerHTML=hdr+`<div class="assist-loading"><div class="spinner"></div><p>Searching…</p></div>`;
+  el.style.display='';el.scrollIntoView({behavior:'smooth',block:'start'});title.focus();
+  resetCircuit();const prog=t=>{const ld=content.querySelector('.assist-loading p');if(ld)ld.textContent=t};
+  const fill=await runFiller(cmds,S.deckCardData,S.parsedList,prog);
+  let body='';
+  if(isCircuitOpen())body+=`<div class="circuit-msg">⚠️ Scryfall not responding. Suggestions may be incomplete.</div>`;
+  body+=renderRolesBox(fill.roles,ROLE_TARGET);
+  if(fill.nlSuggestions.length)body+=`<div class="trim-section"><div class="trim-section-title fill-title">➕ Suggested Cards (${fill.nlSuggestions.length})</div><div class="trim-list">${fill.nlSuggestions.map(s=>`<div class="trim-item fill-item"><span class="ti-qty">1x</span><span class="ti-name">${esc(s.name)}</span><span class="ti-reason">${(s.flags||[]).slice(0,3).join(', ')} (${s.score})</span></div>`).join('')}</div></div>`;
+  if(fill.landSuggestions.length)body+=`<div class="trim-section"><div class="trim-section-title fill-title">🏔️ Lands (${fill.landSuggestions.length})</div><div class="trim-list">${fill.landSuggestions.map(s=>`<div class="trim-item fill-item"><span class="ti-qty">1x</span><span class="ti-name">${esc(s.name)}</span><span class="ti-reason">${(s.flags||[]).slice(0,2).join(', ')} (${s.score})</span></div>`).join('')}</div></div>`;
+  if(fill.basicSuggestions.length)body+=`<div class="trim-section"><div class="trim-section-title basic-title">🌄 Basics (${fill.basicSuggestions.reduce((s,b)=>s+b.qty,0)})</div><div class="trim-list">${fill.basicSuggestions.map(b=>`<div class="trim-item basic-item"><span class="ti-qty">${b.qty}x</span><span class="ti-name">${esc(b.name)}</span><span class="ti-reason">Basic</span></div>`).join('')}</div></div>`;
+  if(!fill.nlSuggestions.length&&!fill.landSuggestions.length&&!fill.basicSuggestions.length)body+=`<div class="trim-stat" style="margin-top:10px"><span class="need-more">⚠️ No suggestions found.</span></div>`;
+  body+=`<button class="btn-copy" onclick="copyDeck(this,'fill')">📋 Copy Complete Decklist</button><button class="btn-copy" onclick="downloadDeckFile('fill')">⬇ Download .txt</button>`;
+  content.innerHTML=hdr+body;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   §18  COPY
+   ═══════════════════════════════════════════════════════════════ */
+function copyDeck(btn,mode){
+  const text=buildDeckText(mode);if(!text)return;
+  navigator.clipboard.writeText(text).then(()=>{btn.classList.add('copied');const orig=btn.textContent;btn.textContent='✅ Copied!';toast('Decklist copied to clipboard','ok');setTimeout(()=>{btn.classList.remove('copied');btn.textContent=orig},2000)});
+}
+function copyRecommendationsMarkdown(which){
+  const arr=which==='inDeck'?S.currentInDeck:S.currentRanked;
+  if(!arr.length){toast('No recommendations to copy','err');return}
+  let md=`## Commander Recommendations\n\n`;
+  arr.slice(0,5).forEach((c,i)=>{md+=`${i+1}. **${c.name}** (${c._pct||100}%) — ${(c.reasons||[]).slice(0,4).join(' · ')||'Color match'}\n`});
+  navigator.clipboard.writeText(md).then(()=>toast('Copied top 5 as Markdown','ok'));
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   §19  EVENT HANDLERS
+   ═══════════════════════════════════════════════════════════════ */
+document.addEventListener('click',e=>{
+  const imgEl=e.target.closest('[data-img]');
+  if(imgEl&&imgEl.dataset.img){openImgModal(imgEl.dataset.img);return}
+  const dis=e.target.closest('[data-dismiss]');
+  if(dis){
+    const n=dis.dataset.dismiss,was=S.dismissed.has(n);
+    was?S.dismissed.delete(n):S.dismissed.add(n);
+    LS.set(LS_KEYS.dismissed,[...S.dismissed]);refilterResults();
+    if(!was)toastUndo(`Dismissed ${n}`,()=>{S.dismissed.delete(n);LS.set(LS_KEYS.dismissed,[...S.dismissed]);refilterResults()});
+    e.stopPropagation();return
+  }
+  const comp=e.target.closest('[data-compare]');
+  if(comp){toggleCompare(comp.dataset.compare);e.stopPropagation();return}
+  const btn=e.target.closest('.btn-select');if(btn){const name=btn.dataset.cmd,role=btn.dataset.role||'commander';if(role==='partner')handlePartnerSelect(name);else handleCommanderSelect(name);return}
+  const sc=e.target.closest('[data-score]');if(sc){showScoreBreakdown(sc);return}
+});
+document.addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==='Enter'){e.preventDefault();if(!S.analysisRunning)runAnalysis()}
+  if(e.key==='Escape'){
+    const im=$('imgModal');if(im.classList.contains('show')){closeImgModal();return}
+    const cm=$('compareModal');if(cm.classList.contains('show')){closeCompare();return}
+    if($('partnerArea').style.display!=='none'){$('partnerArea').style.display='none';return}
+    if($('assistArea').style.display!=='none'){$('assistArea').style.display='none';return}
+    $('scoreBreakdown').classList.remove('show');$('tagTooltip').classList.remove('show');
+  }
+  if((e.key==='Enter'||e.key===' ')&&document.activeElement?.classList.contains('commander-card')){
+    e.preventDefault();const btn=document.activeElement.querySelector('.btn-select');if(btn)btn.click();
+  }
+});
+
+const hoverPrev=$('hoverPreview'),hoverImg=$('hoverPreviewImg');let hoverTimer=null;
+document.addEventListener('mousemove',e=>{
+  if(isTouch)return;
+  const wrap=e.target.closest('[data-img]');
+  if(wrap){
+    const img=wrap.dataset.img;if(!img){hoverPrev.classList.remove('show');return}
+    if(hoverImg.src!==img)hoverImg.src=img;
+    if(!hoverTimer)hoverTimer=setTimeout(()=>{hoverPrev.classList.add('show')},180);
+    let x=e.clientX+20,y=e.clientY+20;
+    if(x+290>innerWidth)x=e.clientX-300;
+    if(y+400>innerHeight)y=innerHeight-410;
+    hoverPrev.style.left=x+'px';hoverPrev.style.top=y+'px';
+  }else{
+    if(hoverTimer){clearTimeout(hoverTimer);hoverTimer=null}
+    hoverPrev.classList.remove('show');
+  }
+  const tag=e.target.closest('[data-theme]');
+  if(tag){showTagTooltip(tag.dataset.theme,(tag.dataset.examples||'').split('|').filter(Boolean),e.clientX+14,e.clientY+14)}
+  else{$('tagTooltip').classList.remove('show')}
+});
+
+function showScoreBreakdown(el){
+  const name=el.dataset.score;const bd=S.lastScoreDetails.get(name);if(!bd||!bd.length){return}
+  const sb=$('scoreBreakdown');const total=bd.reduce((s,[,v])=>s+v,0);
+  sb.innerHTML=`<h4>${esc(name)}</h4>`+bd.map(([label,pts])=>`<div class="sb-row"><span>${esc(label)}</span><span>${pts>0?'+':''}${pts}</span></div>`).join('')+`<div class="sb-row sb-total"><span>Total</span><span>${total}</span></div>`;
+  const r=el.getBoundingClientRect();let x=r.right+8,y=r.top;if(x+300>innerWidth)x=r.left-310;if(y+220>innerHeight)y=innerHeight-230;
+  sb.style.left=x+'px';sb.style.top=y+'px';sb.classList.add('show');
+  setTimeout(()=>{document.addEventListener('click',function h(ev){if(!ev.target.closest('.score-breakdown')&&!ev.target.closest('[data-score]')){sb.classList.remove('show');document.removeEventListener('click',h)}})},10);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   §20  SELECTION
+   ═══════════════════════════════════════════════════════════════ */
+function handleCommanderSelect(name){
+  if(S.selectedCmd?.name===name){S.selectedCmd=null;S.selectedPartner=null;S.lastTrim=null;refreshSelectionUI();$('assistArea').style.display='none';$('partnerArea').style.display='none';LS.del(LS_KEYS.lastCmd);return}
+  const card=S.allCmdCards.get(name);if(!card)return;
+  S.selectedCmd={name,card};S.selectedPartner=null;S.lastTrim=null;refreshSelectionUI();
+  LS.set(LS_KEYS.lastCmd,{deck:hashDeck(),name});
+  const pt=getPartnerType(card),isComp=hasCompanion(card);
+  if(pt.type!=='none'){
+    $('assistArea').style.display='none';
+    $('partnerTitle').textContent=pt.type==='background'?'🎭 Choose a Background':pt.type==='partner-with'?`👥 Partner: ${pt.partnerName}`:pt.type==='friends-forever'?'🤝 Choose a Friend':pt.type==='doctors-companion'?"🩺 Choose a Doctor":'👥 Choose a Partner';
+    showPartnerArea(card,pt);
+  }else if(isComp){
+    $('assistArea').style.display='none';
+    $('partnerTitle').textContent='👑 Choose a Commander for this Companion';
+    showCompanionCommanderArea(card);
+  }else{$('partnerArea').style.display='none';runAssistant()}
+}
+function handlePartnerSelect(name){
+  if(S.selectedPartner?.name===name){S.selectedPartner=null;S.lastTrim=null;refreshSelectionUI();$('assistArea').style.display='none';return}
+  const card=S.partnerCards.get(name)||S.allCmdCards.get(name);if(!card)return;
+  S.selectedPartner={name,card};S.lastTrim=null;S.allCmdCards.set(name,card);refreshSelectionUI();runAssistant();
+}
+function useSoloCommander(){S.selectedPartner=null;S.lastTrim=null;$('partnerArea').style.display='none';refreshSelectionUI();runAssistant()}
+function refreshSelectionUI(){
+  document.querySelectorAll('.commander-card').forEach(el=>{
+    const n=el.dataset.name,r=el.dataset.role||'commander';
+    const isCmdSel=r==='commander'&&S.selectedCmd?.name===n,isPartSel=r==='partner'&&S.selectedPartner?.name===n;
+    el.classList.toggle('cmd-selected',isCmdSel);el.classList.toggle('partner-selected',isPartSel);
+    const b=el.querySelector('.btn-select');if(b){const sel=isCmdSel||isPartSel;b.classList.toggle('selected',sel);b.textContent=sel?'✓ Selected':'Select'}
+  });
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   §21  COMPARISON
+   ═══════════════════════════════════════════════════════════════ */
+function toggleCompare(name){
+  if(S.compareSet.has(name))S.compareSet.delete(name);
+  else{if(S.compareSet.size>=3){toast('Maximum 3 commanders for comparison','err');return}S.compareSet.add(name)}
+  updateCompareBar();document.querySelectorAll('[data-compare]').forEach(b=>{b.classList.toggle('active',S.compareSet.has(b.dataset.compare));b.textContent=S.compareSet.has(b.dataset.compare)?'✓ Compare':'⚖ Compare'});
+}
+function updateCompareBar(){
+  const bar=$('compareBar');if(S.compareSet.size===0){bar.classList.remove('show');return}
+  $('compareNames').textContent=`Comparing (${S.compareSet.size}/3): `+[...S.compareSet].join(', ');
+  bar.classList.add('show');
+}
+function clearCompare(){S.compareSet.clear();updateCompareBar();document.querySelectorAll('[data-compare]').forEach(b=>{b.classList.remove('active');b.textContent='⚖ Compare'})}
+function openCompare(){
+  if(S.compareSet.size<2){toast('Select at least 2 to compare','err');return}
+  const cards=[...S.compareSet].map(n=>S.allCmdCards.get(n)).filter(Boolean);
+  const col=(c)=>{
+    const p=prep(c);const themes=[];for(const[tag,,test]of TD)if(test(p))themes.push(tag);
+    const subs=[...getCreatureSubtypes(c.type_line||'')];
+    const price=cardPrice(c);
+    const img=cardImg(c);
+    const otags=S.cmdOtagMap.get(c.name);
+    const otagList=otags?[...otags]:[];
+    return`<div class="compare-col">${img?`<img src="${esc(img)}" style="width:100%;border-radius:6px;margin-bottom:8px">`:''}<h4>${esc(c.name)}</h4>
+      <div class="cc-row"><strong>Color Identity</strong>${ciKeyArr(c.color_identity||[])||'Colorless'} — ${renderMana(c.mana_cost||'')}</div>
+      <div class="cc-row"><strong>Type</strong>${esc(c.type_line||'—')}</div>
+      <div class="cc-row"><strong>Mana Value</strong>${c.cmc||0}</div>
+      <div class="cc-row"><strong>EDHREC Rank</strong>${c.edhrec_rank??'—'}</div>
+      <div class="cc-row"><strong>Price</strong>${price>0?fmtPrice(price):'—'}</div>
+      <div class="cc-row"><strong>Creature Types</strong>${subs.length?subs.join(', '):'—'}</div>
+      <div class="cc-row"><strong>Themes (${themes.length})</strong>${themes.slice(0,8).join(', ')||'—'}</div>
+      <div class="cc-row"><strong>🔖 Oracle Tags</strong>${otagList.length?otagList.join(', '):'—'}</div>
+      <div class="cc-row"><strong>Oracle Text</strong><div style="font-size:.95em;color:var(--oracle);margin-top:4px">${esc(c.oracle_text||'').replace(/\n/g,'<br>')}</div></div>
+    </div>`;
+  };
+  const cls=cards.length===3?'c3':'c2';
+  $('compareContent').innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center"><h2 style="color:var(--gold)">⚖️ Commander Comparison</h2><button class="btn-secondary" onclick="closeCompare()">✕ Close</button></div><div class="compare-grid ${cls}">${cards.map(col).join('')}</div>`;
+  $('compareModal').classList.add('show');
+}
+function closeCompare(){$('compareModal').classList.remove('show')}
+
+/* ═══════════════════════════════════════════════════════════════
+   §22  SORT & FILTER
+   ═══════════════════════════════════════════════════════════════ */
+function sortCards(arr,sortKey){
+  const a=[...arr];
+  switch(sortKey){
+    case'rank':return a.sort((x,y)=>(x.edhrecRank||99999)-(y.edhrecRank||99999));
+    case'cmc':return a.sort((x,y)=>(x.cmc||0)-(y.cmc||0));
+    case'price':return a.sort((x,y)=>(y.price||0)-(x.price||0));
+    case'name':return a.sort((x,y)=>x.name.localeCompare(y.name));
+    default:return a.sort((x,y)=>y.score-x.score);
+  }
+}
+function resortGrid(which){
+  if(which==='inDeck'){const sortKey=$('inDeckSort').value;const sorted=sortCards(S.currentInDeck,sortKey);$('inDeckGrid').innerHTML=sorted.map((c,i)=>renderCmdCard(c,i,'deck','commander')).join('')}
+  else{refilterResults()}
+}
+function refilterResults(){
+  const sortKey=$('resultsSort').value,filter=$('resultsFilter').value,showDis=$('showDismissed').checked;
+  let arr=[...S.currentRanked];
+  if(!showDis)arr=arr.filter(c=>!S.dismissed.has(c.name));
+  if(filter==='solo')arr=arr.filter(c=>!c.isPartner);
+  else if(filter==='partner')arr=arr.filter(c=>c.isPartner);
+  else if(filter==='budget'){const max=parseFloat($('budgetMax').value)||10;arr=arr.filter(c=>c.price>0&&c.price<=max)}
+  arr=sortCards(arr,sortKey);
+  $('commanderGrid').innerHTML=arr.length?arr.map((c,i)=>renderCmdCard(c,i,'recommended','commander')).join(''):`<p style="color:var(--muted);padding:16px">No results match the current filter.</p>`;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   §23  IMPORT & DRAG-DROP
+   ═══════════════════════════════════════════════════════════════ */
+async function importFromUrl(){
+  const url=$('urlImport').value.trim();if(!url){toast('Paste a URL first','err');return}
+  toast('Importing…','info');
+  try{
+    let text='';
+    const moxM=url.match(/moxfield\.com\/decks\/([A-Za-z0-9_-]+)/);
+    const arcM=url.match(/archidekt\.com\/decks\/(\d+)/);
+    if(moxM){
+      const r=await fetch(`https://api.moxfield.com/v2/decks/all/${moxM[1]}`);if(!r.ok)throw new Error('Moxfield fetch failed (may be private)');
+      const j=await r.json();const sections=[j.mainboard,j.commanders];
+      for(const sec of sections)if(sec)for(const[name,card]of Object.entries(sec))text+=`${card.quantity} ${name}\n`;
+    }else if(arcM){
+      const r=await fetch(`https://archidekt.com/api/decks/${arcM[1]}/`);if(!r.ok)throw new Error('Archidekt fetch failed');
+      const j=await r.json();for(const c of j.cards||[])if(!c.categories?.includes('Sideboard')&&!c.categories?.includes('Maybeboard'))text+=`${c.quantity} ${c.card.oracleCard.name}\n`;
+    }else{throw new Error('Unsupported URL — use Moxfield or Archidekt')}
+    if(text){$('deckInput').value=text;updateCardCounter();toast('Import successful!','ok');$('urlImport').value=''}
+    else throw new Error('No cards found');
+  }catch(e){toast('Import failed: '+e.message+'. Tip: most browsers block Moxfield/Archidekt due to CORS — export the list and paste it directly, or drag a .txt file.','err')}
+}
+
+const taWrap=$('textareaWrap');
+taWrap.addEventListener('dragover',e=>{e.preventDefault();taWrap.classList.add('dragover')});
+taWrap.addEventListener('dragleave',e=>{if(!taWrap.contains(e.relatedTarget))taWrap.classList.remove('dragover')});
+taWrap.addEventListener('drop',async e=>{
+  e.preventDefault();taWrap.classList.remove('dragover');
+  const file=e.dataTransfer.files[0];if(!file){return}
+  if(file.size>1024*1024){toast('File too large (>1MB)','err');return}
+  try{const text=await file.text();$('deckInput').value=text;updateCardCounter();toast(`Loaded ${file.name}`,'ok')}
+  catch(err){toast('Failed to read file','err')}
+});
+
+$('deckInput').addEventListener('paste',e=>{
+  setTimeout(()=>{
+    const raw=$('deckInput').value;const lines=raw.split('\n').filter(l=>l.trim()).length;
+    if(lines>=20&&!S.analysisRunning){
+      toast('Large decklist detected — press Ctrl+Enter or click Analyze','info');
+    }
+    updateCardCounter();savePersistedDeck();
+  },50);
+});
+$('deckInput').addEventListener('input',()=>{updateCardCounter();savePersistedDeck()});
+
+/* ═══════════════════════════════════════════════════════════════
+   §24  CLEAR & PERSIST
+   ═══════════════════════════════════════════════════════════════ */
+function hashDeck(){const s=$('deckInput').value;let h=0;for(let i=0;i<s.length;i++){h=((h<<5)-h+s.charCodeAt(i))|0}return h.toString(36)}
+let _saveDebounce=null;
+function savePersistedDeck(){clearTimeout(_saveDebounce);_saveDebounce=setTimeout(()=>{LS.set(LS_KEYS.deck,$('deckInput').value);LS.set(LS_KEYS.toggle,$('findInDeck').checked)},500)}
+function clearAll(){
+  if(S.currentAbortController){try{S.currentAbortController.abort()}catch(e){}S.currentAbortController=null}
+  $('deckInput').value='';
+  ['resultsArea','inDeckArea','assistArea','partnerArea'].forEach(id=>$(id).style.display='none');
+  ['commanderGrid','inDeckGrid','assistContent','partnerInDeckGrid','partnerRecGrid'].forEach(id=>$(id).innerHTML='');
+  $('themeArea').innerHTML='<span style="color:var(--muted);font-size:.8em">Analyze a deck to detect themes.</span>';
+  clearMsg('inputMsg');clearMsg('analysisMsg');
+  document.querySelectorAll('.mana-pip').forEach(el=>{el.classList.remove('active');const pc=el.querySelector('.pip-count');if(pc)pc.remove()});
+  $('colorLabel').textContent='—';$('colorAlt').textContent='';
+  ['statParsed','statFound','statCreatures','statSpells','statArtifacts','statEnchantments','statLands','statAvgMV','statPrice','statIllegal'].forEach(id=>$(id).textContent='—');
+  $('curveBox').style.display='none';
+  const hint=$('deckSizeHint');if(hint)hint.remove();
+  S.selectedCmd=null;S.selectedPartner=null;S.allCmdCards.clear();S.partnerCards.clear();S.parsedList=[];S.deckCardData=[];S.themes=[];S.deckColorIdentity=new Set();S.compareSet.clear();S.currentRanked=[];S.currentInDeck=[];
+  S.cmdOtagMap.clear();S.otagThemes=[];S.deckOtagMap.clear();S.lastTrim=null;
+  updateCompareBar();updateCardCounter();LS.del(LS_KEYS.deck);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   §25  MAIN ANALYSIS
+   ═══════════════════════════════════════════════════════════════ */
+async function runAnalysis(){
+  if(S.analysisRunning){toast('Analysis already running','info');return}
+  clearMsg('inputMsg');clearMsg('analysisMsg');
+  ['resultsArea','inDeckArea','assistArea','partnerArea'].forEach(id=>$(id).style.display='none');
+  const hint=$('deckSizeHint');if(hint)hint.remove();
+  S.selectedCmd=null;S.selectedPartner=null;S.allCmdCards.clear();S.partnerCards.clear();resetCircuit();S.lastScoreDetails.clear();
+  S.cmdOtagMap.clear();S.otagThemes=[];S.deckOtagMap.clear();S.lastTrim=null;
+  const raw=$('deckInput').value.trim();
+  if(!raw){showMsg('inputMsg','Please paste a decklist first.','error');return}
+  const btn=$('analyzeBtn');btn.disabled=true;S.analysisRunning=true;
+  S.currentAbortController=new AbortController();
+  $('loader').classList.add('active');resetSteps();
+  const prog=t=>{$('progressText').textContent=t};
+  try{
+    setStep('step-parse','active');prog('Parsing…');await sleep(30);
+    const{cards:parsed,badLines,dupWarnings}=parseDecklist(raw);S.parsedList=parsed;
+    if(!parsed.length){showMsg('inputMsg','Could not parse any card names.','error');return}
+    if(dupWarnings.length)toast(`Merged ${dupWarnings.length} duplicate${dupWarnings.length>1?'s':''}: ${dupWarnings.slice(0,3).join(', ')}`,'info');
+    const totalQty=parsed.reduce((s,c)=>s+c.qty,0);
+    $('statParsed').textContent=`${parsed.length} unique (${totalQty} total)`;setStep('step-parse','done');
+
+    setStep('step-fetch','active');
+    const{found:cd,notFound:nf}=await fetchCards(parsed,prog);S.deckCardData=cd;
+    $('statFound').textContent=cd.length;
+    if(!cd.length){showMsg('analysisMsg',isCircuitOpen()?'Scryfall not responding. <button class="btn-inline" onclick="resetCircuit();runAnalysis()">Retry</button>':'No cards found.','error',true);return}
+    let warnHtml='';
+    if(isCircuitOpen())warnHtml+=`<div class="circuit-msg" style="margin-bottom:6px">⚠️ Partial results. <button class="btn-inline" onclick="resetCircuit();runAnalysis()">Retry failed requests</button></div>`;
+    if(nf.length)warnHtml+=`<strong>${nf.length} not found:</strong><div class="not-found-list">${nf.map(x=>`<span>${esc(x.name||'?')}</span>`).join(', ')}</div>`;
+    if(warnHtml){const el=$('analysisMsg');el.className='msg warn';el.style.display='block';el.innerHTML=warnHtml}
+    setStep('step-fetch','done');
+
+    setStep('step-analyze','active');prog('Analyzing…');await sleep(30);
+    const dc=new Set();let nCre=0,nIS=0,nArt=0,nEnch=0,nL=0,tMV=0,mvN=0,nIllegal=0,totalPrice=0;
+    const pipCounts={W:0,U:0,B:0,R:0,G:0,C:0};
+    for(const c of cd){
+      (c.color_identity||[]).forEach(ci=>dc.add(ci));
+      const t=(c.type_line||'').toLowerCase();
+      if(/creature/.test(t))nCre++;if(/instant|sorcery/.test(t))nIS++;if(/artifact/.test(t)&&!/land/.test(t))nArt++;if(/enchantment/.test(t))nEnch++;
+      if(/\bland\b/.test(t))nL++;else{tMV+=(c.cmc||0);mvN++}
+      if(c.legalities?.commander==='banned'||c.legalities?.commander==='not_legal')nIllegal++;
+      totalPrice+=cardPrice(c);
+      const mc=(c.mana_cost||(c.card_faces?.[0]?.mana_cost)||'');
+      const pips=mc.match(/\{[WUBRGC]\}/g)||[];for(const p of pips){const k=p.slice(1,-1);if(pipCounts[k]!==undefined)pipCounts[k]++}
+    }
+    S.deckColorIdentity=dc;
+    WUBRG.forEach(c=>{const el=document.querySelector(`.mana-pip[data-c="${c}"]`);el.classList.toggle('active',dc.has(c));const old=el.querySelector('.pip-count');if(old)old.remove();if(pipCounts[c]>0){const span=document.createElement('span');span.className='pip-count';span.textContent=pipCounts[c];el.appendChild(span)}});
+    const cEl=document.querySelector('.mana-pip[data-c="C"]');cEl.classList.toggle('active',dc.size===0);const oldC=cEl.querySelector('.pip-count');if(oldC)oldC.remove();if(pipCounts.C>0){const span=document.createElement('span');span.className='pip-count';span.textContent=pipCounts.C;cEl.appendChild(span)}
+    const ck=ciKey(dc),ci=ciInfo(ck);
+    $('colorLabel').textContent=ci.n+(ck?` (${ck})`:'');$('colorAlt').textContent=ci.a.length?'Also: '+ci.a.join(', '):'';
+    $('statCreatures').textContent=nCre;$('statSpells').textContent=nIS;$('statArtifacts').textContent=nArt;$('statEnchantments').textContent=nEnch;$('statLands').textContent=nL;$('statAvgMV').textContent=mvN?(tMV/mvN).toFixed(2):'—';
+    $('statPrice').textContent=totalPrice>0?fmtPrice(totalPrice):'—';
+    $('statIllegal').textContent=nIllegal?nIllegal+' ⚠':'0 ✓';
+    renderManaCurve(cd);
+    const themes=detectThemes(cd,parsed);S.themes=themes;renderThemes(themes);
+    setStep('step-analyze','done');
+
+    // §25b — Oracle Tag detection (optional)
+    if($('useOtags').checked){
+      setStep('step-otags','active');prog('Cross-referencing Oracle Tags…');
+      try{
+        const otagResults=await detectOtags(cd,prog);
+        S.otagThemes=otagResults;
+        if(otagResults.length){
+          themes.push(...otagResults);
+          S.themes=themes;
+          renderThemes(themes);
+          toast(`🔖 Found ${otagResults.length} Oracle Tag signal${otagResults.length>1?'s':''}`,'ok');
+        }else{
+          toast('No Oracle Tag matches found','info');
+        }
+      }catch(err){
+        if(err.name==='AbortError')throw err;
+        console.warn('Otag detection failed',err);
+        toast('Oracle Tag lookup failed — continuing with regex themes','err');
+      }
+      setStep('step-otags','done');
+    }else{
+      setStep('step-otags','skip');
+    }
+
+    let inDeckResults=[];
+    if($('findInDeck').checked){
+      const eligible=cd.filter(c=>isCommanderEligible(c)||hasCompanion(c));
+      if(eligible.length){
+        const eligMap=new Map();eligible.forEach(c=>{eligMap.set(c.name,c);S.allCmdCards.set(c.name,c)});
+        for(const c of eligible){
+          const cdName=c.name.toLowerCase().split(' // ')[0];
+          const tags=S.deckOtagMap.get(cdName);
+          if(tags&&tags.size>0){
+            if(!S.cmdOtagMap.has(c.name))S.cmdOtagMap.set(c.name,new Set());
+            for(const t of tags)S.cmdOtagMap.get(c.name).add(t);
+          }
+        }
+        inDeckResults=scoreCommanders(eligMap,dc,themes,cd);
+        inDeckResults.forEach(r=>S.lastScoreDetails.set(r.name,r.breakdown||[]));
+        if(inDeckResults.length){
+          const top=inDeckResults[0].score||1;inDeckResults.forEach(r=>r._pct=Math.round(r.score/top*100));
+          S.currentInDeck=inDeckResults;
+          $('inDeckGrid').innerHTML=inDeckResults.map((cmd,i)=>renderCmdCard(cmd,i,'deck','commander')).join('');
+          const pCount=eligible.filter(c=>getPartnerType(c).type!=='none').length;
+          const cCount=eligible.filter(c=>hasCompanion(c)).length;
+          let summary=`Found ${eligible.length} eligible commander${eligible.length>1?'s':''}`;
+          if(pCount)summary+=` (${pCount} with partner)`;if(cCount)summary+=` (${cCount} companion${cCount>1?'s':''})`;
+          $('inDeckSummary').textContent=summary+'.';$('inDeckArea').style.display='';
+        }
+      }
+    }
+
+    setStep('step-search','active');
+    const cmdMap=await searchCommanders(ck,themes,prog);
+    for(const r of inDeckResults)cmdMap.delete(r.name);
+    for(const[n,c]of cmdMap)S.allCmdCards.set(n,c);setStep('step-search','done');
+
+    setStep('step-score','active');prog('Scoring…');await sleep(30);
+    const ranked=scoreCommanders(cmdMap,dc,themes,cd);
+    if(ranked.length){const top=ranked[0].score||1;ranked.forEach(r=>{r._pct=Math.round(r.score/top*100);S.lastScoreDetails.set(r.name,r.breakdown||[])})}
+    S.currentRanked=ranked;
+    setStep('step-score','done');
+
+    const grid=$('commanderGrid');
+    if(!ranked.length)grid.innerHTML=`<p style="color:var(--muted);padding:16px">${isCircuitOpen()?'⚠️ Scryfall not responding.':'No recommendations found.'}</p>`;
+    else grid.innerHTML=ranked.map((cmd,i)=>renderCmdCard(cmd,i,'recommended','commander')).join('');
+    $('resultsSummary').textContent=`${ranked.length} recommendation${ranked.length===1?'':'s'} for your ${ci.n} deck.`;
+    $('resultsArea').style.display='';
+
+    setTimeout(()=>$('resultsHeading').focus(),100);
+
+    if(totalQty!==99){
+      const diff=totalQty>99?`${totalQty-99} over`:`${99-totalQty} under`;
+      const old=$('deckSizeHint');if(old)old.remove();
+      const h=document.createElement('p');h.id='deckSizeHint';
+      h.style.cssText='color:var(--gold);font-size:.8em;margin-top:7px;font-weight:600;';
+      h.textContent=`📌 ${totalQty} cards (${diff} 99). Select a commander for ${totalQty>99?'trim':'fill'} suggestions. Partners adjust target automatically.`;
+      if(inDeckResults.length)$('inDeckGrid').after(h);else grid.after(h);
+    }
+
+    const last=LS.get(LS_KEYS.lastCmd,null);
+    if(last&&last.deck===hashDeck()&&S.allCmdCards.has(last.name)){
+      toast(`Restored last selection: ${last.name}`,'info');
+      setTimeout(()=>handleCommanderSelect(last.name),500);
+    }
+    const hashMatch=location.hash.match(/^#cmd=(.+)$/);
+    if(hashMatch){const n=decodeURIComponent(hashMatch[1]);if(S.allCmdCards.has(n))setTimeout(()=>handleCommanderSelect(n),500)}
+
+    toast('Analysis complete!','ok');
+  }catch(err){
+    if(err.name==='AbortError')toast('Analysis cancelled','info');
+    else{console.error(err);showMsg('analysisMsg',`Error: ${err.message}`,'error')}
+  }
+  finally{$('loader').classList.remove('active');btn.disabled=false;S.analysisRunning=false;S.currentAbortController=null;$('progressText').textContent=''}
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   §26  SAMPLES
+   ═══════════════════════════════════════════════════════════════ */
+const SAMPLES={
+elfball:`1 Llanowar Elves
+1 Elvish Mystic
+1 Fyndhorn Elves
+1 Arbor Elf
+1 Heritage Druid
+1 Birchlore Rangers
+1 Wirewood Symbiote
+1 Quirion Ranger
+1 Priest of Titania
+1 Elvish Archdruid
+1 Imperious Perfect
+1 Ezuri, Renegade Leader
+1 Dwynen, Gilt-Leaf Daen
+1 Elvish Warmaster
+1 Beast Whisperer
+1 Guardian Project
+1 Collected Company
+1 Chord of Calling
+1 Elvish Promenade
+1 Triumph of the Hordes
+1 Craterhoof Behemoth
+1 Shamanic Revelation
+1 Harmonize
+1 Cultivate
+1 Sol Ring
+1 Swiftfoot Boots
+1 Lightning Greaves
+1 Heroic Intervention
+1 Wrap in Vigor
+1 Elvish Champion
+1 Joraga Warcaller
+1 Reclamation Sage
+1 Wood Elves
+1 Fierce Empath
+1 Wolverine Riders
+1 Canopy Tactician
+1 Leaf-Crowned Visionary
+1 Circle of Dreams Druid
+37 Forest`,
+spellslinger:`1 Guttersnipe
+1 Young Pyromancer
+1 Storm-Kiln Artist
+1 Archmage Emeritus
+1 Talrand, Sky Summoner
+1 Murmuring Mystic
+1 Niv-Mizzet, Parun
+1 Crackling Drake
+1 Lightning Bolt
+1 Counterspell
+1 Brainstorm
+1 Ponder
+1 Preordain
+1 Opt
+1 Faithless Looting
+1 Expressive Iteration
+1 Mana Leak
+1 Arcane Denial
+1 Chaos Warp
+1 Reality Shift
+1 Solve the Equation
+1 Frantic Search
+1 Windfall
+1 Fact or Fiction
+1 Dig Through Time
+1 Treasure Cruise
+1 Mizzix's Mastery
+1 Past in Flames
+1 Thousand-Year Storm
+1 Mystic Confluence
+1 Cyclonic Rift
+1 Vandalblast
+1 Sol Ring
+1 Izzet Signet
+1 Arcane Signet
+1 Thought Vessel
+16 Island
+14 Mountain
+1 Command Tower
+1 Steam Vents
+1 Sulfur Falls
+1 Shivan Reef`,
+artifacts:`1 Sol Ring
+1 Mana Vault
+1 Arcane Signet
+1 Thran Dynamo
+1 Gilded Lotus
+1 Voltaic Key
+1 Manifold Key
+1 Mycosynth Wellspring
+1 Ichor Wellspring
+1 Solemn Simulacrum
+1 Myr Retriever
+1 Scrap Trawler
+1 Foundry Inspector
+1 Etherium Sculptor
+1 Jhoira's Familiar
+1 Padeem, Consul of Innovation
+1 Sai, Master Thopterist
+1 Master Transmuter
+1 Shimmer Myr
+1 Metalworker
+1 Mystic Forge
+1 Unwinding Clock
+1 Darksteel Forge
+1 Blightsteel Colossus
+1 Kuldotha Forgemaster
+1 Rings of Brighthearth
+1 Basalt Monolith
+1 Sensei's Divining Top
+1 Cyclonic Rift
+1 Counterspell
+1 Swords to Plowshares
+1 Dispatch
+1 Thought Monitor
+1 Thoughtcast
+15 Island
+12 Plains
+1 Command Tower
+1 Hallowed Fountain
+1 Azorius Chancery
+1 Seat of the Synod
+1 Ancient Den
+1 Academy Ruins`,
+graveyard:`1 Stitcher's Supplier
+1 Satyr Wayfinder
+1 Grisly Salvage
+1 Golgari Grave-Troll
+1 Stinkweed Imp
+1 Life from the Loam
+1 Ramunap Excavator
+1 Eternal Witness
+1 Reanimate
+1 Animate Dead
+1 Living Death
+1 Victimize
+1 Dread Return
+1 Buried Alive
+1 Entomb
+1 Jarad's Orders
+1 Lotleth Troll
+1 Lord of Extinction
+1 Izoni, Thousand-Eyed
+1 Massacre Wurm
+1 Sepulchral Primordial
+1 Sheoldred, Whispering One
+1 Mikaeus, the Unhallowed
+1 Sakura-Tribe Elder
+1 Cultivate
+1 Kodama's Reach
+1 Beast Within
+1 Assassin's Trophy
+1 Putrefy
+1 Sol Ring
+1 Golgari Signet
+1 Arcane Signet
+1 Nihil Spellbomb
+1 Greater Good
+1 Phyrexian Arena
+1 The Meathook Massacre
+15 Swamp
+13 Forest
+1 Command Tower
+1 Overgrown Tomb
+1 Woodland Cemetery
+1 Golgari Rot Farm
+1 Twilight Mire`,
+tokens:`1 Krenko, Mob Boss
+1 Siege-Gang Commander
+1 Goblin Instigator
+1 Hordeling Outburst
+1 Dragon Fodder
+1 Krenko's Command
+1 Mogg War Marshal
+1 Goblin Rabblemaster
+1 Legion Warboss
+1 Goblin Bombardment
+1 Impact Tremors
+1 Purphoros, God of the Forge
+1 Shared Animosity
+1 Coat of Arms
+1 Vanquisher's Banner
+1 Herald's Horn
+1 Ruby Medallion
+1 Sol Ring
+1 Arcane Signet
+1 Skullclamp
+1 Throne of the God-Pharaoh
+1 Goblin Chieftain
+1 Skirk Prospector
+1 Battle Hymn
+1 Brightstone Ritual
+1 Muxus, Goblin Grandee
+1 Conspicuous Snoop
+1 Goblin Matron
+1 Goblin Recruiter
+1 Hobgoblin Bandit Lord
+1 Last-Ditch Effort
+1 Burn at the Stake
+1 Pashalik Mons
+1 Beetleback Chief
+1 Goblin Trashmaster
+1 Lightning Bolt
+1 Chaos Warp
+33 Mountain
+1 Command Tower
+1 Castle Embereth`,
+lands:`1 Azusa, Lost but Seeking
+1 Oracle of Mul Daya
+1 Courser of Kruphix
+1 Ramunap Excavator
+1 Lord Windgrace
+1 Tireless Tracker
+1 Scute Swarm
+1 Rampaging Baloths
+1 Avenger of Zendikar
+1 Crucible of Worlds
+1 Exploration
+1 Burgeoning
+1 Cultivate
+1 Kodama's Reach
+1 Harrow
+1 Splendid Reclamation
+1 Scapeshift
+1 Roiling Regrowth
+1 Life from the Loam
+1 Constant Mists
+1 Sol Ring
+1 Arcane Signet
+1 Hour of Promise
+1 Boundless Realms
+1 Zuran Orb
+1 Strip Mine
+1 Wasteland
+1 Ghost Quarter
+1 Field of the Dead
+1 Valakut, the Molten Pinnacle
+1 Flagstones of Trokair
+1 Fabled Passage
+1 Prismatic Vista
+1 Evolving Wilds
+1 Terramorphic Expanse
+1 Blood Crypt
+1 Overgrown Tomb
+1 Stomping Ground
+1 Dragonskull Summit
+1 Rootbound Crag
+1 Woodland Cemetery
+10 Forest
+8 Mountain
+8 Swamp
+1 Command Tower`,
+voltron:`1 Rafiq of the Many
+1 Bruna, Light of Alabaster
+1 Uril, the Miststalker
+1 Sram, Senior Edificer
+1 Sythis, Harvest's Hand
+1 Sigarda's Aid
+1 Ethereal Armor
+1 Daybreak Coronet
+1 Eidolon of Countless Battles
+1 All That Glitters
+1 Spectral Grasp
+1 Shield of the Oversoul
+1 Armored Ascension
+1 Sage's Reverie
+1 Battle Mastery
+1 Sword of Feast and Famine
+1 Sword of Fire and Ice
+1 Sword of Light and Shadow
+1 Umezawa's Jitte
+1 Shadowspear
+1 Swiftfoot Boots
+1 Lightning Greaves
+1 Hammer of Nazahn
+1 Sol Ring
+1 Arcane Signet
+1 Swords to Plowshares
+1 Path to Exile
+1 Teferi's Protection
+1 Heroic Intervention
+1 Enlightened Tutor
+1 Three Dreams
+1 Open the Armory
+1 Stoneforge Mystic
+1 Stonehewer Giant
+1 Puresteel Paladin
+1 Bear Umbra
+1 Flickering Ward
+38 Plains`,
+counters:`1 Hardened Scales
+1 Winding Constrictor
+1 Pir, Imaginative Rascal
+1 Toothy, Imaginary Friend
+1 Branching Evolution
+1 Doubling Season
+1 Master Biomancer
+1 Kalonian Hydra
+1 Primal Vigor
+1 Ozolith, the Shattered Spire
+1 The Ozolith
+1 Inspiring Call
+1 Bow of Nylea
+1 Forgotten Ancient
+1 Mycoloth
+1 Scavenging Ooze
+1 Walking Ballista
+1 Endless One
+1 Managorger Hydra
+1 Champion of Lambholt
+1 Avenger of Zendikar
+1 Cathars' Crusade
+1 Hangarback Walker
+1 Ivy Lane Denizen
+1 Renata, Called to the Hunt
+1 Good-Fortune Unicorn
+1 Conclave Mentor
+1 Luminous Broodmoth
+1 Sigarda's Aid
+1 Vorel of the Hull Clade
+1 Kalonian Tusker
+1 Experiment One
+1 Rishkar, Peema Renegade
+1 Evolution Sage
+1 Contagion Clasp
+1 Contagion Engine
+1 Inexorable Tide
+1 Sol Ring
+1 Arcane Signet
+1 Simic Signet
+13 Forest
+10 Plains
+5 Island
+1 Command Tower
+1 Sunpetal Grove
+1 Hinterland Harbor
+1 Temple Garden
+1 Breeding Pool
+1 Tropical Island`
+};
+function loadSample(k){
+  if(k==='random'){const keys=Object.keys(SAMPLES);k=keys[Math.floor(Math.random()*keys.length)];toast(`Loaded: ${k}`,'info')}
+  clearAll();$('deckInput').value=SAMPLES[k]||'';updateCardCounter();
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   §27  INITIALIZATION
+   ═══════════════════════════════════════════════════════════════ */
+(function init(){
+  document.documentElement.setAttribute('data-theme',LS.get(LS_KEYS.theme,'dark'));
+  S.currency=LS.get(LS_KEYS.currency,'usd');const csel=$('currencySelect');if(csel)csel.value=S.currency;
+  let shared=null;const sm=location.hash.match(/^#deck=([^&]+)/);
+  if(sm){try{shared=decodeURIComponent(escape(atob(sm[1])))}catch(e){}}
+  const savedDeck=shared||LS.get(LS_KEYS.deck,'');if(savedDeck){$('deckInput').value=savedDeck;updateCardCounter()}
+  const savedToggle=LS.get(LS_KEYS.toggle,null);if(savedToggle!==null)$('findInDeck').checked=savedToggle;
+  $('useOtags').checked=LS.get(LS_KEYS.otags,false);
+  S.dismissed=new Set(LS.get(LS_KEYS.dismissed,[]));
+  refreshDeckSlots();
+  $('findInDeck').addEventListener('change',()=>LS.set(LS_KEYS.toggle,$('findInDeck').checked));
+  $('useOtags').addEventListener('change',()=>{LS.set(LS_KEYS.otags,$('useOtags').checked);if($('useOtags').checked)toast('🔖 Oracle Tags enabled — ~45s first run (cached 7 days)','info')});
+  $('urlImport').addEventListener('keydown',e=>{if(e.key==='Enter')importFromUrl()});
+  $('cmdLookup').addEventListener('keydown',e=>{if(e.key==='Enter')lookupCommander()});
+  window.addEventListener('beforeunload',flushCache);
+  setTimeout(()=>{if(shared)toast('Loaded shared decklist','info');else if(savedDeck)toast('Your last decklist was restored','info')},400);
+})();
+/* ═══════════════════════════════════════════════════════════════
+   §28  QUALITY-OF-LIFE ADDITIONS
+   ═══════════════════════════════════════════════════════════════ */
+const isTouch=matchMedia('(hover: none)').matches;
+const CUR_SYM={usd:'$',eur:'€',tix:''};
+function fmtPrice(p){const cur=S.currency||'usd';return cur==='tix'?p.toFixed(2)+' tix':CUR_SYM[cur]+p.toFixed(2)}
+function targetLandCount(avgCMC){return avgCMC<2.5?34:avgCMC<3.5?37:39}
+
+/* Memoized trim result — recomputed only when commander selection changes */
+function getTrimResult(){
+  const cmds=getCommanders(),key=cmds.map(c=>c.name).join('|');
+  if(S.lastTrim&&S.lastTrim.key===key)return S.lastTrim.result;
+  const result=runTrimmer(cmds,S.deckCardData,S.parsedList);
+  S.lastTrim={key,result};return result;
+}
+
+/* Image zoom modal (touch + desktop) */
+function openImgModal(src){if(!src)return;$('imgModalImg').src=src;$('imgModal').classList.add('show')}
+function closeImgModal(){$('imgModal').classList.remove('show')}
+
+/* Toast with Undo */
+function toastUndo(msg,onUndo){
+  const c=$('toastContainer'),t=document.createElement('div');t.className='toast toast-info';
+  t.innerHTML='<span></span><button class="toast-undo">Undo</button><button class="toast-x" aria-label="Dismiss">×</button>';
+  t.querySelector('span').textContent=msg;c.appendChild(t);
+  const rm=()=>{t.classList.add('fade');setTimeout(()=>t.remove(),300)};
+  t.querySelector('.toast-undo').onclick=()=>{onUndo();rm()};
+  t.querySelector('.toast-x').onclick=rm;setTimeout(rm,6000);
+}
+
+/* Shared tag tooltip (mouse + keyboard) */
+function showTagTooltip(theme,exs,x,y){
+  const tt=$('tagTooltip');
+  tt.innerHTML=`<div class="tt-title">${esc(theme)}</div>${exs.length?exs.slice(0,5).map(n=>`<div class="tt-item">• ${esc(n)}</div>`).join(''):'<div class="tt-item">Triggered by this deck</div>'}`;
+  if(x+260>innerWidth)x-=270;if(y+100>innerHeight)y=innerHeight-110;
+  tt.style.left=x+'px';tt.style.top=y+'px';tt.classList.add('show');
+}
+document.addEventListener('focusin',e=>{const tag=e.target.closest('[data-theme]');if(tag){const r=tag.getBoundingClientRect();showTagTooltip(tag.dataset.theme,(tag.dataset.examples||'').split('|').filter(Boolean),r.left,r.bottom+6)}});
+document.addEventListener('focusout',e=>{if(e.target.closest('[data-theme]'))$('tagTooltip').classList.remove('show')});
+
+/* Manual commander lookup — reuses all trim/fill/partner logic */
+async function lookupCommander(){
+  const name=$('cmdLookup').value.trim();
+  if(!name){toast('Enter a commander name','err');return}
+  if(!S.deckCardData.length){toast('Analyze a decklist first','err');return}
+  toast('Looking up…','info');
+  try{
+    const r=await apiFetch(`${API}/cards/named?fuzzy=${encodeURIComponent(name)}`);
+    if(!r.ok){toast('Card not found','err');return}
+    const card=await r.json();
+    if(!isCommanderEligible(card)&&!hasCompanion(card)){toast(`${card.name} can’t be a commander`,'err');return}
+    S.allCmdCards.set(card.name,card);
+    const cn=card.name.toLowerCase().split(' // ')[0],tags=S.deckOtagMap.get(cn);
+    if(tags&&tags.size){if(!S.cmdOtagMap.has(card.name))S.cmdOtagMap.set(card.name,new Set());for(const t of tags)S.cmdOtagMap.get(card.name).add(t)}
+    $('cmdLookup').value='';toast(`Testing ${card.name}`,'ok');
+    handleCommanderSelect(card.name);
+  }catch(e){if(e.name!=='AbortError')toast('Lookup failed','err')}
+}
+
+/* Cache management */
+function clearCache(){_cache.clear();_cacheDirty={};if(_cacheFlush){clearTimeout(_cacheFlush);_cacheFlush=null}LS.del(LS_KEYS.cache);toast('Scryfall cache cleared','ok')}
+
+/* Share link */
+function copyShareLink(){
+  const deck=$('deckInput').value;if(!deck.trim()){toast('Nothing to share','err');return}
+  try{const url=location.origin+location.pathname+'#deck='+btoa(unescape(encodeURIComponent(deck)));navigator.clipboard.writeText(url).then(()=>toast('Share link copied','ok'))}
+  catch(e){toast('Could not build share link','err')}
+}
+
+/* Deck text builder (used by copy + download) */
+function buildDeckText(mode){
+  if(!S.selectedCmd)return'';
+  const cmds=getCommanders(),cmdNames=new Set(cmds.map(c=>c.name.toLowerCase().split(' // ')[0]));
+  let text=`// Commander${cmds.length>1?'s':''}\n`;for(const cmd of cmds)text+=`1 ${cmd.name}\n`;text+='\n';
+  if(mode==='trim'){
+    const result=getTrimResult(),keepAgg=aggregateSlots(result.keep).sort((a,b)=>b.score-a.score);
+    const lands=keepAgg.filter(s=>s.isLand),nls=keepAgg.filter(s=>!s.isLand);
+    text+=`// Deck (${nls.reduce((s,c)=>s+c.qty,0)})\n`;for(const s of nls)text+=`${s.qty} ${s.name}\n`;
+    text+=`\n// Lands (${lands.reduce((s,c)=>s+c.qty,0)})\n`;for(const s of lands)text+=`${s.qty} ${s.name}\n`;
+  }else if(mode==='fill'){
+    const existing=S.parsedList.filter(p=>!cmdNames.has(p.name.toLowerCase()));text+='// Existing Cards\n';for(const p of existing)text+=`${p.qty} ${p.name}\n`;
+    const fi=document.querySelectorAll('.fill-item .ti-name, .basic-item .ti-name'),fq=document.querySelectorAll('.fill-item .ti-qty, .basic-item .ti-qty');
+    if(fi.length){text+='\n// Added Cards\n';fi.forEach((el,i)=>{const qty=(fq[i]?.textContent||'1x').replace('x','').trim();text+=`${qty} ${el.textContent}\n`})}
+  }
+  return text;
+}
+function downloadDeckFile(mode){
+  const text=mode==='raw'?$('deckInput').value:buildDeckText(mode);
+  if(!text||!text.trim()){toast('Nothing to download','err');return}
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'text/plain'}));
+  a.download=mode==='raw'?'decklist.txt':`decklist-${mode}.txt`;document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);toast('Downloaded .txt','ok');
+}
+
+/* Currency + theme */
+function setCurrency(cur){
+  S.currency=cur;LS.set(LS_KEYS.currency,cur);
+  [S.currentRanked,S.currentInDeck].forEach(arr=>arr.forEach(r=>{const card=S.allCmdCards.get(r.name)||S.partnerCards.get(r.name);if(card)r.price=cardPrice(card)}));
+  if($('resultsArea').style.display!=='none')refilterResults();
+  if($('inDeckArea').style.display!=='none')resortGrid('inDeck');
+  if(S.deckCardData.length){let tot=0;for(const c of S.deckCardData)tot+=cardPrice(c);$('statPrice').textContent=tot>0?fmtPrice(tot):'—'}
+}
+function toggleTheme(){const next=document.documentElement.getAttribute('data-theme')==='light'?'dark':'light';document.documentElement.setAttribute('data-theme',next);LS.set(LS_KEYS.theme,next)}
+
+/* Saved deck slots */
+function refreshDeckSlots(){const decks=LS.get(LS_KEYS.decks,{});const sel=$('deckSlots');if(!sel)return;sel.innerHTML='<option value="">— Saved decks —</option>'+Object.keys(decks).map(n=>`<option>${esc(n)}</option>`).join('')}
+function saveDeckSlot(){const name=(prompt('Name this deck:')||'').trim();if(!name)return;const decks=LS.get(LS_KEYS.decks,{});decks[name]=$('deckInput').value;LS.set(LS_KEYS.decks,decks);refreshDeckSlots();$('deckSlots').value=name;toast('Saved: '+name,'ok')}
+function loadDeckSlot(){const name=$('deckSlots').value;if(!name)return;const decks=LS.get(LS_KEYS.decks,{});if(decks[name]!=null){$('deckInput').value=decks[name];updateCardCounter();savePersistedDeck();toast('Loaded: '+name,'info')}}
+function deleteDeckSlot(){const name=$('deckSlots').value;if(!name){toast('Pick a saved deck first','err');return}const decks=LS.get(LS_KEYS.decks,{});delete decks[name];LS.set(LS_KEYS.decks,decks);refreshDeckSlots();toast('Deleted: '+name,'info')}
+</script>
+</body>
+</html>

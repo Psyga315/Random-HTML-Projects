@@ -1,0 +1,583 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MTG Card Extractor</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1f232c; --border:#2a2f3a;
+    --text:#e8eaed; --muted:#9aa0aa; --accent:#7c5cff; --accent2:#00c2a8;
+    --danger:#ff5c5c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); line-height:1.5}
+  header{padding:24px 20px 8px; max-width:1100px; margin:0 auto}
+  h1{margin:0 0 4px; font-size:1.5rem}
+  .sub{color:var(--muted); font-size:.9rem; margin:0}
+  main{max-width:1100px; margin:0 auto; padding:16px 20px 60px}
+  .panel{background:var(--panel); border:1px solid var(--border); border-radius:14px; padding:16px; margin-bottom:16px}
+  textarea{width:100%; min-height:160px; resize:vertical; background:var(--panel2); color:var(--text); border:1px solid var(--border); border-radius:10px; padding:12px; font:14px/1.5 ui-monospace,Menlo,Consolas,monospace}
+  .controls{display:flex; flex-wrap:wrap; gap:12px 20px; align-items:center; margin-top:12px}
+  label.opt{display:flex; align-items:center; gap:6px; font-size:.9rem; color:var(--muted); cursor:pointer}
+  select{background:var(--panel2); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:5px 8px; font:inherit}
+  input[type=text]{background:var(--panel2); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:5px 9px; font:inherit}
+  input[type=text]:focus{outline:none; border-color:var(--accent)}
+  button{border:none; border-radius:10px; padding:10px 18px; font-size:.95rem; font-weight:600; cursor:pointer; transition:.15s}
+  .primary{background:var(--accent); color:#fff}
+  .primary:hover{filter:brightness(1.1)}
+  .ghost{background:var(--panel2); color:var(--text); border:1px solid var(--border)}
+  .ghost:hover{border-color:var(--accent)}
+  .small{font-size:.78rem; padding:4px 10px}
+  button:disabled{opacity:.5; cursor:not-allowed}
+  .hint{font-size:.78rem; color:var(--muted); margin-left:auto}
+  kbd{background:var(--panel2); border:1px solid var(--border); border-radius:5px; padding:1px 6px; font:inherit; font-size:.75rem}
+  .status{font-size:.9rem; color:var(--muted); margin-top:10px; min-height:1.2em}
+  .status.err{color:var(--danger)}
+  .bar{height:6px; background:var(--panel2); border-radius:99px; overflow:hidden; margin-top:8px; display:none}
+  .bar>i{display:block; height:100%; width:0; background:var(--accent2); transition:width .2s}
+  .results-head{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:14px}
+  .results-head h2{margin:0; font-size:1.1rem}
+  .rh-controls{display:flex; align-items:center; gap:10px; flex-wrap:wrap}
+  .stat{color:var(--muted); font-size:.85rem}
+  .price{color:var(--accent2); font-size:.85rem; font-weight:600}
+  .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(170px,1fr)); gap:14px}
+  .group{margin-bottom:22px}
+  .group-head{display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:0 0 10px; padding-bottom:6px; border-bottom:1px solid var(--border)}
+  .group-head h3{margin:0; font-size:1rem; display:flex; align-items:center; gap:8px}
+  .dot{width:13px; height:13px; border-radius:50%; display:inline-block; border:1px solid rgba(255,255,255,.25)}
+  .pips{display:inline-flex; gap:2px}
+  .pip{width:11px; height:11px; border-radius:50%; border:1px solid rgba(255,255,255,.25)}
+  .gcount{color:var(--muted); font-size:.8rem}
+  .gactions{margin-left:auto; display:flex; gap:6px}
+  .card{background:var(--panel2); border:1px solid var(--border); border-radius:12px; overflow:hidden; cursor:pointer; position:relative; transition:.15s}
+  .card:hover{border-color:var(--accent)}
+  .card.off{opacity:.4}
+  .card img{width:100%; display:block; aspect-ratio:488/680; object-fit:cover; background:#0a0c10}
+  .card .ph{width:100%; aspect-ratio:488/680; display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:.8rem; text-align:center; padding:10px}
+  .card .info{padding:8px 10px}
+  .card .nm{font-size:.85rem; font-weight:600; line-height:1.25; display:flex; justify-content:space-between; align-items:baseline; gap:6px}
+  .card .nm .ext{flex:0 0 auto; color:var(--accent2); text-decoration:none; font-weight:700; opacity:.7}
+  .card .nm .ext:hover{opacity:1}
+  .card .mt{font-size:.72rem; color:var(--muted); margin-top:3px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .badge{position:absolute; top:8px; right:8px; background:rgba(0,0,0,.75); color:#fff; font-size:.72rem; font-weight:700; padding:2px 7px; border-radius:99px; backdrop-filter:blur(2px)}
+  .dfc{position:absolute; bottom:46px; right:8px; background:rgba(124,92,255,.9); color:#fff; font-size:.62rem; font-weight:700; padding:2px 6px; border-radius:99px; letter-spacing:.04em}
+  .check{position:absolute; top:8px; left:8px; width:22px; height:22px; border-radius:6px; background:rgba(0,0,0,.6); display:flex; align-items:center; justify-content:center; color:var(--accent2); font-weight:800; font-size:14px}
+  .card.off .check{color:transparent}
+  .out-head{display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:10px}
+  footer{max-width:1100px; margin:0 auto; padding:0 20px 40px; color:var(--muted); font-size:.8rem}
+  footer a{color:var(--accent2)}
+  details{margin-top:8px}
+  summary{cursor:pointer; color:var(--muted); font-size:.85rem}
+  .empty{color:var(--muted); font-size:.9rem; padding:20px 0; text-align:center}
+</style>
+</head>
+<body>
+<header>
+  <h1>🃏 MTG Card Extractor</h1>
+  <p class="sub">Paste any text and pull out every Magic: The Gathering card it mentions.</p>
+</header>
+
+<main>
+  <div class="panel">
+    <textarea id="input" placeholder="Paste a decklist, article, forum post, or chat log here…
+
+Examples that work:
+4 Lightning Bolt
+2x Sol Ring
+…or prose: 'I cast Brainstorm, then resolved a Jace, the Mind Sculptor.'"></textarea>
+    <div class="controls">
+      <button class="primary" id="go">Extract Cards</button>
+      <button class="ghost" id="clear">Clear</button>
+      <label class="opt"><input type="checkbox" id="caseSensitive" checked> Require capitalization</label>
+      <label class="opt"><input type="checkbox" id="skipLands"> Skip basic lands</label>
+      <label class="opt"><input type="checkbox" id="fetchImgs" checked> Fetch images &amp; details</label>
+      <span class="hint"><kbd>Ctrl</kbd>/<kbd>⌘</kbd> + <kbd>Enter</kbd> to extract</span>
+    </div>
+    <div class="status" id="status"></div>
+    <div class="bar" id="bar"><i></i></div>
+  </div>
+
+  <div class="panel" id="resultsPanel" style="display:none">
+    <div class="results-head">
+      <h2>Found Cards</h2>
+      <div class="rh-controls">
+        <input type="text" id="filter" placeholder="Filter…" style="width:130px">
+        <label class="opt">Sort
+          <select id="sortBy">
+            <option value="count">Count</option>
+            <option value="name">Name</option>
+            <option value="mv">Mana value</option>
+            <option value="color">Color</option>
+          </select>
+        </label>
+        <label class="opt">Group by
+          <select id="groupBy">
+            <option value="none">None</option>
+            <option value="color">Color</option>
+            <option value="identity">Color Identity</option>
+            <option value="type">Type</option>
+          </select>
+        </label>
+        <span class="stat" id="stat"></span>
+        <button class="ghost small" id="selAll">Select all</button>
+        <button class="ghost small" id="selNone">Select none</button>
+      </div>
+    </div>
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <div class="panel" id="outPanel" style="display:none">
+    <div class="out-head">
+      <h2 style="margin:0;font-size:1.1rem">Output list <span class="price" id="priceTag"></span></h2>
+      <div>
+        <label class="opt"><input type="checkbox" id="withCounts"> Counts</label>
+        <label class="opt"><input type="checkbox" id="groupHeaders"> Group headers</label>
+        &nbsp;<button class="ghost small" id="copyBtn">Copy</button>
+        <button class="ghost small" id="dlBtn">Download .txt</button>
+      </div>
+    </div>
+    <textarea id="output" readonly style="min-height:120px"></textarea>
+  </div>
+
+  <details>
+    <summary>How it works &amp; notes</summary>
+    <div class="panel" style="margin-top:8px">
+      <ul style="margin:0;padding-left:18px;color:var(--muted);font-size:.85rem">
+        <li>Card names are downloaded once from Scryfall and cached locally for 7 days.</li>
+        <li>Multi-word names are matched longest-first; matching ignores accents and punctuation.</li>
+        <li><strong>Double-faced, split &amp; adventure cards</strong> are matched by either face name — so <em>Sea Gate Restoration</em> resolves correctly instead of falling through to <em>Sea Gate</em>. Details are fetched by the front-face name, which Scryfall's collection endpoint accepts (the combined “A // B” name is rejected).</li>
+        <li>If <strong>both faces</strong> of one card are mentioned, they collapse into a single tile (marked <span style="color:var(--accent)">DFC</span>) with the counts summed.</li>
+        <li><strong>Require capitalization</strong> compares each word's casing to the official name (so connector words like “the” are exempt) — great for prose, but uncheck it for all-lowercase decklists.</li>
+        <li><strong>Color</strong> groups by the relevant face's printed colors; <strong>Color Identity</strong> groups by guild/shard/wedge (what matters for Commander).</li>
+        <li>Common-word names (Fog, Giant, Island) may still slip through — click any tile to exclude it.</li>
+      </ul>
+    </div>
+  </details>
+</main>
+
+<footer>
+  Card names, data, and images provided by the <a href="https://scryfall.com" target="_blank" rel="noopener">Scryfall API</a>.
+  Card images retain the original artist and copyright. Unofficial tool, not endorsed by Scryfall or Wizards of the Coast.
+</footer>
+
+<script>
+const $ = s => document.querySelector(s);
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+
+const CATALOG_URL='https://api.scryfall.com/catalog/card-names';
+const CACHE_KEY='scryfall_card_names_v1';
+const CACHE_TTL=1000*60*60*24*7;
+const SETTINGS_KEY='mtg_ext_settings_v1';
+const INPUT_KEY='mtg_ext_input_v1';
+
+const BASIC_LANDS=new Set(['plains','island','swamp','mountain','forest','wastes',
+  'snow covered plains','snow covered island','snow covered swamp','snow covered mountain','snow covered forest']);
+
+let INDEX=null, currentItems=[], selected=new Set();
+
+/* ---------- grouping config ---------- */
+const PIP_ORDER='WUBRG';
+const COLOR_PIP={W:'#f5e8c0',U:'#4a90d9',B:'#5b5b6b',R:'#d9534f',G:'#5cb85c'};
+
+// --- simple color mode (by card / face colors) ---
+const COLOR_GROUPS=['White','Blue','Black','Red','Green','Multicolor','Colorless','Lands','Unknown'];
+const COLOR_DOT={White:'#f5e8c0',Blue:'#4a90d9',Black:'#5b5b6b',Red:'#d9534f',Green:'#5cb85c',Multicolor:'#d4af37',Colorless:'#9aa0aa',Lands:'#b08d57',Unknown:'#444'};
+const COLOR_NAME={W:'White',U:'Blue',B:'Black',R:'Red',G:'Green'};
+
+// --- color identity mode (guilds / shards / wedges) ---
+const IDENTITY_DEFS=[
+  {c:'',     n:'Colorless'},
+  {c:'W',    n:'White'},     {c:'U',  n:'Blue'},    {c:'B', n:'Black'}, {c:'R', n:'Red'}, {c:'G', n:'Green'},
+  {c:'WU',   n:'Azorius'},   {c:'WB', n:'Orzhov'},  {c:'WR',n:'Boros'}, {c:'WG',n:'Selesnya'},
+  {c:'UB',   n:'Dimir'},     {c:'UR', n:'Izzet'},   {c:'UG',n:'Simic'},
+  {c:'BR',   n:'Rakdos'},    {c:'BG', n:'Golgari'}, {c:'RG',n:'Gruul'},
+  {c:'WUB',  n:'Esper'},     {c:'WUR',n:'Jeskai'},  {c:'WUG',n:'Bant'},
+  {c:'WBR',  n:'Mardu'},     {c:'WBG',n:'Abzan'},   {c:'WRG',n:'Naya'},
+  {c:'UBR',  n:'Grixis'},    {c:'UBG',n:'Sultai'},  {c:'URG',n:'Temur'}, {c:'BRG',n:'Jund'},
+  {c:'WUBR', n:'Yore-Tiller'},{c:'WUBG',n:'Witch-Maw'},{c:'WURG',n:'Ink-Treader'},
+  {c:'WBRG', n:'Dune-Brood'},{c:'UBRG',n:'Glint-Eye'},
+  {c:'WUBRG',n:'Five-Color'}
+];
+function idLabel(d){ return d.c.length<=1 ? d.n : `${d.n} (${[...d.c].join('/')})`; }
+const IDENTITY_BY_KEY=new Map(IDENTITY_DEFS.map(d=>[d.c,d]));
+const IDENTITY_ORDER=IDENTITY_DEFS.map(idLabel);
+const IDENTITY_PIPS=Object.fromEntries(IDENTITY_DEFS.map(d=>[idLabel(d), d.c]));
+function canonical(colors){ return [...(colors||[])].sort((a,b)=>PIP_ORDER.indexOf(a)-PIP_ORDER.indexOf(b)).join(''); }
+
+// --- face-aware accessors ---
+function cardColors(card, faceIdx){
+  const faces=card?.card_faces;
+  if(faceIdx!=null && faces?.[faceIdx]?.colors) return faces[faceIdx].colors;
+  return card?.colors || faces?.[0]?.colors || [];
+}
+function cardType(card, faceIdx){
+  const faces=card?.card_faces;
+  if(faceIdx!=null && faces?.[faceIdx]?.type_line) return faces[faceIdx].type_line;
+  return card?.type_line || faces?.[0]?.type_line || '';
+}
+function colorGroupOf(item){
+  const card=item?.card; if(!card) return 'Unknown';
+  if(/Land/.test(cardType(card,item.faceIdx))) return 'Lands';
+  const colors=cardColors(card,item.faceIdx);
+  if(colors.length===0) return 'Colorless';
+  if(colors.length===1) return COLOR_NAME[colors[0]]||'Colorless';
+  return 'Multicolor';
+}
+function identityGroupOf(item){
+  const card=item?.card; if(!card) return 'Unknown';
+  const def=IDENTITY_BY_KEY.get(canonical(card.color_identity));   // color identity is whole-card
+  return def ? idLabel(def) : 'Unknown';
+}
+const TYPE_GROUPS=['Creature','Planeswalker','Battle','Instant','Sorcery','Artifact','Enchantment','Land','Other','Unknown'];
+function typeGroupOf(item){
+  const card=item?.card; if(!card) return 'Unknown';
+  const tl=cardType(card,item.faceIdx);
+  for(const t of ['Creature','Planeswalker','Battle','Instant','Sorcery','Artifact','Enchantment','Land'])
+    if(tl.includes(t)) return t;
+  return 'Other';
+}
+function mvOf(item){
+  const card=item?.card; if(!card) return 0;
+  const faces=card.card_faces;
+  if(item.faceIdx!=null && faces?.[item.faceIdx]?.cmc!=null) return faces[item.faceIdx].cmc;
+  return card.cmc ?? faces?.[0]?.cmc ?? 0;
+}
+
+// --- shared marker renderer ---
+function pipsHTML(colorStr){
+  if(!colorStr) return '';
+  return '<span class="pips">'+[...colorStr].map(c=>`<span class="pip" style="background:${COLOR_PIP[c]}"></span>`).join('')+'</span>';
+}
+function groupModeFns(){
+  const m=$('#groupBy').value;
+  if(m==='color')    return {order:COLOR_GROUPS, of:colorGroupOf, marker:g=>COLOR_DOT[g]?`<span class="dot" style="background:${COLOR_DOT[g]}"></span>`:''};
+  if(m==='identity') return {order:IDENTITY_ORDER, of:identityGroupOf, marker:g=>g==='Colorless'?'<span class="dot" style="background:#9aa0aa"></span>':(g==='Unknown'?'':pipsHTML(IDENTITY_PIPS[g]||''))};
+  if(m==='type')     return {order:TYPE_GROUPS, of:typeGroupOf, marker:()=>''};
+  return null;
+}
+
+/* ---------- text matching ---------- */
+function norm(s){
+  return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/æ/g,'ae').replace(/œ/g,'oe').replace(/[^a-z0-9]+/g,' ').trim();
+}
+function frontFace(n){ return n.split('//')[0].trim(); }   // collection lookup key
+function tokenize(text){
+  const orig=[], normt=[]; const re=/[\p{L}\p{N}\p{M}]+/gu; let m;
+  while((m=re.exec(text))){ const n=norm(m[0]); if(n){ orig.push(m[0]); normt.push(n); } }
+  return {orig, normt};
+}
+function capsOk(name, origSlice){
+  const dispWords=name.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  if(dispWords.length!==origSlice.length) return true;
+  for(let k=0;k<dispWords.length;k++)
+    if(/^\p{Lu}/u.test(dispWords[k]) && !/^\p{Lu}/u.test(origSlice[k])) return false;
+  return true;
+}
+function scanText(text, caseSensitive){
+  const {map,maxWords}=INDEX; const {orig,normt}=tokenize(text);
+  const found=new Map(); let i=0;
+  while(i<normt.length){
+    let matched=false; const maxW=Math.min(maxWords, normt.length-i);
+    for(let w=maxW; w>=1; w--){
+      const cand=normt.slice(i,i+w).join(' '); const entry=map.get(cand);
+      if(entry){
+        if(caseSensitive && !capsOk(entry.name, orig.slice(i,i+w))) continue;
+        const e=found.get(cand)||{key:cand, name:entry.name, lookup:entry.lookup, faceIdx:entry.faceIdx, full:entry.full, count:0};
+        e.count++; found.set(cand,e);
+        i+=w; matched=true; break;
+      }
+    }
+    if(!matched) i++;
+  }
+  return found;
+}
+
+/* collapse faces of one physical card (shared front-face lookup) into one item */
+function collapseFaces(items){
+  const groups=new Map();
+  for(const it of items){
+    const k=norm(it.lookup);
+    (groups.get(k) || groups.set(k,[]).get(k)).push(it);
+  }
+  const out=[];
+  for(const [k,group] of groups){
+    if(group.length===1){ out.push(group[0]); continue; }
+    out.push({
+      key:k, name:group[0].full, lookup:group[0].lookup,
+      faceIdx:null, full:group[0].full,
+      count:group.reduce((a,b)=>a+b.count,0), merged:true
+    });
+  }
+  return out;
+}
+
+/* ---------- data ---------- */
+async function getCardNames(){
+  try{ const raw=localStorage.getItem(CACHE_KEY);
+    if(raw){ const o=JSON.parse(raw); if(Date.now()-o.t<CACHE_TTL && Array.isArray(o.d)) return o.d; }
+  }catch(e){}
+  const res=await fetch(CATALOG_URL,{headers:{'Accept':'application/json'}});
+  if(!res.ok) throw new Error('Could not load card database ('+res.status+')');
+  const data=(await res.json()).data||[];
+  try{ localStorage.setItem(CACHE_KEY,JSON.stringify({t:Date.now(),d:data})); }catch(e){}
+  return data;
+}
+function buildIndex(names){
+  const map=new Map(); let maxWords=1;
+  const add=(key,name,lookup,faceIdx,full)=>{
+    const k=norm(key); if(!k || map.has(k)) return;
+    map.set(k,{name,lookup,faceIdx,full});
+    const w=k.split(' ').length; if(w>maxWords) maxWords=w;
+  };
+  // Pass 1: full names. Standalone names win on key collisions (added first).
+  // Multi-part cards look up by FRONT FACE — /cards/collection rejects the "A // B" name.
+  for(const n of names){
+    const multi=n.includes('//');
+    add(n, n, multi?frontFace(n):n, null, n);
+  }
+  // Pass 2: each individual face — displayed by its own name & art, resolved via the
+  // front-face identifier so the whole card object comes back from Scryfall.
+  for(const n of names){
+    if(!n.includes('//')) continue;
+    const front=frontFace(n);
+    n.split('//').map(s=>s.trim()).filter(Boolean)
+      .forEach((face,idx)=> add(face, face, front, idx, n));
+  }
+  return {map, maxWords:Math.min(maxWords,12), count:map.size};
+}
+async function fetchDetails(names, onProgress){
+  const out=new Map(); const chunks=[];
+  for(let i=0;i<names.length;i+=75) chunks.push(names.slice(i,i+75));
+  for(let c=0;c<chunks.length;c++){
+    const res=await fetch('https://api.scryfall.com/cards/collection',{
+      method:'POST', headers:{'Accept':'application/json','Content-Type':'application/json'},
+      body:JSON.stringify({identifiers:chunks[c].map(n=>({name:n}))}) });
+    if(res.status===429) throw new Error('Rate limited by Scryfall — wait ~30s and retry.');
+    if(!res.ok) throw new Error('Scryfall error '+res.status);
+    for(const card of ((await res.json()).data||[])){
+      out.set(norm(card.name), card);                       // combined "A // B" name
+      if(Array.isArray(card.card_faces))                    // and every individual face name
+        for(const f of card.card_faces) if(f.name) out.set(norm(f.name), card);
+    }
+    if(onProgress) onProgress(Math.min((c+1)*75,names.length),names.length);
+    if(c<chunks.length-1) await sleep(550);
+  }
+  return out;
+}
+/* face-aware imagery + type line */
+function faceData(card, faceIdx){
+  if(!card) return {img:null, type:'Not found on Scryfall'};
+  const faces=card.card_faces;
+  if(faceIdx!=null && faces?.[faceIdx]){
+    const f=faces[faceIdx];
+    return {
+      img: f.image_uris?.normal || card.image_uris?.normal || faces[0]?.image_uris?.normal || null,
+      type: f.type_line || card.type_line || ''
+    };
+  }
+  return {
+    img: card.image_uris?.normal || faces?.[0]?.image_uris?.normal || null,
+    type: card.type_line || ''
+  };
+}
+
+/* ---------- sorting / filtering ---------- */
+function sortItems(){
+  const mode=$('#sortBy').value;
+  currentItems.sort((a,b)=>{
+    if(mode==='name')  return a.name.localeCompare(b.name);
+    if(mode==='mv')    return mvOf(a)-mvOf(b) || a.name.localeCompare(b.name);
+    if(mode==='color') return colorGroupOf(a).localeCompare(colorGroupOf(b)) || a.name.localeCompare(b.name);
+    return b.count-a.count || a.name.localeCompare(b.name);
+  });
+}
+function visibleItems(){
+  const f=norm($('#filter').value||'');
+  if(!f) return currentItems;
+  return currentItems.filter(it=> norm(it.name).includes(f) || norm(cardType(it.card,it.faceIdx)).includes(f));
+}
+
+/* ---------- rendering ---------- */
+function computeGroups(list){
+  const gm=groupModeFns();
+  if(!gm) return [{name:null, items:list}];
+  const buckets=new Map();
+  for(const item of list){ const g=gm.of(item);
+    if(!buckets.has(g)) buckets.set(g,[]); buckets.get(g).push(item); }
+  const ordered=gm.order.filter(g=>buckets.has(g));
+  for(const g of buckets.keys()) if(!ordered.includes(g)) ordered.push(g);
+  return ordered.map(g=>({name:g, items:buckets.get(g)}));
+}
+function makeCard(item){
+  const el=document.createElement('div');
+  el.className='card'+(selected.has(item.key)?'':' off');
+  const {img, type}=faceData(item.card, item.faceIdx);
+  const ext=item.card?.scryfall_uri
+    ? `<a class="ext" href="${item.card.scryfall_uri}" target="_blank" rel="noopener" title="View on Scryfall">↗</a>` : '';
+  el.innerHTML=`
+    <div class="check">✓</div>
+    ${item.count>1?`<div class="badge">×${item.count}</div>`:''}
+    ${item.merged?`<div class="dfc">DFC</div>`:''}
+    ${img?`<img loading="lazy" src="${img}" alt="${item.name}">`:`<div class="ph">${item.name}</div>`}
+    <div class="info"><div class="nm"><span>${item.name}</span>${ext}</div><div class="mt">${type}</div></div>`;
+  el.querySelector('.ext')?.addEventListener('click',e=>e.stopPropagation());
+  el.addEventListener('click',()=>{
+    if(selected.has(item.key)) selected.delete(item.key); else selected.add(item.key);
+    el.classList.toggle('off'); refreshCounts(); buildOutput();
+  });
+  return el;
+}
+function refreshCounts(){
+  document.querySelectorAll('.group').forEach(sec=>{
+    const cards=sec.querySelectorAll('.card'); let sel=0;
+    cards.forEach(c=>{ if(!c.classList.contains('off')) sel++; });
+    const gc=sec.querySelector('.gcount'); if(gc) gc.textContent=`${sel}/${cards.length}`;
+  });
+  updatePrice();
+}
+function render(){
+  const grid=$('#grid'); grid.innerHTML='';
+  const list=visibleItems();
+  const grouped=$('#groupBy').value!=='none';
+  if(!list.length){
+    grid.className=''; grid.innerHTML='<div class="empty">No cards match that filter.</div>';
+  } else if(!grouped){
+    grid.className='grid';
+    for(const item of list) grid.appendChild(makeCard(item));
+  } else {
+    grid.className='';
+    const gm=groupModeFns();
+    for(const grp of computeGroups(list)){
+      const sel=grp.items.filter(it=>selected.has(it.key)).length;
+      const sec=document.createElement('div'); sec.className='group';
+      const head=document.createElement('div'); head.className='group-head';
+      head.innerHTML=`<h3>${gm.marker(grp.name)}${grp.name}</h3><span class="gcount">${sel}/${grp.items.length}</span>
+        <div class="gactions"><button class="ghost small" data-a="all">All</button>
+        <button class="ghost small" data-a="none">None</button></div>`;
+      head.querySelector('[data-a="all"]').onclick=()=>{ grp.items.forEach(it=>selected.add(it.key)); render(); };
+      head.querySelector('[data-a="none"]').onclick=()=>{ grp.items.forEach(it=>selected.delete(it.key)); render(); };
+      sec.appendChild(head);
+      const sub=document.createElement('div'); sub.className='grid';
+      for(const item of grp.items) sub.appendChild(makeCard(item));
+      sec.appendChild(sub); grid.appendChild(sec);
+    }
+  }
+  const total=currentItems.reduce((a,b)=>a+b.count,0);
+  const shown=list.length!==currentItems.length ? ` • showing ${list.length}` : '';
+  $('#stat').textContent=`${currentItems.length} unique • ${total} mentions${shown}`;
+  $('#resultsPanel').style.display=''; $('#outPanel').style.display='';
+  buildOutput();
+}
+function updatePrice(){
+  let sum=0, have=false; const seen=new Set();
+  for(const it of currentItems){
+    if(!selected.has(it.key)) continue;
+    if(it.card?.id){ if(seen.has(it.card.id)) continue; seen.add(it.card.id); }  // dedupe by printing
+    const p=parseFloat(it.card?.prices?.usd);
+    if(!isNaN(p)){ sum+=p*it.count; have=true; }
+  }
+  $('#priceTag').textContent = have ? `≈ $${sum.toFixed(2)}` : '';
+}
+function buildOutput(){
+  const withCounts=$('#withCounts').checked;
+  const grouped=$('#groupBy').value!=='none';
+  const withHeaders=grouped && $('#groupHeaders').checked;
+  const lines=[];
+  for(const grp of computeGroups(currentItems)){
+    const sel=grp.items.filter(it=>selected.has(it.key));
+    if(!sel.length) continue;
+    if(withHeaders) lines.push(`// ${grp.name} — ${sel.length}`);
+    for(const it of sel) lines.push(withCounts?`${it.count} ${it.name}`:it.name);
+    if(withHeaders) lines.push('');
+  }
+  $('#output').value=lines.join('\n').trim();
+  updatePrice();
+}
+
+/* ---------- status / run ---------- */
+function setStatus(msg,err){ const s=$('#status'); s.textContent=msg||''; s.classList.toggle('err',!!err); }
+function showBar(b){ $('#bar').style.display=b?'block':'none'; if(!b)$('#bar>i').style.width='0'; }
+function setBar(d,t){ $('#bar>i').style.width=(t?Math.round(d/t*100):0)+'%'; }
+
+async function run(){
+  const text=$('#input').value.trim();
+  if(!text){ setStatus('Paste some text first.',true); return; }
+  $('#go').disabled=true;
+  try{
+    setStatus('Loading card database…'); showBar(false);
+    if(!INDEX){ INDEX=buildIndex(await getCardNames()); }
+    setStatus('Scanning text…');
+    const found=scanText(text, $('#caseSensitive').checked);
+    let items=collapseFaces([...found.values()]);
+    if($('#skipLands').checked) items=items.filter(it=>!BASIC_LANDS.has(it.key) && !BASIC_LANDS.has(norm(it.name)));
+    items.sort((a,b)=> b.count-a.count || a.name.localeCompare(b.name));
+    if(!items.length){ setStatus('No Magic cards found in that text.',true);
+      $('#resultsPanel').style.display='none'; $('#outPanel').style.display='none'; $('#go').disabled=false; return; }
+    if($('#fetchImgs').checked){
+      setStatus(`Found ${items.length} cards — fetching details…`); showBar(true);
+      const lookups=[...new Set(items.map(i=>i.lookup))];
+      const details=await fetchDetails(lookups,(d,t)=>{ setBar(d,t); setStatus(`Fetching details… ${Math.min(d,t)}/${t}`); });
+      for(const it of items) it.card=details.get(norm(it.lookup))||null;
+      showBar(false);
+    } else {
+      for(const it of items) it.card=null;
+    }
+    currentItems=items; selected=new Set(items.map(i=>i.key));
+    sortItems();
+    const missing=items.filter(it=>!it.card).length;
+    setStatus(`Done — ${items.length} unique cards${missing?` (${missing} not found on Scryfall)`:''}.`);
+    render();
+  }catch(e){ setStatus(e.message||'Something went wrong.',true); showBar(false); }
+  finally{ $('#go').disabled=false; }
+}
+
+/* ---------- persistence ---------- */
+const BOOL_SETTINGS=['caseSensitive','skipLands','fetchImgs','withCounts','groupHeaders'];
+function saveSettings(){
+  const o={}; BOOL_SETTINGS.forEach(id=>o[id]=$('#'+id).checked);
+  o.groupBy=$('#groupBy').value; o.sortBy=$('#sortBy').value;
+  try{ localStorage.setItem(SETTINGS_KEY,JSON.stringify(o)); }catch(e){}
+}
+function loadSettings(){
+  try{
+    const o=JSON.parse(localStorage.getItem(SETTINGS_KEY)||'{}');
+    BOOL_SETTINGS.forEach(id=>{ if(typeof o[id]==='boolean') $('#'+id).checked=o[id]; });
+    if(o.groupBy) $('#groupBy').value=o.groupBy;
+    if(o.sortBy)  $('#sortBy').value=o.sortBy;
+  }catch(e){}
+  try{ const t=localStorage.getItem(INPUT_KEY); if(t) $('#input').value=t; }catch(e){}
+}
+
+/* ---------- wire up ---------- */
+loadSettings();
+
+$('#go').addEventListener('click',run);
+$('#clear').addEventListener('click',()=>{
+  $('#input').value=''; try{localStorage.removeItem(INPUT_KEY);}catch(e){}
+  $('#resultsPanel').style.display='none'; $('#outPanel').style.display='none'; setStatus('');
+});
+$('#input').addEventListener('keydown',e=>{
+  if((e.ctrlKey||e.metaKey) && e.key==='Enter'){ e.preventDefault(); run(); }
+});
+let inputTimer;
+$('#input').addEventListener('input',()=>{
+  clearTimeout(inputTimer);
+  inputTimer=setTimeout(()=>{ try{localStorage.setItem(INPUT_KEY,$('#input').value);}catch(e){} },400);
+});
+$('#selAll').addEventListener('click',()=>{ selected=new Set(currentItems.map(i=>i.key)); render(); });
+$('#selNone').addEventListener('click',()=>{ selected=new Set(); render(); });
+$('#groupBy').addEventListener('change',()=>{ saveSettings(); render(); });
+$('#sortBy').addEventListener('change',()=>{ saveSettings(); sortItems(); render(); });
+$('#filter').addEventListener('input',render);
+$('#withCounts').addEventListener('change',()=>{ saveSettings(); buildOutput(); });
+$('#groupHeaders').addEventListener('change',()=>{ saveSettings(); buildOutput(); });
+['caseSensitive','skipLands','fetchImgs'].forEach(id=>$('#'+id).addEventListener('change',saveSettings));
+$('#copyBtn').addEventListener('click',()=>{ $('#output').select(); navigator.clipboard?.writeText($('#output').value);
+  const b=$('#copyBtn'),t=b.textContent; b.textContent='Copied!'; setTimeout(()=>b.textContent=t,1200); });
+$('#dlBtn').addEventListener('click',()=>{ const blob=new Blob([$('#output').value],{type:'text/plain'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='cards.txt'; a.click(); URL.revokeObjectURL(a.href); });
+</script>
+</body>
+</html>

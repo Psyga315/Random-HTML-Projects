@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Dominion Rules — Character Creator</title>
+<style>
+  :root {
+    --parchment: #f4ecd8;
+    --parchment-dark: #e8dcc0;
+    --ink: #2b1d0e;
+    --accent: #7a2e1f;
+    --accent-light: #a8442b;
+    --border: #8b6f47;
+    --good: #2d5016;
+    --bad: #8b1a1a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: Georgia, 'Times New Roman', serif;
+    background: #3a2c1a url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><rect width='40' height='40' fill='%233a2c1a'/><circle cx='20' cy='20' r='1' fill='%234a3c2a'/></svg>");
+    color: var(--ink);
+    margin: 0;
+    padding: 20px;
+    line-height: 1.5;
+  }
+  .container {
+    max-width: 1200px;
+    margin: 0 auto;
+    background: var(--parchment);
+    border: 3px double var(--border);
+    border-radius: 6px;
+    padding: 30px;
+    box-shadow: 0 0 30px rgba(0,0,0,0.5);
+  }
+  h1 {
+    text-align: center;
+    font-variant: small-caps;
+    letter-spacing: 3px;
+    color: var(--accent);
+    border-bottom: 2px solid var(--border);
+    padding-bottom: 10px;
+    margin-top: 0;
+  }
+  h2 {
+    font-variant: small-caps;
+    color: var(--accent);
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 4px;
+    margin-top: 30px;
+  }
+  h3 { color: var(--accent-light); margin-bottom: 8px; }
+  .step {
+    background: var(--parchment-dark);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 15px 20px;
+    margin-bottom: 20px;
+  }
+  label { display: inline-block; margin-right: 6px; font-weight: bold; }
+  input[type="text"], input[type="number"], select, textarea {
+    font-family: inherit;
+    font-size: 14px;
+    padding: 6px 8px;
+    border: 1px solid var(--border);
+    background: #fffaf0;
+    color: var(--ink);
+    border-radius: 3px;
+  }
+  input[type="number"] { width: 70px; }
+  button {
+    font-family: inherit;
+    background: var(--accent);
+    color: var(--parchment);
+    border: none;
+    padding: 8px 16px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-variant: small-caps;
+    letter-spacing: 1px;
+    font-weight: bold;
+  }
+  button:hover { background: var(--accent-light); }
+  button.small { padding: 4px 8px; font-size: 12px; }
+  button.danger { background: var(--bad); }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    background: #fffaf0;
+  }
+  th, td {
+    border: 1px solid var(--border);
+    padding: 6px 8px;
+    text-align: left;
+  }
+  th { background: var(--parchment-dark); font-variant: small-caps; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 10px;
+  }
+  .attribute-box {
+    background: #fffaf0;
+    border: 1px solid var(--border);
+    padding: 8px;
+    border-radius: 3px;
+    text-align: center;
+  }
+  .attribute-box label { display: block; margin-bottom: 4px; }
+  .stat-display {
+    display: inline-block;
+    background: var(--accent);
+    color: var(--parchment);
+    padding: 4px 10px;
+    border-radius: 3px;
+    font-weight: bold;
+    margin: 0 4px;
+  }
+  .ap-tracker {
+    position: sticky;
+    top: 10px;
+    background: var(--accent);
+    color: var(--parchment);
+    padding: 10px 20px;
+    border-radius: 6px;
+    text-align: center;
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    z-index: 100;
+  }
+  .ap-tracker .negative { color: #ffb3b3; }
+  .info {
+    font-style: italic;
+    color: #6b5840;
+    font-size: 13px;
+    margin: 6px 0;
+  }
+  .roll-result {
+    background: #fffaf0;
+    border: 1px dashed var(--border);
+    padding: 10px;
+    margin-top: 10px;
+    border-radius: 3px;
+    min-height: 30px;
+  }
+  details {
+    background: #fffaf0;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 8px;
+    margin-bottom: 10px;
+  }
+  details summary {
+    cursor: pointer;
+    font-weight: bold;
+    font-variant: small-caps;
+    color: var(--accent);
+  }
+  .sheet {
+    background: #fffaf0;
+    border: 2px solid var(--border);
+    padding: 20px;
+    border-radius: 4px;
+    font-family: 'Palatino Linotype', Georgia, serif;
+  }
+  .sheet h3 { font-variant: small-caps; border-bottom: 1px solid var(--border); }
+  .skill-row { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr auto; gap: 6px; align-items: center; margin-bottom: 4px; }
+  .equip-row { display: grid; grid-template-columns: 3fr 1fr auto; gap: 6px; align-items: center; margin-bottom: 4px; }
+  .cost-display { font-weight: bold; color: var(--accent); }
+  .cost-display.invalid { color: var(--bad); }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>⚔ Dominion Rules Character Creator ⚔</h1>
+
+  <div class="ap-tracker">
+    Starting APs: <span id="apTotal">45</span> &nbsp;|&nbsp;
+    Spent: <span id="apSpent">0</span> &nbsp;|&nbsp;
+    Remaining: <span id="apRemaining">45</span>
+  </div>
+
+  <!-- STEP 1: Character Concept -->
+  <div class="step">
+    <h2>Step One: Character Concept</h2>
+    <div class="grid">
+      <div><label>Name:</label><input type="text" id="charName" placeholder="Titus Deepstriker"></div>
+      <div><label>Style:</label>
+        <select id="charStyle">
+          <option>Soldier</option><option>Knight</option><option>Crusader</option>
+          <option>Priest</option><option>Monk/Nun</option><option>Merchant Adventurer</option>
+          <option>Rogue</option><option>Ranger</option><option>Fool</option>
+          <option>Witch</option><option>Other</option>
+        </select>
+      </div>
+      <div><label>Race:</label>
+        <select id="charRace" onchange="updateRaceTable()">
+          <option value="Human">Human</option>
+          <option value="Elven">Elven</option>
+          <option value="Dwarven">Dwarven</option>
+          <option value="Halfling">Halfling</option>
+          <option value="Humanoid">Humanoid</option>
+          <option value="Beast">Beast</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:10px;">
+      <label>Background/Notes:</label><br>
+      <textarea id="charNotes" rows="2" style="width:100%;" placeholder="Background, motivation, personality..."></textarea>
+    </div>
+  </div>
+
+  <!-- STEP 2: Character Generation Table -->
+  <div class="step">
+    <h2>Step Two: Character Generation Table</h2>
+    <p class="info">Roll 1d12 (or pick a result) on your race's column.</p>
+    <button onclick="rollGenTable()">🎲 Roll 1d12</button>
+    <label style="margin-left:15px;">Or pick:</label>
+    <select id="genRoll" onchange="applyGenResult()">
+      <option value="0">— select —</option>
+      <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+      <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+      <option value="7">7</option><option value="8">8</option><option value="9">9</option>
+      <option value="10">10</option><option value="11">11</option><option value="12">12</option>
+    </select>
+    <div class="roll-result" id="genResult">No roll yet.</div>
+  </div>
+
+  <!-- STEP 3: Attributes -->
+  <div class="step">
+    <h2>Step Three: Attribute Stats</h2>
+    <p class="info">Roll 1d12 three times, average them. That's your Attribute Points to distribute. Each attribute starts at 1.</p>
+    <button onclick="rollAttributes()">🎲 Roll 3d12</button>
+    <span style="margin-left:10px;">Rolls:
+      <input type="number" id="roll1" min="1" max="12" onchange="recalcAttributes()">
+      <input type="number" id="roll2" min="1" max="12" onchange="recalcAttributes()">
+      <input type="number" id="roll3" min="1" max="12" onchange="recalcAttributes()">
+    </span>
+    <div class="roll-result">
+      Sum: <span class="stat-display" id="rollSum">0</span>
+      ÷ 3 = <span class="stat-display" id="rollAvg">0</span>
+      AP to distribute (remainder: <span class="stat-display" id="rollRem">0</span>)
+    </div>
+
+    <h3 style="margin-top:15px;">Distribute Attribute Points</h3>
+    <p class="info">Each attribute starts at 1. Add your distributed points + any bonus from the Generation Table.</p>
+    <div class="grid">
+      <div class="attribute-box">
+        <label>Vigour</label>
+        Base 1 + <input type="number" id="vigAdd" min="0" value="0" onchange="recalcAll()">
+        + Bonus <input type="number" id="vigBonus" min="0" value="0" onchange="recalcAll()">
+        <div>= <span class="stat-display" id="vigTotal">1</span></div>
+      </div>
+      <div class="attribute-box">
+        <label>Agility</label>
+        Base 1 + <input type="number" id="agiAdd" min="0" value="0" onchange="recalcAll()">
+        + Bonus <input type="number" id="agiBonus" min="0" value="0" onchange="recalcAll()">
+        <div>= <span class="stat-display" id="agiTotal">1</span></div>
+      </div>
+      <div class="attribute-box">
+        <label>Intuition</label>
+        Base 1 + <input type="number" id="intuAdd" min="0" value="0" onchange="recalcAll()">
+        + Bonus <input type="number" id="intuBonus" min="0" value="0" onchange="recalcAll()">
+        <div>= <span class="stat-display" id="intuTotal">1</span></div>
+      </div>
+      <div class="attribute-box">
+        <label>Stamina</label>
+        Base 1 + <input type="number" id="staAdd" min="0" value="0" onchange="recalcAll()">
+        + Bonus <input type="number" id="staBonus" min="0" value="0" onchange="recalcAll()">
+        <div>= <span class="stat-display" id="staTotal">1</span></div>
+      </div>
+      <div class="attribute-box">
+        <label>Intellect</label>
+        Base 1 + <input type="number" id="inteAdd" min="0" value="0" onchange="recalcAll()">
+        + Bonus <input type="number" id="inteBonus" min="0" value="0" onchange="recalcAll()">
+        <div>= <span class="stat-display" id="inteTotal">1</span></div>
+      </div>
+      <div class="attribute-box">
+        <label>Luck</label>
+        Base 1 + <input type="number" id="luckAdd" min="0" value="0" onchange="recalcAll()">
+        + Bonus <input type="number" id="luckBonus" min="0" value="0" onchange="recalcAll()">
+        <div>= <span class="stat-display" id="luckTotal">1</span></div>
+      </div>
+    </div>
+    <div class="roll-result">
+      Points distributed: <span id="distUsed">0</span> / <span id="distAvail">0</span>
+      <span id="distWarn" style="color:var(--bad);font-weight:bold;"></span>
+    </div>
+  </div>
+
+  <!-- STEP 4: Composites -->
+  <div class="step">
+    <h2>Step Four: Composite Stats</h2>
+    <label><input type="checkbox" id="favRound" onchange="recalcAll()"> Favourable Rounding</label>
+    <span class="info">(Auto-checked if you rolled ≤ 5 AP, or got it from the Generation Table)</span>
+    <div class="grid" style="margin-top:10px;">
+      <div class="attribute-box">
+        <strong>Combat</strong><br>
+        <span class="info">avg(Vigour, Agility)</span><br>
+        <span class="stat-display" id="combatComp">1</span>
+      </div>
+      <div class="attribute-box">
+        <strong>Priestcraft</strong><br>
+        <span class="info">avg(Stamina, Intuition)</span><br>
+        <span class="stat-display" id="priestComp">1</span>
+      </div>
+      <div class="attribute-box">
+        <strong>Witchcraft</strong><br>
+        <span class="info">avg(Intellect, Luck)</span><br>
+        <span class="stat-display" id="witchComp">1</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 5: Starting APs -->
+  <div class="step">
+    <h2>Step Five: Starting Advancement Points</h2>
+    <div class="roll-result">
+      45 (base) + <span id="apRem">0</span> (attribute remainder) + <span id="apBonus">0</span> (gen table bonus)
+      = <span class="stat-display" id="apStartTotal">45</span> starting APs
+    </div>
+  </div>
+
+  <!-- STEP 6: Apply APs - Skills -->
+  <div class="step">
+    <h2>Step Six: Apply APs — Skills</h2>
+    <p class="info">Skills start at the Composite/Attribute base. Use the Skill Improvement Table to raise them. Enter "Starting" (e.g., from gen table perk) and "Desired" stat — cost auto-calculates.</p>
+
+    <h3>Combat Skills <span class="info">(base = Combat Composite)</span></h3>
+    <div id="combatSkills"></div>
+    <button class="small" onclick="addSkill('combatSkills', '', getComposite('combat'))">+ Add Combat Skill</button>
+
+    <h3 style="margin-top:15px;">General Skills <span class="info">(base = related Attribute, or 1)</span></h3>
+    <div id="generalSkills"></div>
+    <button class="small" onclick="addSkill('generalSkills', '', 1)">+ Add General Skill</button>
+
+    <h3 style="margin-top:15px;">Priestcraft Skills <span class="info">(base = Priestcraft Composite)</span></h3>
+    <div id="priestSkills"></div>
+    <button class="small" onclick="addSkill('priestSkills', '', getComposite('priest'))">+ Add Priestcraft Skill</button>
+
+    <h3 style="margin-top:15px;">Witchcraft Skills <span class="info">(base = Witchcraft Composite)</span></h3>
+    <div id="witchSkills"></div>
+    <button class="small" onclick="addSkill('witchSkills', '', getComposite('witch'))">+ Add Witchcraft Skill</button>
+  </div>
+
+  <!-- Equipment -->
+  <div class="step">
+    <h2>Equipment (Weapons & Armour)</h2>
+    <p class="info">Spend APs to buy weapons and armour. See Chapter 8 for prices.</p>
+    <div id="equipment"></div>
+    <button class="small" onclick="addEquipment()">+ Add Equipment</button>
+  </div>
+
+  <!-- Lucky Breaks reserve -->
+  <div class="step">
+    <h2>Lucky Break Reserve</h2>
+    <label>APs reserved for Lucky Breaks:</label>
+    <input type="number" id="luckyAP" min="0" value="0" onchange="recalcAll()">
+    <span class="info">Recommended: at least 1 AP</span>
+  </div>
+
+  <!-- Skill Improvement Table reference -->
+  <details>
+    <summary>📖 Skill Improvement Table (reference)</summary>
+    <table id="improvTable"></table>
+  </details>
+
+  <!-- Character Sheet Output -->
+  <div class="step">
+    <h2>📜 Completed Character Sheet</h2>
+    <div class="sheet" id="characterSheet"></div>
+    <div style="margin-top:10px;">
+      <button onclick="window.print()">🖨 Print</button>
+      <button onclick="exportJSON()">💾 Export JSON</button>
+      <button onclick="document.getElementById('importFile').click()">📂 Import JSON</button>
+      <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(event)">
+    </div>
+  </div>
+</div>
+
+<script>
+// ============== DATA TABLES ==============
+
+// Skill Improvement Table: cost[desired][current]
+const SKILL_TABLE = {
+  2:  {1:1},
+  3:  {1:3, 2:2},
+  4:  {1:6, 2:5, 3:3},
+  5:  {1:10, 2:9, 3:7, 4:4},
+  6:  {1:15, 2:14, 3:12, 4:9, 5:5},
+  7:  {1:21, 2:20, 3:18, 4:15, 5:11, 6:6},
+  8:  {1:28, 2:27, 3:25, 4:22, 5:18, 6:13, 7:7},
+  9:  {1:36, 2:35, 3:33, 4:30, 5:26, 6:21, 7:15, 8:8},
+  10: {1:45, 2:44, 3:42, 4:39, 5:35, 6:30, 7:24, 8:17, 9:9},
+  11: {1:55, 2:54, 3:52, 4:49, 5:45, 6:40, 7:34, 8:27, 9:19, 10:10},
+  12: {1:66, 2:65, 3:63, 4:60, 5:56, 6:51, 7:45, 8:38, 9:30, 10:21, 11:12}
+};
+
+function skillCost(current, desired) {
+  current = Math.max(1, Math.floor(current));
+  desired = Math.floor(desired);
+  if (desired <= current) return 0;
+  if (desired > 12) {
+    // beyond 12: extrapolate by adding cost for each step (cost to reach n from n-1 ≈ n)
+    let cost = (SKILL_TABLE[12] && SKILL_TABLE[12][current] !== undefined) ? SKILL_TABLE[12][current] : null;
+    if (cost === null) return null;
+    for (let n = 13; n <= desired; n++) cost += n;
+    return cost;
+  }
+  return SKILL_TABLE[desired] && SKILL_TABLE[desired][current] !== undefined ? SKILL_TABLE[desired][current] : null;
+}
+
+// Character Generation Table
+const GEN_TABLE = {
+  Human: {
+    1: {desc:"Favourable Rounding", favRound:true},
+    2: {desc:"Ambidexterity"},
+    3: {desc:"Gifted: +2 to any Attribute", attrBonus:2},
+    4: {desc:"Gifted: +1 to any Attribute", attrBonus:1},
+    5: {desc:"Talented: Starting stat of 6 in any Skill", skillStart:6},
+    6: {desc:"Talented: Starting stat of 5 in any Skill", skillStart:5},
+    7: {desc:"Talented: Starting stat of 4 in any Skill", skillStart:4},
+    8: {desc:"Tough: Starting Withstand Injury of 5", skillStart:5, skillName:"Withstand Injury"},
+    9: {desc:"Tough: Starting Withstand Injury of 4", skillStart:4, skillName:"Withstand Injury"},
+    10:{desc:"Quick: Starting Timing of 5", skillStart:5, skillName:"Timing"},
+    11:{desc:"Quick: Starting Timing of 4", skillStart:4, skillName:"Timing"},
+    12:{desc:"Experienced: +10 Advancement Points", apBonus:10}
+  },
+  Elven: {
+    1: {desc:"Favourable Rounding", favRound:true},
+    2: {desc:"Ambidexterity"},
+    3: {desc:"Agile: +2 to Agility Attribute", attrBonus:2, attrName:"Agility"},
+    4: {desc:"Lucky: +2 to Luck Attribute", attrBonus:2, attrName:"Luck"},
+    5: {desc:"Stealthy: Starting Stealth of 5", skillStart:5, skillName:"Stealth"},
+    6: {desc:"Alert: Starting Alertness of 5", skillStart:5, skillName:"Alertness"},
+    7: {desc:"Swift: Starting Movement of 5", skillStart:5, skillName:"Movement"},
+    8: {desc:"Charmed: Starting Withstand Magic of 5", skillStart:5, skillName:"Withstand Magic"},
+    9: {desc:"Charmed: Starting Withstand Magic of 4", skillStart:4, skillName:"Withstand Magic"},
+    10:{desc:"Quick: Starting Timing of 5", skillStart:5, skillName:"Timing"},
+    11:{desc:"Quick: Starting Timing of 4", skillStart:4, skillName:"Timing"},
+    12:{desc:"Experienced: +10 Advancement Points", apBonus:10}
+  },
+  Dwarven: {
+    1: {desc:"Favourable Rounding", favRound:true},
+    2: {desc:"Ambidexterity"},
+    3: {desc:"Strong: +2 to Vigour Attribute", attrBonus:2, attrName:"Vigour"},
+    4: {desc:"Tough: +2 to Stamina Attribute", attrBonus:2, attrName:"Stamina"},
+    5: {desc:"Muscular: Starting Muscle of 5", skillStart:5, skillName:"Muscle"},
+    6: {desc:"Keen: Starting Direction Sense of 5", skillStart:5, skillName:"Direction Sense"},
+    7: {desc:"Fit: Starting Climbing of 5", skillStart:5, skillName:"Climbing"},
+    8: {desc:"Tough: Starting Withstand Injury of 6", skillStart:6, skillName:"Withstand Injury"},
+    9: {desc:"Tough: Starting Withstand Injury of 5", skillStart:5, skillName:"Withstand Injury"},
+    10:{desc:"Quick: Starting Timing of 5", skillStart:5, skillName:"Timing"},
+    11:{desc:"Quick: Starting Timing of 4", skillStart:4, skillName:"Timing"},
+    12:{desc:"Experienced: +10 Advancement Points", apBonus:10}
+  },
+  Halfling: {
+    1: {desc:"Favourable Rounding", favRound:true},
+    2: {desc:"Ambidexterity"},
+    3: {desc:"Lucky: +2 to Luck Attribute", attrBonus:2, attrName:"Luck"},
+    4: {desc:"Intelligent: +2 to Intellect Attribute", attrBonus:2, attrName:"Intellect"},
+    5: {desc:"Intuitive: +2 to Intuition Attribute", attrBonus:2, attrName:"Intuition"},
+    6: {desc:"Stealthy: Starting Stealth of 5", skillStart:5, skillName:"Stealth"},
+    7: {desc:"Keen: Starting Direction Sense of 5", skillStart:5, skillName:"Direction Sense"},
+    8: {desc:"Alert: Starting Alertness of 5", skillStart:5, skillName:"Alertness"},
+    9: {desc:"Learned: Starting Literacy of 5", skillStart:5, skillName:"Literacy"},
+    10:{desc:"Perceptive: Starting Lie Detection of 5", skillStart:5, skillName:"Lie Detection"},
+    11:{desc:"Quick: Starting Timing of 5", skillStart:5, skillName:"Timing"},
+    12:{desc:"Experienced: +10 Advancement Points", apBonus:10}
+  },
+  Humanoid: {
+    1: {desc:"Favourable Rounding", favRound:true},
+    2: {desc:"Ambidexterity"},
+    3: {desc:"Gifted: +2 to any Attribute", attrBonus:2},
+    4: {desc:"Talented: Starting stat of 6 in any Skill", skillStart:6},
+    5: {desc:"Charmed: Starting Withstand Magic of 6", skillStart:6, skillName:"Withstand Magic"},
+    6: {desc:"Tough: Starting Withstand Injury of 6", skillStart:6, skillName:"Withstand Injury"},
+    7: {desc:"Alert: Starting Alertness of 6", skillStart:6, skillName:"Alertness"},
+    8: {desc:"Swift: Starting Movement of 5", skillStart:5, skillName:"Movement"},
+    9: {desc:"Keen: Starting Direction Sense of 5", skillStart:5, skillName:"Direction Sense"},
+    10:{desc:"Keen: Starting Direction Sense of 5", skillStart:5, skillName:"Direction Sense"},
+    11:{desc:"Stealthy: Starting Stealth of 5", skillStart:5, skillName:"Stealth"},
+    12:{desc:"Experienced: +10 Advancement Points", apBonus:10}
+  },
+  Beast: {
+    1: {desc:"Favourable Rounding", favRound:true},
+    2: {desc:"Gifted: +2 to any Attribute", attrBonus:2},
+    3: {desc:"Gifted: +1 to any Attribute", attrBonus:1},
+    4: {desc:"Talented: Starting stat of 6 in any Skill", skillStart:6},
+    5: {desc:"Talented: Starting stat of 5 in any Skill", skillStart:5},
+    6: {desc:"Charmed: +4 to Withstand Magic", skillBonus:4, skillName:"Withstand Magic"},
+    7: {desc:"Charmed: +3 to Withstand Magic", skillBonus:3, skillName:"Withstand Magic"},
+    8: {desc:"Tough: +4 to Withstand Injury", skillBonus:4, skillName:"Withstand Injury"},
+    9: {desc:"Tough: +3 to Withstand Injury", skillBonus:3, skillName:"Withstand Injury"},
+    10:{desc:"Quick: +4 to Timing", skillBonus:4, skillName:"Timing"},
+    11:{desc:"Quick: +3 to Timing", skillBonus:3, skillName:"Timing"},
+    12:{desc:"Experienced: +15 Advancement Points", apBonus:15}
+  }
+};
+
+// Default skill suggestions
+const DEFAULT_COMBAT_SKILLS = ["Strike","Feint","Disarm","Brawling","Dodge","Parry","Block","Movement","Missile Strike"];
+const DEFAULT_GENERAL_SKILLS = ["Grip","Timing","Alertness","Withstand Injury","Withstand Magic","Stealth","Climbing","Horsemanship","Literacy"];
+
+// ============== STATE ==============
+let state = {
+  genResult: null,
+  apBonus: 0,
+  forcedFavRound: false
+};
+
+// ============== CALCULATIONS ==============
+
+function getAttr(name) {
+  const add = parseInt(document.getElementById(name+'Add').value) || 0;
+  const bonus = parseInt(document.getElementById(name+'Bonus').value) || 0;
+  return 1 + add + bonus;
+}
+
+function getComposite(type) {
+  let a, b;
+  if (type==='combat') { a=getAttr('vig'); b=getAttr('agi'); }
+  else if (type==='priest') { a=getAttr('sta'); b=getAttr('intu'); }
+  else if (type==='witch') { a=getAttr('inte'); b=getAttr('luck'); }
+  const avg = (a+b)/2;
+  const favRound = document.getElementById('favRound').checked;
+  return favRound ? Math.ceil(avg) : Math.floor(avg);
+}
+
+function recalcAttributes() {
+  const r1 = parseInt(document.getElementById('roll1').value) || 0;
+  const r2 = parseInt(document.getElementById('roll2').value) || 0;
+  const r3 = parseInt(document.getElementById('roll3').value) || 0;
+  const sum = r1+r2+r3;
+  const avg = Math.floor(sum/3);
+  const rem = sum - (avg*3);
+  document.getElementById('rollSum').textContent = sum;
+  document.getElementById('rollAvg').textContent = avg;
+  document.getElementById('rollRem').textContent = rem;
+  document.getElementById('apRem').textContent = rem;
+  // Auto-set favourable rounding if avg <= 5 (unless gen table forced)
+  if (avg > 0 && avg <= 5 && !state.forcedFavRound) {
+    document.getElementById('favRound').checked = true;
+  }
+  recalcAll();
+}
+
+function recalcAll() {
+  // Attribute totals
+  ['vig','agi','intu','sta','inte','luck'].forEach(a => {
+    document.getElementById(a+'Total').textContent = getAttr(a);
+  });
+
+  // Distribution check
+  const distAvail = Math.floor(((parseInt(document.getElementById('roll1').value)||0) +
+                                (parseInt(document.getElementById('roll2').value)||0) +
+                                (parseInt(document.getElementById('roll3').value)||0))/3);
+  const distUsed = ['vig','agi','intu','sta','inte','luck']
+    .reduce((s,a)=>s+(parseInt(document.getElementById(a+'Add').value)||0),0);
+  document.getElementById('distUsed').textContent = distUsed;
+  document.getElementById('distAvail').textContent = distAvail;
+  const warn = document.getElementById('distWarn');
+  if (distUsed > distAvail) warn.textContent = ' ⚠ Over by ' + (distUsed-distAvail);
+  else if (distUsed < distAvail) warn.textContent = ' ('+(distAvail-distUsed)+' unspent)';
+  else warn.textContent = ' ✓';
+
+  // Composites
+  document.getElementById('combatComp').textContent = getComposite('combat');
+  document.getElementById('priestComp').textContent = getComposite('priest');
+  document.getElementById('witchComp').textContent = getComposite('witch');
+
+  // Starting APs
+  const rem = parseInt(document.getElementById('rollRem').textContent) || 0;
+  const startAP = 45 + rem + state.apBonus;
+  document.getElementById('apBonus').textContent = state.apBonus;
+  document.getElementById('apStartTotal').textContent = startAP;
+  document.getElementById('apTotal').textContent = startAP;
+
+  // Recalc all skill costs
+  recalcSkillCosts();
+  recalcSpent();
+  renderSheet();
+}
+
+function recalcSkillCosts() {
+  document.querySelectorAll('.skill-row').forEach(row => {
+    const current = parseInt(row.querySelector('.skill-current').value) || 1;
+    const desired = parseInt(row.querySelector('.skill-desired').value) || current;
+    const cost = skillCost(current, desired);
+    const costEl = row.querySelector('.skill-cost');
+    if (cost === null) { costEl.textContent = 'N/A'; costEl.classList.add('invalid'); }
+    else { costEl.textContent = cost; costEl.classList.remove('invalid'); }
+  });
+}
+
+function recalcSpent() {
+  let spent = 0;
+  document.querySelectorAll('.skill-cost').forEach(el => {
+    const v = parseInt(el.textContent);
+    if (!isNaN(v)) spent += v;
+  });
+  document.querySelectorAll('.equip-cost').forEach(el => {
+    const v = parseInt(el.value) || 0;
+    spent += v;
+  });
+  spent += parseInt(document.getElementById('luckyAP').value) || 0;
+  document.getElementById('apSpent').textContent = spent;
+  const total = parseInt(document.getElementById('apTotal').textContent) || 0;
+  const remEl = document.getElementById('apRemaining');
+  remEl.textContent = total - spent;
+  remEl.className = (total - spent < 0) ? 'negative' : '';
+}
+
+// ============== SKILLS ==============
+
+function addSkill(containerId, name='', base=1) {
+  const container = document.getElementById(containerId);
+  const row = document.createElement('div');
+  row.className = 'skill-row';
+  row.innerHTML = `
+    <input type="text" class="skill-name" placeholder="Skill name" value="${name}">
+    <input type="number" class="skill-current" min="1" max="20" value="${base}" title="Starting stat" onchange="recalcSkillCosts();recalcSpent();renderSheet();">
+    <input type="number" class="skill-desired" min="1" max="20" value="${base}" title="Desired stat" onchange="recalcSkillCosts();recalcSpent();renderSheet();">
+    <span class="cost-display skill-cost">0</span>
+    <button class="small danger" onclick="this.parentElement.remove();recalcSpent();renderSheet();">✕</button>
+  `;
+  container.appendChild(row);
+  // Add header on first row
+  if (container.children.length === 1) {
+    const header = document.createElement('div');
+    header.className = 'skill-row';
+    header.style.fontWeight = 'bold';
+    header.style.fontSize = '12px';
+    header.innerHTML = `<div>Skill</div><div>Current</div><div>Desired</div><div>AP Cost</div><div></div>`;
+    container.insertBefore(header, row);
+  }
+  recalcSkillCosts();
+  recalcSpent();
+  renderSheet();
+}
+
+// ============== EQUIPMENT ==============
+
+function addEquipment(name='', cost=0) {
+  const container = document.getElementById('equipment');
+  const row = document.createElement('div');
+  row.className = 'equip-row';
+  row.innerHTML = `
+    <input type="text" class="equip-name" placeholder="e.g. Battle axe (1H)" value="${name}">
+    <input type="number" class="equip-cost" min="0" value="${cost}" title="AP cost" onchange="recalcSpent();renderSheet();">
+    <button class="small danger" onclick="this.parentElement.remove();recalcSpent();renderSheet();">✕</button>
+  `;
+  container.appendChild(row);
+  if (container.children.length === 1) {
+    const header = document.createElement('div');
+    header.className = 'equip-row';
+    header.style.fontWeight = 'bold';
+    header.style.fontSize = '12px';
+    header.innerHTML = `<div>Item</div><div>AP Cost</div><div></div>`;
+    container.insertBefore(header, row);
+  }
+  recalcSpent();
+  renderSheet();
+}
+
+// ============== ROLLERS ==============
+
+function rollD12() { return Math.floor(Math.random()*12)+1; }
+
+function rollGenTable() {
+  const v = rollD12();
+  document.getElementById('genRoll').value = v;
+  applyGenResult();
+}
+
+function applyGenResult() {
+  const v = parseInt(document.getElementById('genRoll').value);
+  const race = document.getElementById('charRace').value;
+  if (!v || v<1) {
+    document.getElementById('genResult').textContent = 'No roll yet.';
+    state.apBonus = 0;
+    state.forcedFavRound = false;
+    recalcAll();
+    return;
+  }
+  const result = GEN_TABLE[race][v];
+  state.genResult = {roll:v, race:race, ...result};
+  state.apBonus = result.apBonus || 0;
+  state.forcedFavRound = !!result.favRound;
+  if (result.favRound) document.getElementById('favRound').checked = true;
+
+  let html = `<strong>Rolled ${v} (${race}):</strong> ${result.desc}`;
+  if (result.attrBonus) {
+    if (result.attrName) html += `<br><em>→ Auto-applied +${result.attrBonus} bonus to ${result.attrName}.</em>`;
+    else html += `<br><em>→ Manually add the +${result.attrBonus} to your chosen Attribute's "Bonus" field above.</em>`;
+  }
+  if (result.skillStart) {
+    if (result.skillName) html += `<br><em>→ Add a skill row for "${result.skillName}" with starting stat ${result.skillStart}.</em>`;
+    else html += `<br><em>→ Add a skill row for the skill of your choice with starting stat ${result.skillStart}.</em>`;
+  }
+  if (result.skillBonus) {
+    html += `<br><em>→ Add ${result.skillBonus} to your ${result.skillName} skill (apply to starting stat).</em>`;
+  }
+  if (result.apBonus) html += `<br><em>→ +${result.apBonus} starting APs applied.</em>`;
+  document.getElementById('genResult').innerHTML = html;
+
+  // Auto-apply attribute bonus if named
+  if (result.attrBonus && result.attrName) {
+    const map = {Vigour:'vig', Agility:'agi', Intuition:'intu', Stamina:'sta', Intellect:'inte', Luck:'luck'};
+    const key = map[result.attrName];
+    if (key) document.getElementById(key+'Bonus').value = result.attrBonus;
+  }
+
+  recalcAll();
+}
+
+function rollAttributes() {
+  document.getElementById('roll1').value = rollD12();
+  document.getElementById('roll2').value = rollD12();
+  document.getElementById('roll3').value = rollD12();
+  recalcAttributes();
+}
+
+function updateRaceTable() {
+  if (state.genResult) applyGenResult();
+}
+
+// ============== SHEET RENDERING ==============
+
+function renderSheet() {
+  const name = document.getElementById('charName').value || 'Unnamed Character';
+  const style = document.getElementById('charStyle').value;
+  const race = document.getElementById('charRace').value;
+  const favRound = document.getElementById('favRound').checked;
+
+  let html = `<h3>${name}</h3>`;
+  html += `<p><em>${race} ${style}</em></p>`;
+
+  html += `<h3>Attributes</h3><p>`;
+  html += `Vigour ${getAttr('vig')} · Agility ${getAttr('agi')} · Intuition ${getAttr('intu')} · `;
+  html += `Stamina ${getAttr('sta')} · Intellect ${getAttr('inte')} · Luck ${getAttr('luck')}`;
+  html += `</p>`;
+
+  html += `<h3>Composites</h3><p>`;
+  html += `Combat ${getComposite('combat')} · Priestcraft ${getComposite('priest')} · Witchcraft ${getComposite('witch')}`;
+  html += `</p>`;
+  html += `<p>Favourable Rounding: <strong>${favRound ? 'Yes' : 'No'}</strong></p>`;
+
+  // Skills
+  ['combatSkills','generalSkills','priestSkills','witchSkills'].forEach(id => {
+    const rows = document.querySelectorAll('#'+id+' .skill-row');
+    if (rows.length <= 1) return;
+    const label = {combatSkills:'Combat Skills', generalSkills:'General Skills', priestSkills:'Priestcraft Skills', witchSkills:'Witchcraft Skills'}[id];
+    html += `<h3>${label}</h3><p>`;
+    const parts = [];
+    rows.forEach(row => {
+      const n = row.querySelector('.skill-name');
+      if (!n) return;
+      const name = n.value;
+      const cur = row.querySelector('.skill-current').value;
+      const des = row.querySelector('.skill-desired').value;
+      const cost = row.querySelector('.skill-cost').textContent;
+      if (name) parts.push(`<strong>${name}</strong> ${des}${cur!==des ? ` (was ${cur}, cost ${cost} APs)` : ''}`);
+    });
+    html += parts.join(' · ') + '</p>';
+  });
+
+  // Equipment
+  const equipRows = document.querySelectorAll('#equipment .equip-row');
+  if (equipRows.length > 1) {
+    html += `<h3>Equipment</h3><ul>`;
+    equipRows.forEach(row => {
+      const n = row.querySelector('.equip-name');
+      if (!n) return;
+      const name = n.value;
+      const cost = row.querySelector('.equip-cost').value;
+      if (name) html += `<li>${name} (${cost} APs)</li>`;
+    });
+    html += `</ul>`;
+  }
+
+  // Notes
+  const notes = document.getElementById('charNotes').value;
+  if (notes) html += `<h3>Notes</h3><p>${notes.replace(/\n/g,'<br>')}</p>`;
+
+  // AP summary
+  const total = parseInt(document.getElementById('apTotal').textContent);
+  const spent = parseInt(document.getElementById('apSpent').textContent);
+  const luckyAP = parseInt(document.getElementById('luckyAP').value) || 0;
+  html += `<h3>AP Summary</h3><p>`;
+  html += `Total starting APs: ${total}<br>`;
+  html += `Spent: ${spent} (incl. ${luckyAP} reserved for Lucky Breaks)<br>`;
+  html += `Spare APs: ${total - spent}</p>`;
+
+  document.getElementById('characterSheet').innerHTML = html;
+}
+
+// ============== IMPROVEMENT TABLE DISPLAY ==============
+function buildImprovTable() {
+  let html = '<thead><tr><th>Desired ↓ / Current →</th>';
+  for (let c=1;c<=11;c++) html += `<th>${c}</th>`;
+  html += '</tr></thead><tbody>';
+  for (let d=1;d<=12;d++) {
+    html += `<tr><th>${d}</th>`;
+    for (let c=1;c<=11;c++) {
+      const cost = skillCost(c,d);
+      html += `<td>${cost===0 || cost===null ? '—' : cost}</td>`;
+    }
+    html += '</tr>';
+  }
+  html += '</tbody>';
+  document.getElementById('improvTable').innerHTML = html;
+}
+
+// ============== EXPORT / IMPORT ==============
+function exportJSON() {
+  const data = {
+    name: document.getElementById('charName').value,
+    style: document.getElementById('charStyle').value,
+    race: document.getElementById('charRace').value,
+    notes: document.getElementById('charNotes').value,
+    genRoll: document.getElementById('genRoll').value,
+    rolls: [document.getElementById('roll1').value, document.getElementById('roll2').value, document.getElementById('roll3').value],
+    favRound: document.getElementById('favRound').checked,
+    attrs: {},
+    skills: {combat:[], general:[], priest:[], witch:[]},
+    equipment: [],
+    luckyAP: document.getElementById('luckyAP').value
+  };
+  ['vig','agi','intu','sta','inte','luck'].forEach(a => {
+    data.attrs[a] = {add: document.getElementById(a+'Add').value, bonus: document.getElementById(a+'Bonus').value};
+  });
+  const skillMap = {combatSkills:'combat',generalSkills:'general',priestSkills:'priest',witchSkills:'witch'};
+  Object.keys(skillMap).forEach(id => {
+    document.querySelectorAll('#'+id+' .skill-row').forEach(row => {
+      const n = row.querySelector('.skill-name');
+      if (!n) return;
+      data.skills[skillMap[id]].push({
+        name: n.value,
+        current: row.querySelector('.skill-current').value,
+        desired: row.querySelector('.skill-desired').value
+      });
+    });
+  });
+  document.querySelectorAll('#equipment .equip-row').forEach(row => {
+    const n = row.querySelector('.equip-name');
+    if (!n) return;
+    data.equipment.push({name: n.value, cost: row.querySelector('.equip-cost').value});
+  });
+  const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = (data.name || 'character') + '.json';
+  a.click();
+}
+
+function importJSON(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      document.getElementById('charName').value = data.name || '';
+      document.getElementById('charStyle').value = data.style || 'Soldier';
+      document.getElementById('charRace').value = data.race || 'Human';
+      document.getElementById('charNotes').value = data.notes || '';
+      document.getElementById('genRoll').value = data.genRoll || 0;
+      if (data.rolls) {
+        document.getElementById('roll1').value = data.rolls[0] || '';
+        document.getElementById('roll2').value = data.rolls[1] || '';
+        document.getElementById('roll3').value = data.rolls[2] || '';
+      }
+      document.getElementById('favRound').checked = !!data.favRound;
+      if (data.attrs) {
+        Object.keys(data.attrs).forEach(a => {
+          document.getElementById(a+'Add').value = data.attrs[a].add || 0;
+          document.getElementById(a+'Bonus').value = data.attrs[a].bonus || 0;
+        });
+      }
+      // Clear & rebuild skills
+      ['combatSkills','generalSkills','priestSkills','witchSkills'].forEach(id => document.getElementById(id).innerHTML='');
+      document.getElementById('equipment').innerHTML = '';
+      if (data.skills) {
+        (data.skills.combat||[]).forEach(s => addSkill('combatSkills', s.name, parseInt(s.current)));
+        (data.skills.general||[]).forEach(s => addSkill('generalSkills', s.name, parseInt(s.current)));
+        (data.skills.priest||[]).forEach(s => addSkill('priestSkills', s.name, parseInt(s.current)));
+        (data.skills.witch||[]).forEach(s => addSkill('witchSkills', s.name, parseInt(s.current)));
+        // set desired values
+        const allSkills = [...(data.skills.combat||[]),...(data.skills.general||[]),...(data.skills.priest||[]),...(data.skills.witch||[])];
+        const rows = document.querySelectorAll('.skill-row');
+        let i = 0;
+        rows.forEach(row => {
+          if (!row.querySelector('.skill-name')) return;
+          if (i < allSkills.length) {
+            row.querySelector('.skill-desired').value = allSkills[i].desired;
+            i++;
+          }
+        });
+      }
+      (data.equipment||[]).forEach(e => addEquipment(e.name, e.cost));
+      document.getElementById('luckyAP').value = data.luckyAP || 0;
+      applyGenResult();
+      recalcAttributes();
+    } catch(err) {
+      alert('Invalid file: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ============== INIT ==============
+buildImprovTable();
+// Pre-populate some default skills
+DEFAULT_COMBAT_SKILLS.slice(0,4).forEach(s => addSkill('combatSkills', s, 1));
+DEFAULT_GENERAL_SKILLS.slice(0,3).forEach(s => addSkill('generalSkills', s, 1));
+recalcAll();
+</script>
+</body>
+</html>

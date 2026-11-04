@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f7a63">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Startups">
+<meta name="format-detection" content="telephone=no">
+<title>Startups Score Calculator</title>
+<style>
+:root{
+  --bg:#f2f4f6;--card:#fff;--text:#18212b;--muted:#687583;--line:#e2e6eb;
+  --accent:#1f7a63;--accent-soft:#e3f3ed;--danger:#c0392b;--warn-bg:#fff4d9;--warn:#7a5000;
+  --radius:16px;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#0e1317;--card:#182027;--text:#e6ebf0;--muted:#93a0ad;--line:#28333c;
+    --accent:#36b892;--accent-soft:#173229;--danger:#ff7b6b;--warn-bg:#3a2e10;--warn:#ffd27a;}
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);
+  font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  padding-bottom:calc(84px + env(safe-area-inset-bottom));-webkit-text-size-adjust:100%}
+button,input,select{font:inherit;color:inherit}
+button{touch-action:manipulation;cursor:pointer}
+.topbar{position:sticky;top:0;z-index:20;background:var(--accent);color:#fff;
+  padding:calc(12px + env(safe-area-inset-top)) 16px 12px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.topbar h1{font-size:18px;margin:0}
+.badge{background:rgba(255,255,255,.22);border-radius:999px;padding:4px 10px;font-size:13px;font-weight:600;white-space:nowrap}
+main{max-width:720px;margin:0 auto;padding:12px 12px 0}
+.tab{display:none}.tab.active{display:block}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:12px}
+.card h2{font-size:17px;margin:0 0 6px}
+.card h3{font-size:16px;margin:0}
+.muted{color:var(--muted)}
+.small{font-size:14px}
+.tiny{font-size:12px;font-weight:400}
+.row{display:flex;align-items:center;gap:10px}
+.between{justify-content:space-between}
+.mt{margin-top:12px}.mt-s{margin-top:4px}
+.btn{border:0;border-radius:12px;padding:12px 16px;min-height:48px;font-weight:650;background:var(--accent);color:#fff}
+.btn:disabled{opacity:.4}
+.btn.soft{background:var(--accent-soft);color:var(--accent)}
+.btn.ghost{background:transparent;border:1px solid var(--line)}
+.btn.danger{background:transparent;border:1px solid var(--danger);color:var(--danger)}
+.btn.block{display:block;width:100%}
+.btns{display:grid;gap:8px;margin-bottom:12px}
+.seg{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:3px}
+.seg button{flex:1;border:0;background:transparent;border-radius:9px;padding:10px;font-weight:650;color:var(--muted)}
+.seg button.on{background:var(--card);color:var(--accent);box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.text{width:100%;min-height:44px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--bg);font-size:16px}
+.stepper{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:12px;overflow:hidden;background:var(--card);flex:none}
+.stepper button{width:44px;height:44px;border:0;background:var(--accent-soft);color:var(--accent);font-size:22px;font-weight:700;line-height:1;padding:0}
+.stepper button:active{filter:brightness(.9)}
+.stepper input{width:46px;height:44px;border:0;text-align:center;font-size:18px;font-weight:700;background:transparent;padding:0;border-radius:0;-moz-appearance:textfield;appearance:textfield}
+.stepper input::-webkit-outer-spin-button,.stepper input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.stepper.sm button{width:36px;height:40px;font-size:20px}
+.stepper.sm input{width:36px;height:40px;font-size:16px}
+@media (max-width:370px){.stepper button{width:38px}.stepper input{width:38px}}
+.list-row{display:flex;align-items:center;gap:8px;margin-top:8px}
+.list-row .text{flex:1;min-width:0}
+.num{width:20px;text-align:center;color:var(--muted);font-weight:700;flex:none}
+.dot{width:12px;height:12px;border-radius:50%;background:var(--c);flex:none}
+.icon-btn{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:transparent;flex:none;font-size:16px;padding:0}
+.pills{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+.pill{flex:none;border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:8px 14px;font-size:14px;font-weight:600}
+.player-card{scroll-margin-top:calc(70px + env(safe-area-inset-top))}
+.player-card .head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.chip-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border-radius:12px;background:var(--bg);margin-bottom:8px;font-weight:600}
+.co-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media (max-width:330px){.co-grid{grid-template-columns:1fr}}
+.co-cell{background:var(--bg);border-radius:12px;padding:8px;border-left:5px solid var(--c);display:flex;flex-direction:column;gap:6px;min-width:0}
+.co-cell .lbl{font-size:13px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.co-cell .stepper{align-self:flex-start}
+.warn{background:var(--warn-bg);color:var(--warn);border-radius:12px;padding:10px 12px;font-size:14px;margin-bottom:12px}
+.rank{display:flex;gap:10px;padding:12px 0;border-top:1px solid var(--line)}
+.rank:first-child{border-top:0;padding-top:4px}
+.rank .pos{font-size:24px;width:34px;text-align:center;flex:none;line-height:1.3;font-weight:700}
+.rank .body{flex:1;min-width:0}
+.rank .name{font-weight:700;font-size:17px;min-width:0;overflow-wrap:anywhere}
+.rank .score{font-size:26px;font-weight:800;flex:none}
+.rank.win .score{color:var(--accent)}
+.pts{display:inline-block;border-radius:999px;padding:1px 8px;font-size:13px;font-weight:700;background:var(--accent-soft);color:var(--accent);margin-left:6px;vertical-align:2px}
+.pts.neg{background:rgba(192,57,43,.13);color:var(--danger)}
+details{margin-top:4px}
+summary{cursor:pointer;color:var(--accent);font-size:14px;font-weight:600;padding:4px 0}
+.bd{font-size:14px;margin:6px 0 0;padding-left:18px}
+.bd li{margin:4px 0}
+.neg{color:var(--danger)}
+.pos-c{color:var(--accent)}
+.co-res{padding:10px 0;border-top:1px solid var(--line);font-size:15px}
+.co-res:nth-child(2){border-top:0}
+.check{display:flex;justify-content:space-between;gap:8px;padding:7px 0;font-size:14px;border-top:1px solid var(--line)}
+.check:first-child{border-top:0}
+.bad{color:var(--danger);font-weight:700}
+.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{padding:8px 5px;text-align:center;border-bottom:1px solid var(--line);white-space:nowrap}
+th{font-size:13px;color:var(--muted)}
+th:first-child,td:first-child{text-align:left;white-space:normal}
+tr.lead td{background:var(--accent-soft)}
+.banner{background:linear-gradient(135deg,#1f7a63,#2fae86);color:#fff;border-radius:var(--radius);padding:18px;text-align:center;margin-bottom:12px}
+.banner .big{font-size:26px;font-weight:800;margin:4px 0}
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:30;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+.tabbar button{flex:1;border:0;background:none;padding:8px 0 9px;display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--muted)}
+.tabbar button b{font-size:20px;font-weight:400;opacity:.5;line-height:1.2}
+.tabbar button span{font-size:11px;font-weight:650}
+.tabbar button.active{color:var(--accent)}
+.tabbar button.active b{opacity:1}
+.tabbar button.hidden{display:none}
+.toast{position:fixed;left:50%;bottom:calc(92px + env(safe-area-inset-bottom));transform:translateX(-50%);background:#222;color:#fff;padding:10px 18px;border-radius:999px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:50;white-space:nowrap}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+<header class="topbar"><h1>📈 Startups Scorer</h1><span class="badge" id="badge"></span></header>
+<main>
+  <section class="tab" id="tab-setup"></section>
+  <section class="tab" id="tab-count"></section>
+  <section class="tab" id="tab-results"></section>
+  <section class="tab" id="tab-standings"></section>
+</main>
+<nav class="tabbar">
+  <button type="button" data-tab="setup"><b>⚙️</b><span>Setup</span></button>
+  <button type="button" data-tab="count"><b>🧮</b><span>Count</span></button>
+  <button type="button" data-tab="results"><b>🏆</b><span>Results</span></button>
+  <button type="button" data-tab="standings"><b>📊</b><span>Rounds</span></button>
+</nav>
+<div class="toast" id="toast"></div>
+<script>
+(function () {
+'use strict';
+
+/* ===== LOGIC START ===== */
+const START_CHIPS = 10;
+function toInt(v) { v = parseInt(v, 10); return isFinite(v) ? v : 0; }
+
+// Round points: 1st +2, 2nd +1, last -1 (with 2 players: +2 / -1)
+function pointsForPlace(k, n) { if (k === 0) return 2; if (k === n - 1) return -1; if (k === 1) return 1; return 0; }
+
+// Score one game. coins[i] = 1-chips at game end, shares[i][companyId] = shares owned,
+// last = index (turn order) of the player who drew the last card, or null.
+function scoreGame(n, companies, coins, shares, last) {
+  const P = [];
+  for (let i = 0; i < n; i++) P.push({ i, coins: toInt(coins[i]), paid: 0, three: 0, payments: [], receipts: [] });
+  const comps = companies.map(co => {
+    const counts = P.map(p => Math.max(0, toInt((shares[p.i] || {})[co.id])));
+    const total = counts.reduce((a, b) => a + b, 0);
+    const max = Math.max(0, ...counts);
+    if (max === 0) return { co, counts, total, status: 'none' };
+    const top = [];
+    counts.forEach((v, i) => { if (v === max) top.push(i); });
+    if (top.length > 1) return { co, counts, total, status: 'tie', top, max };
+    const maj = top[0], payers = [];
+    let collected = 0;
+    counts.forEach((v, i) => {
+      if (i !== maj && v > 0) {
+        P[i].paid += v;
+        P[i].payments.push({ co, amount: v, to: maj });
+        payers.push({ i, amount: v });
+        collected += v;
+      }
+    });
+    P[maj].three += collected;
+    if (collected > 0) P[maj].receipts.push({ co, amount: collected, payers });
+    return { co, counts, total, status: 'major', maj, max, collected, payers };
+  });
+  P.forEach(p => { p.ones = p.coins - p.paid; p.total = p.ones + 3 * p.three; });
+
+  const hasLast = last !== null && last !== undefined && last >= 0 && last < n;
+  const recency = i => (((last - i) % n) + n) % n; // 0 = took the final turn, 1 = the turn before, ...
+  const cmp = (a, b) => (b.total - a.total) || (b.three - a.three) || (hasLast ? recency(a.i) - recency(b.i) : 0);
+  const order = P.slice().sort((a, b) => cmp(a, b) || a.i - b.i);
+  let unresolved = false;
+  order.forEach((p, k) => {
+    if (k > 0 && cmp(order[k - 1], p) === 0) { p.rank = order[k - 1].rank; unresolved = true; }
+    else p.rank = k + 1;
+  });
+  const ties = [];
+  for (let k = 1; k < order.length; k++) {
+    const a = order[k - 1], b = order[k];
+    if (a.total !== b.total) continue;
+    ties.push({ a, b, how: a.three !== b.three ? 'three' : (hasLast ? 'recent' : 'unresolved') });
+  }
+  return { players: P, order, companies: comps, unresolved, ties, last: hasLast ? last : null };
+}
+
+// Multi-round standings. rounds[r] = { order:[playerIdx...], points:[per player] }
+function computeStandings(n, rounds) {
+  const T = [];
+  for (let i = 0; i < n; i++) T.push({ i, pts: 0, p2: 0, p1: 0, m1: 0, lastWin: -1, per: [] });
+  rounds.forEach((r, ri) => {
+    for (let i = 0; i < n; i++) {
+      const pt = toInt(r.points[i]);
+      T[i].pts += pt; T[i].per.push(pt);
+      if (pt === 2) T[i].p2++; else if (pt === 1) T[i].p1++; else if (pt === -1) T[i].m1++;
+    }
+    if (r.order && r.order.length) T[r.order[0]].lastWin = ri;
+  });
+  const cmp = (a, b) => (b.pts - a.pts) || (b.p2 - a.p2) || (b.p1 - a.p1) || (b.lastWin - a.lastWin);
+  const order = T.slice().sort((a, b) => cmp(a, b) || a.i - b.i);
+  order.forEach((t, k) => { t.rank = (k > 0 && cmp(order[k - 1], t) === 0) ? order[k - 1].rank : k + 1; });
+  const ties = [];
+  for (let k = 1; k < order.length; k++) {
+    const a = order[k - 1], b = order[k];
+    if (a.pts !== b.pts) continue;
+    ties.push({ a, b, how: a.p2 !== b.p2 ? 'p2' : a.p1 !== b.p1 ? 'p1' : a.lastWin !== b.lastWin ? 'lastWin' : 'unresolved' });
+  }
+  return { rows: T, order, ties };
+}
+/* ===== LOGIC END ===== */
+
+if (typeof document === 'undefined') return;
+
+const KEY = 'startups-scorer-v1';
+const MIN_P = 2, MAX_P = 7, REMOVED = 5;
+const PALETTE = ['#f2a900', '#3b82f6', '#ec4899', '#8b5cf6', '#10b981', '#64748b', '#ef4444', '#14b8a6', '#f97316', '#84cc16', '#0ea5e9', '#a855f7'];
+const DEFAULT_COMPANIES = [
+  ['🦒 Giraffe Beer', 5], ['🐶 Bow Wow Games', 6], ['🦩 Flamingo Soft', 7],
+  ['🐙 Octo Coffee', 8], ['🦛 Hippo Powertech', 9], ['🐘 Elephant Mars Travel', 10]
+].map((c, i) => ({ id: 'c' + (i + 1), name: c[0], count: c[1], color: PALETTE[i] }));
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmt = v => (v < 0 ? '−' + Math.abs(v) : String(v));
+const signed = v => (v > 0 ? '+' + v : v < 0 ? '−' + Math.abs(v) : '0');
+const coName = co => (co.name || '').trim() || 'Company';
+
+function blankCur(n) { return { coins: Array(n).fill(START_CHIPS), shares: Array.from({ length: n }, () => ({})), last: null }; }
+function defaultState() {
+  return { players: ['', '', '', ''], companies: DEFAULT_COMPANIES.map(c => Object.assign({}, c)), mode: 'single',
+    totalRounds: 4, cur: blankCur(4), rounds: [], tab: 'setup', nextId: DEFAULT_COMPANIES.length + 1 };
+}
+function repair(s) {
+  const n = s.players.length, c = s.cur || {};
+  s.cur = {
+    coins: Array.from({ length: n }, (_, i) => (c.coins && c.coins[i] != null ? toInt(c.coins[i]) : START_CHIPS)),
+    shares: Array.from({ length: n }, (_, i) => (c.shares && c.shares[i]) || {}),
+    last: c.last != null && c.last < n ? c.last : null
+  };
+  if (!Array.isArray(s.companies) || !s.companies.length) s.companies = DEFAULT_COMPANIES.map(x => Object.assign({}, x));
+  if (!Array.isArray(s.rounds)) s.rounds = [];
+  return s;
+}
+function load() {
+  try {
+    const s = JSON.parse(localStorage.getItem(KEY));
+    if (s && Array.isArray(s.players) && s.players.length >= MIN_P) return repair(Object.assign(defaultState(), s));
+  } catch (e) { /* ignore */ }
+  return defaultState();
+}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { /* private mode etc. */ } }
+
+let S = load();
+const nm = i => (S.players[i] || '').trim() || 'Player ' + (i + 1);
+const en = i => esc(nm(i));
+function el(html) { const t = document.createElement('template'); t.innerHTML = html.trim(); return t.content.firstElementChild; }
+function card(html, cls) { return el('<div class="card' + (cls ? ' ' + cls : '') + '">' + html + '</div>'); }
+function btn(label, cls, onClick) {
+  const b = el('<button type="button" class="btn ' + (cls || '') + '">' + label + '</button>');
+  b.addEventListener('click', onClick);
+  return b;
+}
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast.timer); toast.timer = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+// +/- stepper with a typeable number box
+function stepper(value, min, max, onChange, small) {
+  const w = el('<div class="stepper' + (small ? ' sm' : '') + '"><button type="button" aria-label="Decrease">−</button>' +
+    '<input type="number" inputmode="numeric" pattern="[0-9]*"><button type="button" aria-label="Increase">+</button></div>');
+  const minus = w.children[0], input = w.children[1], plus = w.children[2];
+  input.value = value;
+  const clamp = v => Math.max(min, Math.min(max, v));
+  const set = v => { v = clamp(v); input.value = v; onChange(v); };
+  minus.addEventListener('click', () => set(toInt(input.value) - 1));
+  plus.addEventListener('click', () => set(toInt(input.value) + 1));
+  input.addEventListener('focus', () => setTimeout(() => { try { input.select(); } catch (e) { /* */ } }, 0));
+  input.addEventListener('input', () => { if (input.value !== '') onChange(clamp(toInt(input.value))); });
+  input.addEventListener('change', () => set(toInt(input.value)));
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); });
+  return w;
+}
+
+function currentScore() { return scoreGame(S.players.length, S.companies, S.cur.coins, S.cur.shares, S.cur.last); }
+
+/* ---------- navigation ---------- */
+const renderers = { setup: renderSetup, count: renderCount, results: renderResults, standings: renderStandings };
+function setTab(t) {
+  if (!renderers[t]) t = 'setup';
+  if (t === 'standings' && S.mode !== 'rounds') t = 'results';
+  S.tab = t; save();
+  document.querySelectorAll('.tab').forEach(s => s.classList.toggle('active', s.id === 'tab-' + t));
+  document.querySelectorAll('.tabbar button').forEach(b => b.classList.toggle('active', b.dataset.tab === t));
+  renderers[t]();
+  window.scrollTo(0, 0);
+}
+function renderChrome() {
+  document.querySelector('.tabbar [data-tab="standings"]').classList.toggle('hidden', S.mode !== 'rounds');
+  const b = $('#badge');
+  if (S.mode === 'rounds') {
+    b.style.display = '';
+    b.textContent = S.rounds.length >= S.totalRounds ? 'Game over' : 'Round ' + (S.rounds.length + 1) + ' / ' + S.totalRounds;
+  } else b.style.display = 'none';
+}
+
+/* ---------- setup ---------- */
+function setPlayerCount(v) {
+  const n = S.players.length;
+  if (v === n) return;
+  if (S.rounds.length && !confirm('Changing the number of players clears the recorded rounds. Continue?')) { renderSetup(); return; }
+  S.rounds = [];
+  while (S.players.length < v) { S.players.push(''); S.cur.coins.push(START_CHIPS); S.cur.shares.push({}); }
+  while (S.players.length > v) { S.players.pop(); S.cur.coins.pop(); S.cur.shares.pop(); }
+  if (S.cur.last != null && S.cur.last >= v) S.cur.last = null;
+  save(); renderChrome(); renderSetup();
+}
+
+function renderSetup() {
+  const root = $('#tab-setup'); root.innerHTML = '';
+
+  const m = card('<h2>Game mode</h2><div class="seg"><button type="button" data-m="single">Single game</button>' +
+    '<button type="button" data-m="rounds">Rounds</button></div><div class="opt"></div>');
+  m.querySelectorAll('[data-m]').forEach(b => {
+    b.classList.toggle('on', b.dataset.m === S.mode);
+    b.addEventListener('click', () => { S.mode = b.dataset.m; save(); renderChrome(); renderSetup(); });
+  });
+  const opt = m.querySelector('.opt');
+  if (S.mode === 'rounds') {
+    const r = el('<div class="row between mt"><span>Number of rounds</span></div>');
+    r.appendChild(stepper(S.totalRounds, 1, 10, v => { S.totalRounds = v; save(); renderChrome(); }, true));
+    opt.appendChild(r);
+    opt.appendChild(el('<p class="muted small">Each round: 1st <b>+2</b>, 2nd <b>+1</b>, last <b>−1</b>. Ties: most +2 chips, then most +1 chips, then the last round’s winner.</p>'));
+  } else {
+    opt.appendChild(el('<p class="muted small">Highest chip value wins. Choose <b>Rounds</b> for the multi-round option.</p>'));
+  }
+  root.appendChild(m);
+
+  const p = card('<div class="row between"><h2>Players</h2></div><p class="muted small">Enter names in <b>turn order</b> – it’s used for the “played last” tiebreaker.</p><div class="plist"></div>');
+  p.querySelector('.row').appendChild(stepper(S.players.length, MIN_P, MAX_P, setPlayerCount, true));
+  const pl = p.querySelector('.plist');
+  S.players.forEach((name, i) => {
+    const r = el('<div class="list-row"><span class="num">' + (i + 1) + '</span><input class="text" type="text" maxlength="20" autocomplete="off" autocapitalize="words" enterkeyhint="done"></div>');
+    const inp = r.querySelector('input');
+    inp.value = name; inp.placeholder = 'Player ' + (i + 1);
+    inp.addEventListener('input', () => { S.players[i] = inp.value; save(); });
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') inp.blur(); });
+    pl.appendChild(r);
+  });
+  root.appendChild(p);
+
+  const c = card('<h2>Companies</h2><p class="muted small">Preset to the 6 Startups companies (45 cards). Card counts are only used for the sanity check.</p><div class="clist"></div><div class="btns mt"></div>');
+  const cl = c.querySelector('.clist');
+  S.companies.forEach((co, idx) => {
+    const r = el('<div class="list-row"><span class="dot"></span><input class="text" type="text" maxlength="28" autocomplete="off"></div>');
+    r.style.setProperty('--c', co.color);
+    const inp = r.querySelector('input');
+    inp.value = co.name;
+    inp.addEventListener('input', () => { co.name = inp.value; save(); });
+    r.appendChild(stepper(co.count, 1, 30, v => { co.count = v; save(); }, true));
+    const x = el('<button type="button" class="icon-btn" aria-label="Remove company">✕</button>');
+    x.addEventListener('click', () => {
+      if (S.companies.length <= 1) return;
+      if (!confirm('Remove “' + coName(co) + '”?')) return;
+      S.companies.splice(idx, 1); save(); renderSetup();
+    });
+    r.appendChild(x);
+    cl.appendChild(r);
+  });
+  const cb = c.querySelector('.btns');
+  cb.appendChild(btn('+ Add company', 'soft', () => {
+    S.companies.push({ id: 'c' + (S.nextId++), name: 'Company ' + (S.companies.length + 1), count: 5, color: PALETTE[S.companies.length % PALETTE.length] });
+    save(); renderSetup();
+  }));
+  cb.appendChild(btn('Restore Startups defaults', 'ghost', () => {
+    if (!confirm('Restore the 6 default companies?')) return;
+    S.companies = DEFAULT_COMPANIES.map(x => Object.assign({}, x));
+    S.nextId = Math.max(S.nextId, DEFAULT_COMPANIES.length + 1);
+    save(); renderSetup();
+  }));
+  root.appendChild(c);
+
+  const d = card('<h2>Data</h2><p class="muted small">Everything is saved on this device automatically.</p><div class="btns" style="margin:0"></div>');
+  const db = d.querySelector('.btns');
+  db.appendChild(btn('Clear current counts', 'ghost', () => {
+    if (confirm('Clear all chips and shares entered for the current game?')) { S.cur = blankCur(S.players.length); save(); toast('Counts cleared'); }
+  }));
+  db.appendChild(btn('Reset everything', 'danger', () => {
+    if (confirm('Reset players, companies, counts and rounds?')) { S = defaultState(); save(); renderChrome(); renderSetup(); }
+  }));
+  root.appendChild(d);
+
+  root.appendChild(card('<details><summary>Scoring rules used</summary><ul class="bd">' +
+    '<li>Each player’s hand is added to their portfolio.</li>' +
+    '<li>Per company, the <b>single</b> player with the most shares is the majority stakeholder. Every other holder pays them <b>1 chip per share</b>; the majority stakeholder receives these as <b>3-chips</b>.</li>' +
+    '<li>If two or more players tie for the most shares, nobody pays for that company.</li>' +
+    '<li>Payments only come from 1-chips (never from newly received 3-chips). If a player runs out, the rest is paid with minus markers, so their balance can go negative.</li>' +
+    '<li>Highest total value wins. Ties: most 3-chips, then the player who played last (the one who drew the last card, otherwise whoever played closest before them).</li>' +
+    '</ul></details>'));
+  root.appendChild(el('<div class="btns"></div>')).appendChild(btn('Start counting →', 'block', () => setTab('count')));
+}
+
+/* ---------- count ---------- */
+function renderCount() {
+  const root = $('#tab-count'); root.innerHTML = '';
+  const top = card('<p class="muted small" style="margin:0 0 10px">Add each hand to its portfolio, then enter every player’s <b>total shares per company</b> and their <b>Capital chips</b> (including chips collected from the market).</p><div class="pills"></div>');
+  const pills = top.querySelector('.pills');
+  S.players.forEach((_, i) => {
+    const b = el('<button type="button" class="pill">' + en(i) + '</button>');
+    b.addEventListener('click', () => { const t = document.getElementById('pc-' + i); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+    pills.appendChild(b);
+  });
+  root.appendChild(top);
+
+  S.players.forEach((_, i) => {
+    const pc = card('<div class="head"><h3>' + en(i) + '</h3><span class="muted small" data-sum="' + i + '"></span></div>' +
+      '<div class="chip-row"><span>💰 Capital chips</span></div><div class="co-grid"></div>', 'player-card');
+    pc.id = 'pc-' + i;
+    pc.querySelector('.chip-row').appendChild(stepper(S.cur.coins[i], 0, 99, v => { S.cur.coins[i] = v; changed(); }));
+    const g = pc.querySelector('.co-grid');
+    S.companies.forEach(co => {
+      const cell = el('<div class="co-cell"><div class="lbl"></div></div>');
+      cell.style.setProperty('--c', co.color);
+      cell.querySelector('.lbl').textContent = coName(co);
+      cell.appendChild(stepper(toInt(S.cur.shares[i][co.id]), 0, 30, v => {
+        if (v > 0) S.cur.shares[i][co.id] = v; else delete S.cur.shares[i][co.id];
+        changed();
+      }));
+      g.appendChild(cell);
+    });
+    root.appendChild(pc);
+  });
+
+  const lt = card('<h2>Who drew the last card?</h2><p class="muted small">Only needed if players are tied on value <i>and</i> number of 3-chips.</p><select class="text"></select>');
+  const sel = lt.querySelector('select');
+  sel.innerHTML = '<option value="">— Not set —</option>' + S.players.map((_, i) => '<option value="' + i + '">' + en(i) + '</option>').join('');
+  sel.value = S.cur.last == null ? '' : String(S.cur.last);
+  sel.addEventListener('change', () => { S.cur.last = sel.value === '' ? null : +sel.value; save(); });
+  root.appendChild(lt);
+
+  root.appendChild(card('<h2>Sanity check</h2><div data-checks></div>'));
+  root.appendChild(el('<div class="btns"></div>')).appendChild(btn('See results →', 'block', () => setTab('results')));
+  renderChecks(); updateSums();
+}
+function changed() { save(); renderChecks(); updateSums(); }
+function updateSums() {
+  document.querySelectorAll('[data-sum]').forEach(e => {
+    const i = +e.dataset.sum;
+    const s = S.companies.reduce((a, co) => a + toInt(S.cur.shares[i][co.id]), 0);
+    e.textContent = s + ' share' + (s === 1 ? '' : 's');
+  });
+}
+function renderChecks() {
+  const box = document.querySelector('[data-checks]');
+  if (!box) return;
+  let html = '', deck = 0, counted = 0;
+  S.companies.forEach(co => {
+    const t = S.cur.shares.reduce((a, s) => a + toInt(s[co.id]), 0);
+    deck += co.count; counted += t;
+    const bad = t > co.count;
+    html += '<div class="check"><span>' + esc(coName(co)) + '</span><span class="' + (bad ? 'bad' : '') + '">' + t + ' / ' + co.count + (bad ? ' ⚠️' : '') + '</span></div>';
+  });
+  const inPlay = deck - REMOVED, market = inPlay - counted;
+  html += '<div class="check"><b>Cards counted</b><span class="' + (market < 0 ? 'bad' : '') + '"><b>' + counted + '</b> of ' + inPlay + ' in play</span></div>';
+  html += '<p class="muted small" style="margin:2px 0 8px">' + (market >= 0
+    ? '→ ' + market + ' card' + (market === 1 ? '' : 's') + ' should be left in the market.'
+    : '⚠️ More cards than are in play (' + inPlay + ' after removing ' + REMOVED + ').') + '</p>';
+  const chips = S.cur.coins.reduce((a, b) => a + toInt(b), 0), chipTotal = START_CHIPS * S.players.length, onMarket = chipTotal - chips;
+  html += '<div class="check"><b>Capital chips counted</b><span class="' + (onMarket < 0 ? 'bad' : '') + '"><b>' + chips + '</b> of ' + chipTotal + '</span></div>';
+  html += '<p class="muted small" style="margin:2px 0 0">' + (onMarket >= 0
+    ? '→ ' + onMarket + ' chip' + (onMarket === 1 ? '' : 's') + ' should be sitting on market cards.'
+    : '⚠️ More chips than were handed out (' + START_CHIPS + ' per player).') + '</p>';
+  box.innerHTML = html;
+}
+
+/* ---------- results ---------- */
+function breakdown(p) {
+  const li = ['<li>Capital chips at game end: <b>' + p.coins + '</b></li>'];
+  if (p.paid > 0) {
+    li.push('<li>Paid to majority stakeholders: <b class="neg">−' + p.paid + '</b><br><span class="muted">' +
+      p.payments.map(x => esc(coName(x.co)) + ': ' + x.amount + ' → ' + en(x.to)).join('<br>') + '</span></li>');
+    li.push(p.ones >= 0 ? '<li>1-chips left: <b>' + p.ones + '</b></li>'
+      : '<li>Not enough chips: <b class="neg">' + fmt(p.ones) + '</b> in minus markers</li>');
+  } else li.push('<li>Paid nothing</li>');
+  if (p.three > 0) {
+    li.push('<li>Received: <b class="pos-c">' + p.three + ' × 3-chips = +' + 3 * p.three + '</b><br><span class="muted">' +
+      p.receipts.map(r => esc(coName(r.co)) + ': ' + r.payers.map(x => en(x.i) + ' ' + x.amount).join(', ')).join('<br>') + '</span></li>');
+  } else li.push('<li>Received nothing</li>');
+  li.push('<li>Total: ' + fmt(p.ones) + ' + ' + 3 * p.three + ' = <b>' + fmt(p.total) + '</b></li>');
+  return li.join('');
+}
+function tieText(t, R) {
+  const A = en(t.a.i), B = en(t.b.i);
+  if (t.how === 'three') return A + ' and ' + B + ' both have ' + fmt(t.a.total) + '. <b>' + A + '</b> ranks higher with more 3-chips (' + t.a.three + ' vs ' + t.b.three + ').';
+  if (t.how === 'recent') return A + ' and ' + B + ' are tied on value and 3-chips. <b>' + A + '</b> played more recently (' + en(R.last) + ' drew the last card).';
+  return A + ' and ' + B + ' are completely tied – set who drew the last card on the Count tab.';
+}
+function resultsText(R) {
+  const head = S.mode === 'rounds' && S.rounds.length < S.totalRounds ? 'Startups – Round ' + (S.rounds.length + 1) : 'Startups – Final scores';
+  return head + '\n' + R.order.map(p => p.rank + '. ' + nm(p.i) + ': ' + p.total + ' (' + p.three + '× 3-chips)').join('\n');
+}
+
+function renderResults() {
+  const root = $('#tab-results'); root.innerHTML = '';
+  const n = S.players.length, R = currentScore();
+  const isRounds = S.mode === 'rounds', done = isRounds && S.rounds.length >= S.totalRounds;
+
+  if (!R.companies.some(c => c.total > 0)) {
+    root.appendChild(card('<h2>Nothing to score yet</h2><p class="muted" style="margin:0">Enter each player’s shares and chips on the <b>Count</b> tab.</p>'));
+    const b = root.appendChild(el('<div class="btns"></div>'));
+    b.appendChild(btn('Go to Count →', 'block', () => setTab('count')));
+    if (isRounds && S.rounds.length) b.appendChild(btn('📊 View standings', 'soft block', () => setTab('standings')));
+    return;
+  }
+
+  const warns = [];
+  R.companies.forEach(c => { if (c.total > c.co.count) warns.push('<b>' + esc(coName(c.co)) + '</b>: ' + c.total + ' shares entered, but the deck only has ' + c.co.count + '.'); });
+  if (R.unresolved) warns.push('Some players are tied on value <i>and</i> 3-chips. Choose <b>who drew the last card</b> on the Count tab to break the tie.');
+  warns.forEach(w => root.appendChild(el('<div class="warn">⚠️ ' + w + '</div>')));
+
+  const title = isRounds && !done ? 'Round ' + (S.rounds.length + 1) + ' of ' + S.totalRounds : 'Final scores';
+  const rk = card('<h2>' + title + '</h2><div class="ranks"></div>');
+  const list = rk.querySelector('.ranks');
+  const medals = ['🥇', '🥈', '🥉'];
+  R.order.forEach((p, k) => {
+    const pts = isRounds && !done && !R.unresolved ? pointsForPlace(k, n) : null;
+    const ptsHtml = pts === null ? '' : '<span class="pts' + (pts < 0 ? ' neg' : '') + '">' + signed(pts) + ' pt</span>';
+    list.appendChild(el('<div class="rank' + (p.rank === 1 ? ' win' : '') + '">' +
+      '<div class="pos">' + (medals[p.rank - 1] || p.rank + '.') + '</div>' +
+      '<div class="body"><div class="row between"><div class="name">' + en(p.i) + ptsHtml + '</div><div class="score">' + fmt(p.total) + '</div></div>' +
+      '<div class="muted small">' + fmt(p.ones) + ' in 1-chips · ' + p.three + ' × 3-chips</div>' +
+      '<details><summary>Breakdown</summary><ul class="bd">' + breakdown(p) + '</ul></details></div></div>'));
+  });
+  root.appendChild(rk);
+
+  if (R.ties.length) root.appendChild(card('<h2>Tiebreaks</h2><ul class="bd">' + R.ties.map(t => '<li>' + tieText(t, R) + '</li>').join('') + '</ul>'));
+
+  let ch = '<h2>Company payouts</h2>';
+  R.companies.forEach(c => {
+    let body;
+    if (c.status === 'none') body = '<span class="muted">No shares held</span>';
+    else if (c.status === 'tie') body = 'Tie for most (' + c.max + ' each): ' + c.top.map(i => en(i)).join(', ') + ' → <b>no payout</b>';
+    else if (!c.collected) body = '<b>' + en(c.maj) + '</b> is the only holder (' + c.max + ') → nothing to collect';
+    else body = '<b>' + en(c.maj) + '</b> has the majority (' + c.max + ') and collects ' + c.collected + ' chip' + (c.collected === 1 ? '' : 's') +
+      ' → <b class="pos-c">+' + 3 * c.collected + '</b><br><span class="muted small">Paid by ' + c.payers.map(x => en(x.i) + ' (' + x.amount + ')').join(', ') + '</span>';
+    ch += '<div class="co-res" style="--c:' + c.co.color + '"><div class="row" style="gap:8px"><span class="dot"></span><b>' + esc(coName(c.co)) + '</b></div><div class="mt-s">' + body + '</div></div>';
+  });
+  root.appendChild(card(ch));
+
+  const act = root.appendChild(el('<div class="btns"></div>'));
+  if (isRounds && !done) {
+    const b = btn('✅ Record round ' + (S.rounds.length + 1) + ' & award points', 'block', recordRound);
+    b.disabled = R.unresolved;
+    act.appendChild(b);
+  }
+  if (isRounds && S.rounds.length) act.appendChild(btn('📊 View standings', 'soft block', () => setTab('standings')));
+  act.appendChild(btn('📤 Share results', 'soft block', () => share(resultsText(R))));
+  act.appendChild(btn('✏️ Edit counts', 'ghost block', () => setTab('count')));
+}
+
+/* ---------- rounds ---------- */
+function recordRound() {
+  const R = currentScore();
+  if (R.unresolved) return;
+  const n = S.players.length, order = R.order.map(p => p.i), points = Array(n).fill(0);
+  order.forEach((pi, k) => { points[pi] = pointsForPlace(k, n); });
+  S.rounds.push({ order, points, totals: R.players.map(p => p.total), cur: JSON.parse(JSON.stringify(S.cur)) });
+  S.cur = blankCur(n);
+  save(); renderChrome();
+  toast('Round ' + S.rounds.length + ' recorded');
+  setTab('standings');
+}
+function undoRound() {
+  if (!S.rounds.length || !confirm('Undo round ' + S.rounds.length + '? Its counts will be restored so you can fix them.')) return;
+  const r = S.rounds.pop();
+  if (r.cur) S.cur = r.cur;
+  S = repair(S);
+  save(); renderChrome(); setTab('results');
+}
+function standTieText(t) {
+  const A = en(t.a.i), B = en(t.b.i), pre = A + ' and ' + B + ' are tied on ' + signed(t.a.pts) + ' points. ';
+  if (t.how === 'p2') return pre + '<b>' + A + '</b> has more +2 chips (' + t.a.p2 + ' vs ' + t.b.p2 + ').';
+  if (t.how === 'p1') return pre + 'Same number of +2 chips; <b>' + A + '</b> has more +1 chips (' + t.a.p1 + ' vs ' + t.b.p1 + ').';
+  if (t.how === 'lastWin') return pre + 'Same +2 and +1 chips; <b>' + A + '</b> won ' +
+    (t.a.lastWin === S.rounds.length - 1 ? 'the last round' : 'a more recent round (round ' + (t.a.lastWin + 1) + ')') + '.';
+  return pre + 'Still tied after every tiebreaker – they share the place.';
+}
+function standingsText(T) {
+  return 'Startups – standings after ' + S.rounds.length + ' of ' + S.totalRounds + ' rounds\n' +
+    T.order.map(t => t.rank + '. ' + nm(t.i) + ': ' + signed(t.pts) + ' pts').join('\n');
+}
+function renderStandings() {
+  const root = $('#tab-standings'); root.innerHTML = '';
+  const n = S.players.length, played = S.rounds.length, done = played >= S.totalRounds;
+  if (!played) {
+    root.appendChild(card('<h2>No rounds yet</h2><p class="muted" style="margin:0 0 6px">Count a game, then tap <b>Record round</b> on the Results tab.</p>' +
+      '<p class="muted small" style="margin:0">Each round: 1st +2, 2nd +1, last −1. Most points after ' + S.totalRounds + ' rounds wins.</p>'));
+    root.appendChild(el('<div class="btns"></div>')).appendChild(btn('🧮 Count round 1', 'block', () => setTab('count')));
+    return;
+  }
+  const T = computeStandings(n, S.rounds);
+  if (done) {
+    const w = T.order.filter(t => t.rank === 1);
+    root.appendChild(el('<div class="banner"><div>🏆 After ' + played + ' round' + (played === 1 ? '' : 's') + '</div><div class="big">' +
+      w.map(t => en(t.i)).join(' & ') + (w.length > 1 ? ' tie!' : ' wins!') + '</div><div>' + signed(w[0].pts) + ' points</div></div>'));
+  } else {
+    const starter = S.rounds[played - 1].order[n - 1];
+    root.appendChild(card('<h2>Next: round ' + (played + 1) + ' of ' + S.totalRounds + '</h2><p style="margin:0 0 6px"><b>' + en(starter) +
+      '</b> starts (came last in round ' + played + ').</p><p class="muted small" style="margin:0">Put the 5 removed cards back, reshuffle and set up as usual. The counts have been cleared for the new round.</p>'));
+  }
+  let th = '<th>Player</th>';
+  for (let r = 0; r < played; r++) th += '<th>R' + (r + 1) + '</th>';
+  th += '<th>Total</th>';
+  let rows = '';
+  T.order.forEach(t => {
+    rows += '<tr' + (t.rank === 1 ? ' class="lead"' : '') + '><td><b>' + t.rank + '. ' + en(t.i) + '</b><div class="muted tiny">+2 ×' + t.p2 + ' · +1 ×' + t.p1 + '</div></td>';
+    t.per.forEach(pt => { rows += '<td class="' + (pt > 0 ? 'pos-c' : pt < 0 ? 'neg' : 'muted') + '">' + signed(pt) + '</td>'; });
+    rows += '<td><b>' + signed(t.pts) + '</b></td></tr>';
+  });
+  root.appendChild(card('<h2>Standings</h2><div class="tbl-wrap"><table><thead><tr>' + th + '</tr></thead><tbody>' + rows + '</tbody></table></div>'));
+  if (T.ties.length) root.appendChild(card('<h2>Tiebreaks</h2><ul class="bd">' + T.ties.map(t => '<li>' + standTieText(t) + '</li>').join('') + '</ul>'));
+
+  const act = root.appendChild(el('<div class="btns"></div>'));
+  if (!done) act.appendChild(btn('🧮 Count round ' + (played + 1), 'block', () => setTab('count')));
+  act.appendChild(btn('📤 Share standings', 'soft block', () => share(standingsText(T))));
+  act.appendChild(btn('↩️ Undo last round', 'ghost block', undoRound));
+  act.appendChild(btn('🔄 New game (clear rounds)', 'danger block', () => {
+    if (!confirm('Clear all recorded rounds and start a new game?')) return;
+    S.rounds = []; S.cur = blankCur(n); save(); renderChrome(); renderStandings();
+  }));
+}
+
+/* ---------- share ---------- */
+function share(text) {
+  if (navigator.share) { navigator.share({ title: 'Startups scores', text }).catch(() => { }); return; }
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(() => toast('Copied to clipboard'), () => window.prompt('Copy the results:', text));
+    return;
+  }
+  window.prompt('Copy the results:', text);
+}
+
+/* ---------- home-screen icon (drawn at load) ---------- */
+function makeIcon() {
+  try {
+    const c = document.createElement('canvas'); c.width = c.height = 180;
+    const g = c.getContext('2d');
+    const rr = (x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); g.fill(); };
+    g.fillStyle = '#1f7a63'; g.fillRect(0, 0, 180, 180);
+    g.fillStyle = '#fff';
+    [38, 62, 92].forEach((h, k) => rr(36 + k * 44, 140 - h, 30, h, 7));
+    g.fillStyle = '#bfe6d8'; rr(28, 146, 124, 6, 3);
+    g.fillStyle = '#f2b705'; g.beginPath(); g.arc(132, 44, 24, 0, 7); g.fill();
+    g.fillStyle = '#7a5200'; g.font = 'bold 26px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('3', 132, 45);
+    const url = c.toDataURL('image/png');
+    ['apple-touch-icon', 'icon'].forEach(rel => { const l = document.createElement('link'); l.rel = rel; l.href = url; document.head.appendChild(l); });
+  } catch (e) { /* no canvas */ }
+}
+
+/* ---------- start ---------- */
+makeIcon();
+document.querySelectorAll('.tabbar button').forEach(b => b.addEventListener('click', () => setTab(b.dataset.tab)));
+renderChrome();
+setTab(S.tab);
+})();
+
+</script>
+</body>
+</html>

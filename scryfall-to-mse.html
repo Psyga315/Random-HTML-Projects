@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Scryfall → Magic Set Editor converter</title>
+<style>
+  :root{--bg:#15171c;--panel:#1e2128;--line:#333844;--fg:#e6e8ee;--acc:#7aa2f7;--warn:#e0af68;--err:#f7768e;--ok:#9ece6a}
+  *{box-sizing:border-box}
+  body{margin:0;padding:24px;background:var(--bg);color:var(--fg);font:14px/1.5 system-ui,Segoe UI,sans-serif}
+  h1{font-size:20px;margin:0 0 4px}
+  .sub{color:#9aa1b1;margin-bottom:18px}
+  .wrap{max-width:1100px;margin:0 auto}
+  fieldset{border:1px solid var(--line);border-radius:8px;background:var(--panel);margin:0 0 14px;padding:12px 14px}
+  legend{padding:0 6px;color:var(--acc);font-weight:600}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px 16px}
+  label{display:block;font-size:12px;color:#9aa1b1;margin-bottom:3px}
+  input[type=text],input[type=number],select,textarea{width:100%;padding:6px 8px;background:#12141a;color:var(--fg);
+    border:1px solid var(--line);border-radius:5px;font:inherit}
+  textarea{font-family:ui-monospace,Consolas,monospace;font-size:12px}
+  .chk{display:flex;align-items:center;gap:7px;margin:5px 0;font-size:13px;color:var(--fg)}
+  .chk input{width:16px;height:16px;accent-color:var(--acc)}
+  button{padding:8px 16px;border-radius:6px;border:1px solid var(--line);background:#262b36;color:var(--fg);
+    font:inherit;font-weight:600;cursor:pointer}
+  button.primary{background:var(--acc);color:#0b1020;border-color:var(--acc)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-top:6px}
+  #bar{height:8px;background:#12141a;border:1px solid var(--line);border-radius:99px;overflow:hidden;margin:10px 0 4px}
+  #bar>div{height:100%;width:0;background:var(--acc);transition:width .15s}
+  #log{height:190px;overflow:auto;background:#0f1116;border:1px solid var(--line);border-radius:6px;padding:8px;
+    font:12px/1.45 ui-monospace,Consolas,monospace;white-space:pre-wrap}
+  .w{color:var(--warn)}.e{color:var(--err)}.o{color:var(--ok)}.d{color:#6d7385}
+  code{background:#12141a;padding:1px 4px;border-radius:3px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>Scryfall&nbsp;→&nbsp;Magic Set Editor</h1>
+<div class="sub">Builds a real <code>.mse-set</code> package (ZIP containing a <code>set</code> file + art) entirely in your browser.</div>
+
+<fieldset>
+  <legend>1 · Cards to fetch</legend>
+  <div class="grid">
+    <div>
+      <label>Scryfall search query</label>
+      <input type="text" id="query" value="e:dsk" placeholder="e:dsk  ·  e:mh3 -t:basic  ·  c:r cmc<=2">
+    </div>
+    <div>
+      <label>Max cards (0 = no limit)</label>
+      <input type="number" id="limit" value="0" min="0">
+    </div>
+  </div>
+  <div class="chk"><input type="checkbox" id="extras"><span>Include extras &amp; variations (tokens, showcase printings, art series)</span></div>
+  <div class="chk"><input type="checkbox" id="autoinfo" checked><span>Auto-fill set title/code/date from Scryfall when the query is a single <code>e:CODE</code></span></div>
+</fieldset>
+
+<fieldset>
+  <legend>2 · Set package</legend>
+  <div class="grid">
+    <div><label>MSE version header</label><input type="text" id="mseversion" value="0.3.8"></div>
+    <div><label>Stylesheet (must be installed: <code>magic-&lt;name&gt;.mse-style</code>)</label><input type="text" id="stylesheet" value="m15"></div>
+    <div><label>Set title</label><input type="text" id="title" value=""></div>
+    <div><label>Set code</label><input type="text" id="setcode" value=""></div>
+    <div><label>Copyright line</label><input type="text" id="copyright" value=""></div>
+    <div><label>Output file name</label><input type="text" id="filename" value="set.mse-set"></div>
+  </div>
+  <div class="chk"><input type="checkbox" id="stylingblock" checked><span>Write a <code>styling:</code> block enabling small mana symbols in text boxes</span></div>
+  <div class="chk"><input type="checkbox" id="minimalinfo"><span>Minimal <code>set info:</code> (only title + symbol) — use if MSE warns about unknown keys</span></div>
+</fieldset>
+
+<fieldset>
+  <legend>3 · Conversion options</legend>
+  <div class="grid">
+    <div>
+      <label>Multi-face cards (DFC / split / adventure / flip)</label>
+      <select id="facemode">
+        <option value="separate" selected>One MSE card per face, linked</option>
+        <option value="front">Front face only</option>
+      </select>
+    </div>
+    <div>
+      <label>Mana symbols inside rule text</label>
+      <select id="symmode">
+        <option value="sym-auto" selected>&lt;sym-auto&gt;T&lt;/sym-auto&gt; (recommended)</option>
+        <option value="sym">&lt;sym&gt;T&lt;/sym&gt;</option>
+        <option value="bare">Bare letters (T)</option>
+        <option value="braces">Leave Scryfall braces ({T})</option>
+      </select>
+    </div>
+    <div>
+      <label><code>card color</code> field</label>
+      <select id="colormode">
+        <option value="auto" selected>Omit — let MSE derive it from the mana cost</option>
+        <option value="lands">Write it for lands only</option>
+        <option value="always">Always write it</option>
+      </select>
+    </div>
+    <div>
+      <label>Artwork</label>
+      <select id="imgmode">
+        <option value="art_crop" selected>art_crop (correct for MSE's art frame)</option>
+        <option value="normal">normal (whole card)</option>
+        <option value="png">png (whole card, transparent border)</option>
+        <option value="none">No images</option>
+      </select>
+    </div>
+  </div>
+  <div class="chk"><input type="checkbox" id="flavor" checked><span>Import flavor text</span></div>
+  <div class="chk"><input type="checkbox" id="artist" checked><span>Import illustrator</span></div>
+  <div class="chk"><input type="checkbox" id="cardcode" checked><span>Put collector number in <code>card code text</code></span></div>
+  <div class="chk"><input type="checkbox" id="basicrarity" checked><span>Use rarity <code>basic land</code> for basic lands</span></div>
+  <div class="chk"><input type="checkbox" id="italics"><span>Wrap parenthetical reminder text in <code>&lt;i-auto&gt;</code> tags</span></div>
+  <div class="chk"><input type="checkbox" id="normalize" checked><span>Normalize curly quotes / ellipses / minus signs to ASCII</span></div>
+  <div class="chk"><input type="checkbox" id="notes" checked><span>Store Scryfall id + oracle notes in the card's <code>notes</code> field</span></div>
+</fieldset>
+
+<div class="row">
+  <button class="primary" id="go">Convert</button>
+  <button id="stop" disabled>Abort</button>
+  <button id="dl" disabled>Download .mse-set</button>
+  <button id="dltxt" disabled>Download plain <code>set</code> file</button>
+</div>
+<div id="bar"><div></div></div>
+<div id="log" class="d">Ready.</div>
+
+<fieldset style="margin-top:14px">
+  <legend>Preview of generated <code>set</code> file</legend>
+  <textarea id="preview" rows="14" spellcheck="false" readonly></textarea>
+</fieldset>
+</div>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const ENC = new TextEncoder();
+
+/* ------------------------------------------------------------------ logging */
+const logEl = $("#log");
+function log(msg, cls) {
+  const s = document.createElement("span");
+  if (cls) s.className = cls;
+  s.textContent = msg + "\n";
+  logEl.appendChild(s);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+function clearLog() { logEl.textContent = ""; }
+const warned = new Set();
+function warnOnce(msg) { if (!warned.has(msg)) { warned.add(msg); log("! " + msg, "w"); } }
+function progress(f) { $("#bar>div").style.width = Math.round(f * 100) + "%"; }
+
+/* -------------------------------------------------- minimal ZIP (store only) */
+const CRC = new Uint32Array(256);
+for (let i = 0; i < 256; i++) { let c = i; for (let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1); CRC[i] = c >>> 0; }
+function crc32(u8) { let c = 0xFFFFFFFF; for (let i = 0; i < u8.length; i++) c = CRC[(c ^ u8[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+
+function makeZip(entries) {
+  const now = new Date();
+  const time = (now.getHours() << 11) | (now.getMinutes() << 5) | (now.getSeconds() >> 1);
+  const date = ((now.getFullYear() - 1980) << 9) | ((now.getMonth() + 1) << 5) | now.getDate();
+  const parts = [], central = [];
+  let offset = 0;
+  for (const e of entries) {
+    const name = ENC.encode(e.name), crc = crc32(e.data), len = e.data.length;
+    const lh = new Uint8Array(30 + name.length), dv = new DataView(lh.buffer);
+    dv.setUint32(0, 0x04034b50, true); dv.setUint16(4, 20, true); dv.setUint16(6, 0, true);
+    dv.setUint16(8, 0, true); dv.setUint16(10, time, true); dv.setUint16(12, date, true);
+    dv.setUint32(14, crc, true); dv.setUint32(18, len, true); dv.setUint32(22, len, true);
+    dv.setUint16(26, name.length, true); dv.setUint16(28, 0, true);
+    lh.set(name, 30);
+    parts.push(lh, e.data);
+    const cd = new Uint8Array(46 + name.length), cv = new DataView(cd.buffer);
+    cv.setUint32(0, 0x02014b50, true); cv.setUint16(4, 20, true); cv.setUint16(6, 20, true);
+    cv.setUint16(8, 0, true); cv.setUint16(10, 0, true); cv.setUint16(12, time, true); cv.setUint16(14, date, true);
+    cv.setUint32(16, crc, true); cv.setUint32(20, len, true); cv.setUint32(24, len, true);
+    cv.setUint16(28, name.length, true); cv.setUint16(30, 0, true); cv.setUint16(32, 0, true);
+    cv.setUint16(34, 0, true); cv.setUint16(36, 0, true); cv.setUint32(38, 0, true); cv.setUint32(42, offset, true);
+    cd.set(name, 46);
+    central.push(cd);
+    offset += lh.length + len;
+  }
+  let cdSize = 0; for (const c of central) cdSize += c.length;
+  const eo = new Uint8Array(22), ev = new DataView(eo.buffer);
+  ev.setUint32(0, 0x06054b50, true);
+  ev.setUint16(8, entries.length, true); ev.setUint16(10, entries.length, true);
+  ev.setUint32(12, cdSize, true); ev.setUint32(16, offset, true);
+  return new Blob([...parts, ...central, eo], { type: "application/octet-stream" });
+}
+
+/* ----------------------------------------------------------- Scryfall access */
+let abort = null;
+
+async function api(url) {
+  const r = await fetch(url, { signal: abort.signal, headers: { Accept: "application/json" } });
+  const j = await r.json().catch(() => null);
+  if (!r.ok) throw new Error((j && j.details) || ("HTTP " + r.status + " for " + url));
+  return j;
+}
+
+async function searchAll(query, extras, limit) {
+  const u = new URL("https://api.scryfall.com/cards/search");
+  u.searchParams.set("q", query);
+  u.searchParams.set("order", "set");
+  if (extras) {
+    u.searchParams.set("unique", "prints");
+    u.searchParams.set("include_extras", "true");
+    u.searchParams.set("include_variations", "true");
+  }
+  const out = [];
+  let next = u.toString(), page = 0;
+  while (next) {
+    const j = await api(next);
+    out.push(...j.data);
+    page++;
+    log("  page " + page + ": " + j.data.length + " cards (total " + out.length +
+        (j.total_cards ? " / " + j.total_cards : "") + ")", "d");
+    if (limit && out.length >= limit) return out.slice(0, limit);
+    next = j.has_more ? j.next_page : null;
+    if (next) await sleep(120);           // Scryfall asks for ~100ms between requests
+  }
+  return out;
+}
+
+/* ------------------------------------------------------- symbol / text tools */
+function symToMse(raw) {
+  const p = raw.toUpperCase();
+  if (/^[WUBRG]$/.test(p)) return p;
+  if (/^\d+$/.test(p)) return p;
+  if (["C", "S", "X", "Y", "Z", "E", "Q", "T"].includes(p)) return p;
+  if (p === "P") return "phi";
+  if (p === "CHAOS") return "chaos";
+  if (/^[WUBRG]\/[WUBRG]$/.test(p)) return p;                 // hybrid
+  if (/^2\/[WUBRG]$/.test(p)) return p;                       // twobrid
+  const ph = p.match(/^([WUBRG])\/P$/);
+  if (ph) return "H/" + ph[1];                                // MSE spells Phyrexian "H/x"
+  warnOnce('No MSE equivalent for symbol {' + raw + '} — written literally as "' + p + '"');
+  return p;
+}
+function costToMse(cost) {
+  if (!cost) return "";
+  return [...cost.matchAll(/\{([^}]+)\}/g)].map(m => symToMse(m[1])).join("");
+}
+function textSymbols(text, mode) {
+  if (!text || mode === "braces") return text || "";
+  return text.replace(/(?:\{[^}]+\})+/g, run => {
+    const inner = [...run.matchAll(/\{([^}]+)\}/g)].map(m => symToMse(m[1])).join("");
+    if (mode === "bare") return inner;
+    const t = (mode === "sym") ? "sym" : "sym-auto";
+    return "<" + t + ">" + inner + "</" + t + ">";
+  });
+}
+function norm(s, on) {
+  if (!s) return "";
+  s = s.replace(/\u2212/g, "-");                              // minus sign → hyphen
+  if (on) s = s.replace(/[\u2018\u2019]/g, "'").replace(/[\u201C\u201D]/g, '"').replace(/\u2026/g, "...");
+  return s;
+}
+function italicizeReminders(s) {
+  return s.replace(/\(([^()]*)\)/g, "<i-auto>($1)</i-auto>");
+}
+function splitTypeLine(tl) {
+  if (!tl) return ["", ""];
+  const i = tl.indexOf("\u2014");                             // em dash
+  if (i < 0) return [tl.trim(), ""];
+  return [tl.slice(0, i).trim(), tl.slice(i + 1).trim()];
+}
+const RARITY = { common: "common", uncommon: "uncommon", rare: "rare", mythic: "mythic rare", special: "special", bonus: "special" };
+const COLORNAME = { W: "white", U: "blue", B: "black", R: "red", G: "green" };
+
+function uid32() { let s = ""; for (let i = 0; i < 32; i++) s += Math.floor(Math.random() * 10); return s; }
+function stamp(d) {
+  const p = n => String(n).padStart(2, "0");
+  return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + " " +
+         p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds());
+}
+
+/* --------------------------------------------------------- set-file emitters */
+function field(lines, indent, key, value) {
+  if (value === undefined || value === null) return;
+  const t = "\t".repeat(indent);
+  const v = String(value);
+  if (v === "") { lines.push(t + key + ":"); return; }
+  if (v.includes("\n")) {
+    lines.push(t + key + ":");
+    for (const l of v.split("\n")) lines.push("\t".repeat(indent + 1) + l);
+  } else {
+    lines.push(t + key + ": " + v);
+  }
+}
+
+/* Expand a Scryfall card into one record per printed face. */
+function facesOf(card) {
+  if (!card.card_faces || !card.card_faces.length) return [{ src: card, parent: card, index: 0 }];
+  return card.card_faces.map((f, i) => ({ src: f, parent: card, index: i }));
+}
+const RELATION = {
+  transform: ["Back Face", "Front Face"], modal_dfc: ["Back Face", "Front Face"],
+  reversible_card: ["Back Face", "Front Face"], double_faced_token: ["Back Face", "Front Face"],
+  art_series: ["Back Face", "Front Face"], battle: ["Back Face", "Front Face"],
+  split: ["Other Half", "Other Half"], aftermath: ["Other Half", "Other Half"],
+  adventure: ["Adventure", "Creature"], flip: ["Flipped", "Unflipped"],
+  meld: ["Melds With", "Melds From"]
+};
+
+function cardBlock(rec, opt, now) {
+  const f = rec.src, p = rec.parent, L = [];
+  const nm = v => norm(v, opt.normalize);
+  const [sup, sub] = splitTypeLine(nm(f.type_line || p.type_line));
+
+  let rule = nm(f.oracle_text != null ? f.oracle_text : (p.oracle_text || ""));
+  rule = textSymbols(rule, opt.symmode);
+  if (opt.italics) rule = italicizeReminders(rule);
+
+  field(L, 1, "has styling", "false");
+  field(L, 1, "notes", opt.notes
+    ? "Scryfall " + p.id + " · " + (p.set || "").toUpperCase() + " #" + (p.collector_number || "") +
+      (p.layout && p.layout !== "normal" ? " · layout: " + p.layout : "")
+    : "");
+  field(L, 1, "time created", now);
+  field(L, 1, "time modified", now);
+  field(L, 1, "uid", rec.uid);
+
+  if (opt.colormode !== "auto") {
+    const isLand = /Land/.test(sup), isArt = /Artifact/.test(sup);
+    if (opt.colormode === "always" || isLand) {
+      const cols = (f.colors || p.colors || p.color_identity || []);
+      const bits = [];
+      if (isLand) bits.push("land");
+      if (isArt) bits.push("artifact");
+      for (const c of ["W", "U", "B", "R", "G"]) if (cols.includes(c)) bits.push(COLORNAME[c]);
+      if (!bits.length) bits.push("colorless");
+      const cost = f.mana_cost || p.mana_cost || "";
+      if (/\{[WUBRG2C]\/[WUBRG]\}/.test(cost)) bits.push("hybrid", "horizontal");
+      field(L, 1, "card color", bits.join(", "));
+    }
+  }
+
+  field(L, 1, "name", nm(f.name));
+  field(L, 1, "casting cost", costToMse(f.mana_cost != null ? f.mana_cost : p.mana_cost));
+  field(L, 1, "image", rec.image || "");
+  field(L, 1, "super type", sup);
+  field(L, 1, "sub type", sub);
+
+  let rar = RARITY[p.rarity] || "common";
+  if (opt.basicrarity && /Basic Land/i.test(sup)) rar = "basic land";
+  field(L, 1, "rarity", rar);
+
+  field(L, 1, "rule text", rule);
+  if (opt.flavor) {
+    const fl = nm(f.flavor_text || p.flavor_text || "");
+    if (fl) field(L, 1, "flavor text", fl);
+  }
+  const pw = f.power != null ? f.power : p.power;
+  const tg = f.toughness != null ? f.toughness : p.toughness;
+  if (pw != null) field(L, 1, "power", nm(String(pw)));
+  if (tg != null) field(L, 1, "toughness", nm(String(tg)));
+  const loy = f.loyalty != null ? f.loyalty : p.loyalty;
+  if (loy != null) field(L, 1, "loyalty", String(loy));
+
+  if (opt.artist) field(L, 1, "illustrator", nm(f.artist || p.artist || ""));
+  if (opt.cardcode) field(L, 1, "card code text", (p.collector_number || "") + " " + (p.set || "").toUpperCase());
+  if (rec.link) { field(L, 1, "linked card 1", rec.link.uid); field(L, 1, "linked relation 1", rec.link.relation); }
+
+  return "card:\n" + L.join("\n");
+}
+
+function buildSetText(records, opt) {
+  const now = stamp(new Date());
+  const out = [];
+  out.push("mse version: " + opt.mseversion);
+  out.push("game: magic");
+  out.push("stylesheet: " + opt.stylesheet);
+  out.push("set info:");
+  out.push("\tsymbol:");
+  if (!opt.minimalinfo) {
+    field(out, 1, "title", opt.title);
+    field(out, 1, "set code", opt.setcode);
+    field(out, 1, "copyright", opt.copyright);
+    field(out, 1, "description", opt.description);
+    field(out, 1, "automatic card numbers", "no");
+  } else {
+    field(out, 1, "title", opt.title);
+  }
+  if (opt.stylingblock) {
+    out.push("styling:");
+    out.push("\tmagic-" + opt.stylesheet + ":");
+    out.push("\t\ttext box mana symbols: magic-mana-small.mse-symbol-font");
+  }
+  for (const r of records) out.push(cardBlock(r, opt, now));
+  out.push("version control:");
+  out.push("\ttype: none");
+  out.push("apprentice code:");
+  return out.join("\n") + "\n";
+}
+
+/* ------------------------------------------------------------------- run it */
+let built = null;
+
+async function run() {
+  clearLog(); warned.clear(); progress(0);
+  built = null; $("#dl").disabled = true; $("#dltxt").disabled = true;
+  abort = new AbortController();
+  $("#go").disabled = true; $("#stop").disabled = false;
+
+  const opt = {
+    mseversion: $("#mseversion").value.trim() || "0.3.8",
+    stylesheet: $("#stylesheet").value.trim() || "m15",
+    title: $("#title").value.trim(),
+    setcode: $("#setcode").value.trim(),
+    copyright: $("#copyright").value.trim(),
+    description: "",
+    minimalinfo: $("#minimalinfo").checked,
+    stylingblock: $("#stylingblock").checked,
+    facemode: $("#facemode").value,
+    symmode: $("#symmode").value,
+    colormode: $("#colormode").value,
+    imgmode: $("#imgmode").value,
+    flavor: $("#flavor").checked, artist: $("#artist").checked,
+    cardcode: $("#cardcode").checked, basicrarity: $("#basicrarity").checked,
+    italics: $("#italics").checked, normalize: $("#normalize").checked,
+    notes: $("#notes").checked
+  };
+
+  try {
+    const query = $("#query").value.trim();
+    if (!query) throw new Error("Enter a Scryfall query.");
+
+    /* optional: pull set metadata */
+    const m = query.match(/^(?:e|set):([a-z0-9]{3,6})$/i);
+    if (m && $("#autoinfo").checked) {
+      try {
+        const s = await api("https://api.scryfall.com/sets/" + m[1].toLowerCase());
+        if (!opt.title) opt.title = s.name;
+        if (!opt.setcode) opt.setcode = s.code.toUpperCase();
+        opt.description = s.name + " · released " + s.released_at + " · " + s.card_count + " cards";
+        $("#title").value = opt.title; $("#setcode").value = opt.setcode;
+        if ($("#filename").value === "set.mse-set") $("#filename").value = s.code + ".mse-set";
+        log("Set: " + s.name + " (" + s.code.toUpperCase() + "), " + s.card_count + " cards", "o");
+        await sleep(120);
+      } catch (e) { log("Could not read set metadata: " + e.message, "w"); }
+    }
+
+    log("Searching Scryfall…");
+    const cards = await searchAll(query, $("#extras").checked, parseInt($("#limit").value, 10) || 0);
+    log("Fetched " + cards.length + " cards.", "o");
+
+    /* flatten into face records + link siblings */
+    const records = [];
+    for (const c of cards) {
+      let faces = facesOf(c);
+      if (opt.facemode === "front") faces = [faces[0]];
+      const group = faces.map(fr => Object.assign(fr, { uid: uid32() }));
+      for (const fr of group) {
+        if (group.length === 2) {
+          const other = group[1 - fr.index];
+          const rel = RELATION[c.layout] || ["Other Face", "Other Face"];
+          fr.link = { uid: other.uid, relation: rel[fr.index] || "Other Face" };
+        }
+        records.push(fr);
+      }
+    }
+    log("→ " + records.length + " MSE cards.");
+
+    /* artwork */
+    const files = [];
+    if (opt.imgmode !== "none") {
+      const cache = new Map();
+      let n = 0, ok = 0;
+      for (const r of records) {
+        if (abort.signal.aborted) throw new Error("Aborted.");
+        const iu = r.src.image_uris || r.parent.image_uris;
+        const url = iu && iu[opt.imgmode];
+        n++;
+        progress(n / records.length * 0.95);
+        if (!url) { warnOnce("No " + opt.imgmode + " image for " + (r.src.name || r.parent.name)); continue; }
+        if (cache.has(url)) { r.image = cache.get(url); continue; }
+        try {
+          const resp = await fetch(url, { signal: abort.signal });
+          if (!resp.ok) throw new Error("HTTP " + resp.status);
+          const data = new Uint8Array(await (await resp.blob()).arrayBuffer());
+          const name = "image" + (files.length + 1);
+          files.push({ name, data });
+          cache.set(url, name);
+          r.image = name;
+          ok++;
+          if (ok % 25 === 0) log("  " + ok + " images downloaded…", "d");
+        } catch (e) {
+          warnOnce("Image failed for " + (r.src.name || r.parent.name) + ": " + e.message);
+        }
+        await sleep(60);
+      }
+      log("Downloaded " + ok + " images (" +
+          (files.reduce((a, f) => a + f.data.length, 0) / 1048576).toFixed(1) + " MB).", "o");
+    }
+
+    const text = buildSetText(records, opt);
+    files.unshift({ name: "set", data: ENC.encode(text) });
+    built = { blob: makeZip(files), text, name: $("#filename").value.trim() || "set.mse-set" };
+    progress(1);
+
+    $("#preview").value = text.split("\n").slice(0, 400).join("\n") +
+      (text.split("\n").length > 400 ? "\n… (" + text.split("\n").length + " lines total)" : "");
+    $("#dl").disabled = false; $("#dltxt").disabled = false;
+    log("Done — " + (built.blob.size / 1048576).toFixed(2) + " MB package ready.", "o");
+  } catch (e) {
+    log("ERROR: " + e.message, "e");
+  } finally {
+    $("#go").disabled = false; $("#stop").disabled = true;
+  }
+}
+
+function save(blob, name) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+}
+
+$("#go").onclick = run;
+$("#stop").onclick = () => { if (abort) abort.abort(); };
+$("#dl").onclick = () => built && save(built.blob, built.name);
+$("#dltxt").onclick = () => built && save(new Blob([built.text], { type: "text/plain;charset=utf-8" }), "set");
+</script>
+</body>
+</html>

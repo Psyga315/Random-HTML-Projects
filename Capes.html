@@ -1,0 +1,2504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Capes! Tracker</title>
+<!--
+  Capes! Tracker — solo play edition. Step 1: Seats, Characters, Bookkeeping.
+  Single file, no dependencies. Data autosaves to this browser's localStorage.
+  Export regularly (Table tab → Save & Backup).
+-->
+<style>
+:root{--bg:#f3efe6;--panel:#fff;--ink:#1c1c1e;--muted:#6e6a62;--line:#dcd5c5;--gold:#f5c518;--red:#c0392b;--blue:#1f5fa8;--green:#2e7d32;--amber:#a86200}
+*{box-sizing:border-box}
+body{margin:0;font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:#1c1c1e;color:#fff;padding:10px 18px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;position:sticky;top:0;z-index:10}
+header h1{margin:0;font-size:22px;font-weight:900;letter-spacing:1px;font-style:italic}
+header h1 span{color:var(--gold)}
+#nav{display:flex;gap:6px}
+#nav button{background:transparent;color:#ddd;border:1px solid #555}
+#nav button.active{background:var(--gold);color:#000;border-color:var(--gold)}
+#savestate{margin-left:auto;font-size:12px;color:#aaa}
+main{max-width:1150px;margin:0 auto;padding:18px}
+button{font:inherit;cursor:pointer;border:1px solid var(--line);background:#fff;border-radius:6px;padding:5px 10px;color:var(--ink)}
+button:hover:not(:disabled){filter:brightness(.94)}
+button:disabled{opacity:.4;cursor:default}
+button.primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+button.danger{color:var(--red)}
+button.small{padding:2px 8px;font-size:13px}
+input,select,textarea{font:inherit;padding:5px 7px;border:1px solid var(--line);border-radius:5px;background:#fff;color:var(--ink)}
+textarea{width:100%;min-height:110px}
+label{font-size:13px;color:var(--muted)}
+label input,label select{color:var(--ink);font-size:15px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:16px}
+.panel h2{margin:0 0 10px;font-size:18px}
+.panel h3{margin:0 0 8px;font-size:16px}
+.muted{color:var(--muted);font-size:13px}
+.ok{color:var(--green);font-weight:600}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:6px 0}
+.spread{justify-content:space-between}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:14px}
+.grow{flex:1;min-width:140px}
+.full{width:100%}
+.badge{display:inline-block;font-size:11px;font-weight:700;padding:1px 7px;border-radius:10px;background:#eee;color:#333;vertical-align:middle}
+.badge.super{background:#fde8a6}.badge.mundane{background:#dfe9f7}.badge.nonperson{background:#e6dff5}
+.badge.err{background:#fbdada;color:var(--red)}
+.chip{display:inline-flex;align-items:center;gap:4px;background:#f6f2e8;border:1px solid var(--line);border-radius:14px;padding:2px 4px 2px 10px;margin:2px;font-size:13px}
+.chip button{padding:0 6px;font-size:12px;border-radius:10px}
+.order{display:inline-flex;width:26px;height:26px;border-radius:50%;background:#1c1c1e;color:var(--gold);align-items:center;justify-content:center;font-weight:700}
+.seat-name{font-weight:700;flex:1;min-width:100px}
+.counter b{display:inline-block;min-width:28px;text-align:center;font-size:18px}
+.card h3{margin:0}
+.cat{border-top:1px dashed var(--line);padding-top:8px;margin-top:10px}
+.cat h4{margin:4px 0}
+.ab-row{display:flex;gap:6px;align-items:center;margin:4px 0}
+.ab-row .lvl{width:58px;text-align:center;font-weight:700}
+.pw{font-size:12px;color:var(--muted);white-space:nowrap;min-width:96px}
+.pw.on{color:var(--amber);font-weight:600}
+.validation{max-height:30vh;overflow:auto}
+.validation .err{color:var(--red)}.validation .warn{color:var(--amber)}
+.validation ul{margin:4px 0 6px;padding-left:20px}
+.sticky{position:sticky;bottom:0;box-shadow:0 -4px 14px rgba(0,0,0,.08)}
+.drive-row{display:grid;grid-template-columns:110px 70px 1fr;gap:8px;align-items:center;margin:4px 0}
+.ex{border:1px solid var(--line);border-radius:8px;padding:10px;margin:8px 0;background:#fcfaf5}
+.cl{background:#fffbea;border:1px solid #ecd98a}
+.cl summary{cursor:pointer}
+.cl-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:10px}
+.cl-col h5{margin:0 0 6px;font-size:14px}
+.cl-item{display:block;padding:3px 6px;border-radius:4px;cursor:pointer;color:var(--ink);font-size:14px}
+.cl-item:hover{background:#fff3c4}
+.cl-item.crossed{text-decoration:line-through;color:#999}
+.sheet-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap}
+.sheet-head h2{font-size:26px;margin:0}
+.sheet-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.sheet-col h4{margin:0 0 6px;border-bottom:2px solid #1c1c1e}
+.sheet-ab{display:flex;align-items:center;gap:8px;padding:3px 0}
+.lvlbox{display:inline-flex;width:26px;height:26px;border:2px solid #1c1c1e;align-items:center;justify-content:center;font-weight:800;border-radius:4px;flex:none}
+.bolt{color:var(--amber)}
+.drive{display:flex;align-items:center;gap:8px;padding:5px 0;flex-wrap:wrap;border-bottom:1px dotted var(--line)}
+.drive .dname{width:100px;font-weight:700}
+.drive .dstr{width:90px;color:var(--muted);font-size:13px}
+.drive.over .dname{color:var(--red)}
+.pips{display:inline-flex;gap:3px;min-width:140px}
+.pip{width:16px;height:16px;border:2px dashed #bbb;border-radius:3px}
+.pip.cap{border:2px solid #1c1c1e}
+.pip.full{background:#1c1c1e}
+.pip.full:not(.cap){background:var(--red);border-color:var(--red)}
+.hint{background:#eef4fb;border:1px solid #c9dbf0;border-radius:8px;padding:10px 12px;font-size:14px;margin-bottom:16px}
+@media (max-width:600px){.drive-row{grid-template-columns:1fr 70px}.drive-row .muted{grid-column:1/-1}}
+/* ===== Step 2: Scene engine ===== */
+.die{display:inline-flex;width:36px;height:36px;border:2px solid #1c1c1e;border-radius:8px;align-items:center;justify-content:center;font-weight:800;font-size:19px;background:#fff;margin:2px;padding:0;color:var(--ink)}
+.die.big{width:48px;height:48px;font-size:26px;background:var(--gold)}
+.conf{border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:10px 0;background:#fcfaf5}
+.conf.resolving{border:2px solid var(--blue);background:#f4f8fd}
+.conf h4{margin:10px 0 4px}
+.sides{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px}
+.side{border:1px solid var(--line);border-radius:8px;padding:8px;background:#fff}
+.side.ctrl{border:2px solid var(--green);background:#f3faf3}
+.sidelabel{font-weight:700;border:1px dashed transparent;background:transparent;width:60%}
+.sidelabel:hover,.sidelabel:focus{border-color:var(--line);background:#fff}
+.badge.ev{background:#fde2c8}.badge.go{background:#d8f0d8}.badge.claim{background:#1c1c1e;color:var(--gold)}
+.tool{background:#fffbea;border:1px solid #ecd98a;border-radius:8px;padding:8px 10px;margin-top:8px}
+.rollp{border:2px solid var(--gold);background:#fffdf3}
+.castseat{padding:6px 0;border-bottom:1px dotted var(--line)}
+.castchar{display:inline-block;vertical-align:top;border:1px solid var(--line);border-radius:8px;padding:6px 8px;margin:4px;background:#fcfaf5;font-size:13px;min-width:210px}
+.castchar .over{color:var(--red);font-weight:700}
+</style>
+</head>
+<body>
+<header><h1>CAPES<span>!</span> Tracker</h1><div id="nav"></div><div id="savestate"></div></header>
+<main id="main"></main>
+<input type="file" id="file" accept=".json,application/json" hidden>
+<script>
+'use strict';
+
+/* ================= RULES DATA ================= */
+const STORAGE_KEY = 'capes-tracker-v1';
+const HEROIC = ['Justice','Truth','Love','Hope','Duty'];
+const VILLAINOUS = ['Fear','Obsession','Pride','Power','Despair'];
+const DRIVE_DESC = {
+  Justice:'laws, codes of conduct and rebellion',
+  Truth:'identity, honesty and secrets',
+  Love:'friends, rivals and romance',
+  Hope:'the safety, needs and doubts of the common man',
+  Duty:'responsibilities that they alone can and must fulfill',
+  Fear:'fear and bravery',
+  Obsession:'a single plan or theory they keep harping on',
+  Pride:'proving their superiority',
+  Power:'dominating and being dominated',
+  Despair:'destroying the hope of others'
+};
+const CAT_LABEL = {power:'Powers', skill:'Skills', style:'Styles', attitude:'Attitudes'};
+const CAT_ORDER = ['power','skill','style','attitude'];
+const KIND_LABEL = {super:'Super-powered', mundane:'Mundane', nonperson:'Non-person'};
+const EXAMPLE_CODE = [
+  'Super-heroes never die',
+  'Exemplars never die',
+  'Super-villains never die',
+  "Good people are never responsible for anyone's death, even by omission",
+  'The Root Conflict between characters and their Exemplars will not be resolved',
+  '– Corollary: The Secret Identity of the hero will not be exposed',
+  '– Corollary: Unspoken love cannot be either revealed or abandoned',
+  'The course of history will not diverge from real-world history',
+  '– Corollary: Superheroes can solve big fictional problems (like alien invasion) but not big real ones'
+];
+
+// [name, group, powers(5), styles(3)] — all powered
+const POWER_SETS = [
+  ['Gadgeteer','"Normal" Supers',['Technical Genius','Techno-armor','Repulsor beams','Sensor systems','Flight-pack'],['Co-opt enemy systems','Improvise a gadget','Know weak points of any system']],
+  ['Martial Artist','"Normal" Supers',['Acrobatics','Combat intuition','Precision strikes','Focussed battle aura','Ninja stealth'],['Named techniques','Improvised weaponry','Brains over brawn']],
+  ['Hunter','"Normal" Supers',['Tireless stamina','Ensnare','Wrestle','Razor-keen senses','Find weaknesses'],['Perch in a high place',"Predict prey's next move",'Exhaust your prey']],
+  ['Speedster','Internal Powers',['Super-speed','Accelerated Reflexes','Rapid recovery','Do many things at once','Faster than the laws of physics'],['Move someone out of the way','Trail of Disruptions','Fast enough to try another plan']],
+  ['Brick','Internal Powers',['Super-leap','Titanic Punch','Invulnerability','Super-strength','Great leverage from tiny handhold'],['Massive property damage',"Hit 'em with the scenery","If it doesn't fit, force it"]],
+  ['Animal Avatar','Internal Powers',['Shark Telepathy','Frenzy','Big shark teeth','Swimming','Shark sense of smell'],['Surprise Attack','Tooth-shaped gouges','Ominous Circling']],
+  ['Master of Natural Force','External Powers',['Magnetic blast','Move metal','Become magnetism','Force Field','Metal shapes'],['Trap opponent','Control everything at once','Indirect action']],
+  ['Mind Reader','External Powers',['Read minds','Project sensations','Ascend to mental plane','Manipulate memories','Mind control'],["Know what they're planning",'Subtle influence','Mass crowd influence']],
+  ['Magician','External Powers',['Bind forces/things','Wards and shields','Summon forces/things','Unleash Artifacts of Power','Know hidden nature of the world'],['Dramatic incantation','Mythic resonance','Runes and Sigils']],
+  ['Godling','Generalists',['Super-strength','Super-speed','Invulnerability','Laser Eye-beams','Flight'],['Casually overpower mortals','Inspire Awe','Divert large flying objects']],
+  ['Shapeshifter','Generalists',['Change Shape','Change Size','Change physical state','Strengths of current form','Resilient body'],['Reach inaccessible places','Shift out of danger','Surround an area']],
+  ['Robot','Generalists',['Gigantic Size','Armor','Rocket Feet','Transform into Machine','Missile Swarm'],['Devices pop out from under skin','Computer Brain','Massive Property Damage']],
+  ['Teleporter','Specialists',['Appear','Disappear','Teleport someone else','Appear, act, disappear','Teleport a piece of something'],['Appear behind someone','Impossible to target','Look at situation from many angles']],
+  ['Mimic','Specialists',['Imitate Something','Mindset of form','Strengths of form','Weaken what you imitate','Absorb attacks'],['Mix and match forms','Camouflage','Adapt to changes']],
+  ['Shootist','Specialists',['Shoot','Rapid fire','Ricochet Shot','Pinpoint accuracy','Extreme range shot'],['Chain reaction','Shoot equipment','Do other things while shooting']]
+];
+
+// [name, group, skills(5), styles(3)] — all mundane
+const SKILL_SETS = [
+  ['Homeless','On the Streets',['Scrounge','Accost','Rant','Obsess','Lament'],['Social invisibility','Know hidden face of city','Intuition for survival']],
+  ['Petty Crook','On the Streets',['Connections','Information','Run','Hide','Streetwise'],['Deceive','Wheedle','Try for the Big Score']],
+  ['C.E.O.','Positions of Power',['Delegate','Glare','Multi-task','Negotiate','Command'],['Thrive on stress','The buck stops here','Authority']],
+  ['Politician','Positions of Power',['Lead','Anticipate','Simplify','Organize','Weasel'],['Pass the buck','Inspire Action','Connections']],
+  ['General','Positions of Power',['Command','Strategize','Attack','Delay','Decide'],['Chain of Command','Call in a favor','Diagrams on maps']],
+  ['Police','Law and Order',['Communicate','Cuffs','Shoot','Crowd control','Fist-fight'],['Repeat yourself','"Freeze!"','Cordon off area']],
+  ['Detective','Law and Order',['Follow','Notice','Tactics','Shoot','Investigate'],['Put two and two together','Regulations','Dogged persistence']],
+  ['Spook','Law and Order',['Authority','Secrecy','Shoot','Intimidate','Deceive'],['Resources','Contacts','Surveillance']],
+  ['Mook','Crime and Violence',['Shoot','Rough-house','Boast','Steal','Outnumber'],['Improvised Weapons','Obedience','Alpha Male']],
+  ['High-Tech Mook','Crime and Violence',['Armor','Blast-gun','Jet-pack','Boast','Preparation'],['Endanger innocents','Team tactics','Cut your losses']],
+  ['Kung Fu Fighter','Crime and Violence',['Punch','Kick','Philosophy','Wire-Fu','Reflexes'],['Rain of Blows','Shrug it off','Named Styles']],
+  ['Journalist','White Collar',['Photograph','Write','Investigate','Interview','Notice'],['Fast-talk','Pointed question','Press Pass']],
+  ['Lawyer','White Collar',['Argue','Advise','Recite','Bargain','Interrogate'],['Books full of precedent','Loopholes','Paperwork']],
+  ['Scientist','White Collar',['Invent','Research','Science','Analyze','Experiment'],['Propose Theory',"\"That can't be right\"",'Examine sample']],
+  ['Bartender','Blue Collar',['Insight','Be silent','Serve Alcohol','Folk Wisdom','Ask'],['Another customer','Clean Glasses','Non-verbal cues']],
+  ['Grease Monkey','Blue Collar',['Fix-It','Invent','Improvise','Analyze','Reverse Engineer'],['Unnecessary improvements','Bang it with a wrench','Have tools handy']],
+  ['Dock Hand','Blue Collar',['Lift','Throw','Seamanship','Carouse','Stamina'],['Camaraderie','Rumors','Machismo']]
+];
+
+// [name, group, attitudes(5), styles(2)] — all mundane
+const PERSONAE = [
+  ['Ingenue','Innocents',['Shocked','Kind','Trusting','Curious','Confused'],['Miss the subtext','Smile lights up the room']],
+  ['Angsty Nice Guy','Innocents',['Shy','Selfless','Sincere','Wry humor','Secretly hurting'],['Trustworthy','Desperate Effort']],
+  ['Guilt-Ridden','Walking Wounded',['Doubtful','Remorseful','Kind','Impatient','Distant'],['Brood','Doubt yourself']],
+  ['Neurotic','Walking Wounded',['Nervous','Apologetic','Desperate','Understanding','Witty'],['Plan ahead','Worst Case Scenario']],
+  ['Ex-Victim','Walking Wounded',['Grim','Quiet','Melancholy','Untrusting','Angry'],['Reminders of the past','Snap without warning']],
+  ['Older but Wiser','Idealists',['Insightful','Preachy','Judgmental','Ironic','Disappointed'],['Understand your limitations','Dire Prediction']],
+  ['Crusader','Idealists',['Inspired','Determined','Judgmental','Frustrated','Reckless'],['Face down hypocrites','Infectious energy']],
+  ['Curmudgeon','Idealists',['Honest','Aggressive','Put upon','Demanding','Sarcastic'],['Scoff','Brutal realism']],
+  ['Psychotic Loner','Action Oriented',['Furious','Denial','Abrasive','Uncomfortable','Confident'],['Intimidate','Screw the rules']],
+  ['Hotshot','Action Oriented',['Joyful','Unflappable','Bored','Rebellious','Talkative'],['Thrill Junky','Escape without a scratch']],
+  ['Spunky Kid','Action Oriented',['Optimistic','Embarrassed','Childish','Reckless','Decisive'],['Exceed Expectations','Point out the obvious']],
+  ['Sycophant','Incomplete',['Spiteful','Remorseful','Sly','Enthused','Nervous'],['Toady','Apologize']],
+  ['Simple Soul','Incomplete',['Happy','Sad','Angry','Loving','Slow'],['Simple Solutions','Cut to the chase']],
+  ['Inhuman','Incomplete',['Curious','Confused','Logical','Cold','Superior'],['Misunderstand humanity','See the big picture']],
+  ['Charmer','Manipulators',['Selfish','Flexible','Reluctant','Confident','Friendly'],['Fast-talk',"Upset people's plans"]],
+  ['Puppet Master','Manipulators',['Demanding','Forgiving','Stern','Upset','Proud'],['Trust your lackeys',"Don't trust your lackeys"]],
+  ['Seducer','Manipulators',['Sensual','Understanding','Vindictive','Sly','Greedy'],['"You know you want to"','Pout']]
+];
+
+// [name, type, columns, characterConflict|null]
+const NONPERSON = [
+  ['Space Battleship','Thing',{skill:['Shoot','Orbit','Loom','Fighters','Shields'],style:['Massive','Only one weakness','Overkill','Extreme range','Sizzling energy'],attitude:['Certain','Grim','Smug','Ominous','Violent']},null],
+  ['Super-Computer','Thing',{skill:['Analyze','Search','Calculate','Simulate','Plan'],style:['Patterns','Rigid program','Models','Ask for clarification','Databases'],attitude:['Logical','Literal','Smart','Stupid','Coy']},null],
+  ['Doomsday Device','Thing',{skill:['Booby traps','Hard casing','Elaborate wiring','Requires great finesse','Energy surge'],attitude:['Relentless','Ominous','Mocking','Stubborn','Unpredictable']},{type:'Event',text:'00:00:01'}],
+  ['Deathtrap','Thing',{skill:['Needless Elaboration','Contingency Plans','Peculiar Style','Chain of Events','"Tick, Tock"'],attitude:['Clever','Spiteful','Eccentric','Teasing','Arrogant']},{type:'Event',text:'Trap is Sprung'}],
+  ['Cursed Object','Thing',{skill:['Bad Luck','Good Luck','Distort Perceptions','Entice','Bad Dreams'],attitude:['Capricious','Driven','Spiteful','Domineering','Selfish']},{type:'Goal',text:'Claim another victim'}],
+  ['Abandoned Amusement Park','Location',{skill:['Conceal','Confuse','Surprise','Lull','Disorient'],style:["\"Let's Split up!\"",'"Just the wind"','Mirrors','Rides','Rickety'],attitude:['Spooked','Relaxed','Amused','Lost','Lonely']},null],
+  ['Church','Location',{skill:['Awe','Shame','Inspire','Soothe','Comfort'],style:['Doves','Crucifix','Pews','Candles','Rafters'],attitude:['Reverent','Determined','Desperate','Calm','Afraid']},null],
+  ['Ancient Temple','Location',{skill:['Skulls','Chasm','Dead Languages','Hordes of deadly critters','Roots and Vines'],attitude:['Afraid','Fascinated','Greedy','Cocky','Cautious']},{type:'Event',text:'Treasure is in hand'}],
+  ['Volcano','Location',{skill:['Burn','Smoke','Crumble','Shake','Stifle'],style:['Noxious Fumes','Hot to the touch','Shifting shadows','Honey-combed with tunnels','Bursts of lava']},{type:'Event',text:'Someone falls toward lava'}],
+  ['Court Room','Location',{skill:['Gavel','"Order! Order!"','Bailiff','Court Recorder','Jury'],attitude:['Outraged','Surprised','Confident','Crying','Furious']},{type:'Event',text:'Shocking new evidence!'}],
+  ['Martial Law','Phenomenon',{skill:['Oppress','Shoot','Betray','Arrest','Threaten'],style:['Authority','Surveillance','Police Presence','Silence','Sirens'],attitude:['Paranoid','Afraid','Arrogant','Loyal','Resigned']},null],
+  ['Public Opinion','Phenomenon',{skill:['Orate','Speculate','Cheer','Watch','Judge'],style:['Catchphrase','Snap Judgment','Headline','Arguments','One-sided'],attitude:['Enthused','Worried','Proud','Loyal','Fickle']},null],
+  ['Virus','Phenomenon',{skill:['Contaminate','Transform','Lie Dormant','Weaken victim','Consume'],attitude:['Panicked','Confused','Confident','Distressed','Frustrated']},{type:'Goal',text:'Contain the infection'}],
+  ["Murphy's Law",'Phenomenon',{skill:['Add Insult to Injury','Worst Possible Time','Opportunity','"Of course"','Irony'],attitude:['Unsympathetic','Angry','Resigned','Bitter','Impatient']},{type:'Goal',text:'Keep your spirits up'}],
+  ['Disaster','Phenomenon',{skill:['Chain Reaction','More problems than people to solve them','Massive Scale','Moment of Truth','Ominous Cracking'],attitude:['Desperate','Panicked','Fascinated','Selfish','Grateful']},{type:'Goal',text:'Save lives'}],
+  ['Social Function','Situation',{skill:['Mingle','Dance','Eat','Talk','Posture'],style:['Alcohol','Speeches',"Three's a crowd",'A little drunk','The kitchen'],attitude:['Antsy','Happy','Loud','Annoying','Shy']},null],
+  ['Sneaking','Situation',{skill:['Sneak','Hide','Search','Notice','Overhear'],style:['Alcove','Inching Closer','"Shhhh!"','Something makes noise','Distraction'],attitude:['Tense','Patient','Curious','Rushed','Relieved']},null],
+  ['Chase','Situation',{skill:['Accelerate','Swerve','Improvise','Skid','Lose Control'],style:['Obstacle','Technical Difficulties','Straightaway','Narrow Confines','New terrain']},{type:'Event',text:'Neck and Neck'}],
+  ['Misplaced in Time','Situation',{skill:['Culture Shock','Anachronism','Foreknowledge','Ignore taboos','(blank in the book — write your own)'],attitude:['Nostalgic','Frustrated','Confused','Amused','Incredulous']},{type:'Goal',text:'Blend in'}],
+  ['Mystery','Situation',{skill:['Obvious Untruth','Apparent Lead','Two facts are connected','Contradiction','Theory proven wrong'],attitude:['Talkative','Desperate','Reluctant','Wary','Evasive']},{type:'Event',text:'Answers are Revealed'}]
+];
+
+/* ================= HELPERS ================= */
+const uid = () => Math.random().toString(36).slice(2,9) + Date.now().toString(36).slice(-4);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+const clone = o => JSON.parse(JSON.stringify(o));
+const opt = (v,l,sel) => `<option value="${esc(v)}"${v===sel?' selected':''}>${esc(l)}</option>`;
+const charById = id => state.characters.find(c => c.id === id);
+const seatById = id => state.seats.find(s => s.id === id);
+const hasDetailedDrives = c => c.driveMode === 'heroic' || c.driveMode === 'villainous';
+const catsFor = c => c.kind === 'super' ? ['power','style','attitude'] : ['skill','style','attitude'];
+const kindBadge = c => `<span class="badge ${c.kind}">${c.kind==='nonperson' ? esc(c.npType) : KIND_LABEL[c.kind]}</span>`;
+const today = () => new Date().toISOString().slice(0,10);
+const exName = x => (x.targetId && charById(x.targetId)) ? charById(x.targetId).name : x.name;
+
+/* ================= STATE ================= */
+function mkSeat(name){ return {id:uid(), name, storyTokens:0, inspirations:[]}; }
+function defaultState(){
+  return {version:1, seats:[mkSeat('Seat A'),mkSeat('Seat B'),mkSeat('Seat C')], characters:[], comicsCode:[], log:[]};
+}
+function makeDrives(mode, old = {}){
+  const names = mode==='heroic' ? HEROIC : mode==='villainous' ? VILLAINOUS : [];
+  const d = {};
+  names.forEach(n => d[n] = old[n] ? {...old[n]} : {strength:1, debt:0});
+  return d;
+}
+function blankCharacter(kind = 'super'){
+  return {id:uid(), name:'', kind, npType:'Thing', concept:'', spotlightSeat:'', abilities:[],
+    characterConflict:null, driveMode: kind==='super' ? 'heroic' : 'none',
+    drives: kind==='super' ? makeDrives('heroic') : {}, undiffDebt:0, exemplars:[], notes:''};
+}
+function blankExemplar(){
+  return {id:uid(), targetId:'', name:'', drive:'', root:'', conflictType:'Event', conflictText:'', sharedWithId:''};
+}
+function normalizeLoadedChar(ch){
+  const c = {...blankCharacter(ch.kind || 'super'), ...ch};
+  c.abilities = Array.isArray(c.abilities) ? c.abilities.map(a => ({id:a.id||uid(), name:a.name||'', cat:a.cat||'style', level:Number(a.level)||1, powered:!!a.powered})) : [];
+  c.exemplars = Array.isArray(c.exemplars) ? c.exemplars.map(x => ({...blankExemplar(), ...x})) : [];
+  if (!c.drives || typeof c.drives !== 'object') c.drives = {};
+  c.undiffDebt = Number(c.undiffDebt) || 0;
+  return c;
+}
+function normalizeState(s){
+  const d = defaultState();
+  const out = {...d, ...s};
+  if (!Array.isArray(out.seats) || out.seats.length < 1) out.seats = d.seats;
+  out.seats = out.seats.map(x => ({...mkSeat(x.name||'Seat'), ...x, storyTokens:Number(x.storyTokens)||0, inspirations:Array.isArray(x.inspirations)?x.inspirations:[]}));
+  out.characters = (Array.isArray(out.characters) ? out.characters : []).map(normalizeLoadedChar);
+  if (!Array.isArray(out.comicsCode)) out.comicsCode = [];
+  if (!Array.isArray(out.log)) out.log = [];
+  return out;
+}
+function load(){
+  try { const raw = localStorage.getItem(STORAGE_KEY); if (raw) return normalizeState(JSON.parse(raw)); }
+  catch(e){ console.warn('Load failed', e); }
+  return defaultState();
+}
+function save(){
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    setSaved('Saved ✓ ' + new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}));
+  } catch(e){ setSaved('⚠ Could not save — export a backup!'); }
+}
+function setSaved(t){ const el = document.getElementById('savestate'); if (el) el.textContent = t; }
+function addLog(msg){ state.log.push({t:Date.now(), msg}); if (state.log.length > 300) state.log.shift(); }
+
+let state = load();
+let ui = {tab:'table', draft:null, viewId:null, cl:null, clOpen:false, filter:'', importMode:null};
+
+/* ================= RULES CHECKS ================= */
+function totalDebt(c){
+  if (c.driveMode === 'undiff') return c.undiffDebt;
+  if (hasDetailedDrives(c)) return Object.values(c.drives).reduce((a,d) => a + (Number(d.debt)||0), 0);
+  return 0;
+}
+function overdrawnDrives(c){
+  if (c.driveMode === 'undiff') return c.undiffDebt > 5 ? ['Debt'] : [];
+  if (hasDetailedDrives(c)) return Object.entries(c.drives).filter(([,d]) => d.debt > d.strength).map(([n]) => n);
+  return [];
+}
+function validate(c){
+  const E = [], W = [];
+  const cats = catsFor(c);
+  if (!String(c.name||'').trim()) E.push('Give the character a name.');
+  const byCat = {}; cats.forEach(k => byCat[k] = []);
+  let unnamed = false;
+  for (const a of c.abilities){
+    if (!String(a.name||'').trim()) unnamed = true;
+    if (byCat[a.cat]) byCat[a.cat].push(a);
+    else E.push(`${KIND_LABEL[c.kind]} characters can't have ${CAT_LABEL[a.cat]} ("${a.name||'unnamed'}").`);
+  }
+  if (unnamed) E.push('Every ability needs a name.');
+
+  if (c.kind === 'nonperson' && c.characterConflict){
+    const counts = cats.map(k => byCat[k].length).filter(n => n > 0).sort((a,b) => a-b);
+    if (counts.length !== 2) E.push(`With a Character Conflict, use exactly two ability columns (currently ${counts.length}).`);
+    else if (!((counts[0]===4 && counts[1]===4) || (counts[0]===3 && counts[1]===5))) E.push(`The two columns must split 4/4 or 5/3 (currently ${counts.join('/')}).`);
+    if (!String(c.characterConflict.text||'').trim()) E.push('Write the Character Conflict.');
+  } else {
+    if (c.abilities.length > 12) E.push(`At most 12 abilities (currently ${c.abilities.length}).`);
+    cats.forEach(k => { const n = byCat[k].length; if (n < 3 || n > 5) E.push(`${CAT_LABEL[k]}: need 3–5 (currently ${n}).`); });
+  }
+  cats.forEach(k => {
+    const lv = byCat[k].map(a => Number(a.level)).sort((a,b) => a-b);
+    if (lv.length && !lv.every((v,i) => v === i+1)) E.push(`${CAT_LABEL[k]} must be numbered 1–${lv.length} with no gaps or repeats (currently ${lv.join(', ')}).`);
+  });
+
+  if (hasDetailedDrives(c)){
+    const vals = Object.values(c.drives).map(d => Number(d.strength));
+    if (vals.some(v => !Number.isInteger(v) || v < 1 || v > 5)) E.push('Each Drive Strength must be a whole number from 1 to 5.');
+    const sum = vals.reduce((a,b) => a+b, 0);
+    if (sum !== 9) E.push(`Drive Strengths must total exactly 9 (currently ${sum}).`);
+  }
+  if (c.kind !== 'super' && c.driveMode !== 'none') W.push('Drives are normally only for super-powered characters.');
+  if (c.kind === 'super' && c.driveMode === 'none') W.push('This super has no Drives. Powered abilities earn Debt, so pick Drives or Undifferentiated before playing them.');
+
+  if (c.exemplars.length){
+    if (!hasDetailedDrives(c)) W.push('Exemplars are tied to detailed Drives, and this character has none.');
+    const unshared = c.exemplars.filter(x => !x.sharedWithId).length;
+    if (c.exemplars.length > 1 && unshared > 1) W.push('Only one Exemplar is free. Each additional one must be Shared with another character (p.77).');
+    c.exemplars.forEach((x,i) => {
+      const label = `Exemplar ${i+1}`;
+      if (!x.targetId && !String(x.name||'').trim()) E.push(`${label} needs a character or a name.`);
+      if (x.targetId && !charById(x.targetId)) W.push(`${label}'s linked character no longer exists.`);
+      if (hasDetailedDrives(c) && !(x.drive in c.drives)) W.push(`${label} needs a Drive this character has.`);
+      if (!String(x.conflictText||'').trim()) W.push(`${label} has no Free Conflict yet.`);
+      if (!String(x.root||'').trim()) W.push(`${label} has no root conflict ("This good thing, but that bad thing").`);
+    });
+  }
+  return {E, W};
+}
+function normalizeChar(c){
+  c.name = c.name.trim();
+  c.abilities.forEach(a => {
+    a.name = String(a.name).trim();
+    a.level = Number(a.level) || 1;
+    if (a.cat === 'power') a.powered = true;
+    else if (a.cat !== 'style' || c.kind !== 'super') a.powered = false;
+    else a.powered = !!a.powered;
+  });
+  c.abilities.sort((a,b) => CAT_ORDER.indexOf(a.cat) - CAT_ORDER.indexOf(b.cat) || a.level - b.level);
+  Object.values(c.drives).forEach(d => { d.strength = Number(d.strength) || 1; d.debt = Number(d.debt) || 0; });
+  c.exemplars.forEach(x => { const t = x.targetId && charById(x.targetId); if (t) x.name = t.name; });
+}
+
+/* ================= CLICK AND LOCK ================= */
+function blankCL(){ return {set:'', persona:'', np:'', crossed:[]}; }
+function clColumns(c){
+  const cl = ui.cl;
+  if (c.kind === 'nonperson'){
+    const m = NONPERSON.find(x => x[0] === cl.np); if (!m) return null;
+    return ['skill','style','attitude'].filter(k => m[2][k]).map(k => ({cat:k, items:m[2][k].map((n,i) => ({key:k+i, name:n, powered:false}))}));
+  }
+  const sets = c.kind === 'super' ? POWER_SETS : SKILL_SETS;
+  const s = sets.find(x => x[0] === cl.set), p = PERSONAE.find(x => x[0] === cl.persona);
+  if (!s || !p) return null;
+  const sup = c.kind === 'super';
+  return [
+    {cat: sup ? 'power' : 'skill', items: s[2].map((n,i) => ({key:'a'+i, name:n, powered:sup}))},
+    {cat:'style', items:[...s[3].map((n,i) => ({key:'s'+i, name:n, powered:sup})), ...p[3].map((n,i) => ({key:'t'+i, name:n, powered:false}))]},
+    {cat:'attitude', items: p[2].map((n,i) => ({key:'p'+i, name:n, powered:false}))}
+  ];
+}
+function clCheck(cols){
+  const crossed = ui.cl.crossed, need = cols.length === 3 ? 3 : 2;
+  if (crossed.length !== need) return {ok:false, msg:`Cross out exactly ${need} (${crossed.length} so far).`};
+  if (cols.length === 3 && cols.some(col => col.items.filter(i => crossed.includes(i.key)).length === need))
+    return {ok:false, msg:"Don't cross out all three from the same column."};
+  return {ok:true, msg:'Ready to build.'};
+}
+function groupedSelect(key, list, sel){
+  const groups = [...new Set(list.map(x => x[1]))];
+  return `<select data-cl="${key}"><option value="">— choose —</option>${groups.map(g =>
+    `<optgroup label="${esc(g)}">${list.filter(x => x[1]===g).map(x => opt(x[0], x[0], sel)).join('')}</optgroup>`).join('')}</select>`;
+}
+function buildFromCL(){
+  const d = ui.draft, cols = clColumns(d);
+  if (!cols || !clCheck(cols).ok) return;
+  if (d.abilities.length && !confirm('Replace the current abilities with this Click and Lock build?')) return;
+  d.abilities = [];
+  cols.forEach(col => {
+    let n = 0;
+    col.items.filter(it => !ui.cl.crossed.includes(it.key)).forEach(it => {
+      const name = it.name.startsWith('(') ? '' : it.name;
+      d.abilities.push({id:uid(), name, cat:col.cat, level:++n, powered:it.powered});
+    });
+  });
+  if (d.kind === 'nonperson'){
+    const m = NONPERSON.find(x => x[0] === ui.cl.np);
+    d.npType = m[1];
+    d.characterConflict = m[3] ? {...m[3]} : null;
+    if (!d.name.trim()) d.name = m[0];
+  } else if (!d.concept.trim()) d.concept = `${ui.cl.set} / ${ui.cl.persona}`;
+  ui.clOpen = false;
+}
+
+/* ================= RENDER ================= */
+function render(){
+  renderNav();
+  const m = document.getElementById('main');
+  if (ui.tab === 'table') m.innerHTML = renderTable();
+  else if (ui.tab === 'characters') m.innerHTML = renderCharacters();
+  else if (ui.tab === 'sheet') m.innerHTML = renderSheet();
+  else if (ui.tab === 'edit'){ m.innerHTML = renderEditor(); updateValidation(); }
+}
+function renderNav(){
+  const cur = ui.tab === 'table' ? 'table' : 'characters';
+  document.getElementById('nav').innerHTML = [['table','Table'],['characters','Characters']]
+    .map(([k,l]) => `<button data-a="tab" data-id="${k}" class="${k===cur?'active':''}">${l}</button>`).join('');
+}
+
+/* ---------- Table tab ---------- */
+function renderTable(){
+  const names = state.characters.map(c => c.name).filter(Boolean);
+  const tags = [...new Set(['The heroes','The villains',...names])];
+  return `
+  <div class="hint"><b>Solo play:</b> each Seat is a virtual player. You play all of them, so Story Tokens can change hands the way the rules expect.
+  This step handles bookkeeping. Roll real dice for now. The Scene and Page engine comes in step 2.</div>
+  <div class="panel">
+    <div class="row spread"><h2>Seats <span class="muted">(clockwise order)</span></h2><button data-a="seat-add">+ Add Seat</button></div>
+    ${state.seats.map(renderSeat).join('')}
+    <datalist id="insp-tags">${tags.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
+  </div>
+  <div class="panel">
+    <div class="row spread"><h2>Comics Code</h2><button data-a="code-example">Load 1950s example</button></div>
+    <p class="muted">One rule per line. If Resolving a Conflict would break a rule here, the Resolver must Gloat instead (p.41). Change it between sessions, never during one.</p>
+    <textarea data-code placeholder="e.g. Super-heroes never die">${esc(state.comicsCode.join('\n'))}</textarea>
+  </div>
+  <div class="panel">
+    <h2>Save &amp; Backup</h2>
+    <div class="row">
+      <button class="primary" data-a="export-game">Export whole game</button>
+      <button data-a="import-game">Import game…</button>
+      <button data-a="export-chars">Export characters</button>
+      <button data-a="import-chars">Import characters (merge)…</button>
+      <button class="danger" data-a="reset-all">Reset everything</button>
+    </div>
+    <p class="muted">Everything autosaves in this browser. Clearing browser data erases it, so export a backup regularly.</p>
+  </div>
+  <div class="panel">
+    <div class="row spread"><h2>Log</h2><button class="small" data-a="clear-log">Clear</button></div>
+    ${state.log.length
+      ? `<div class="muted">${state.log.slice(-30).reverse().map(l => `<div>${new Date(l.t).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})} — ${esc(l.msg)}</div>`).join('')}</div>`
+      : '<p class="muted">Nothing logged yet.</p>'}
+  </div>`;
+}
+function renderSeat(s, i){
+  const spot = state.characters.filter(c => c.spotlightSeat === s.id).map(c => c.name || '(unnamed)');
+  return `<div class="ex">
+    <div class="row">
+      <span class="order">${i+1}</span>
+      <input class="seat-name" data-seat="${s.id}" value="${esc(s.name)}">
+      <span class="counter">Story Tokens
+        <button class="small" data-a="st-minus" data-id="${s.id}" ${s.storyTokens<=0?'disabled':''}>−</button><b>${s.storyTokens}</b><button class="small" data-a="st-plus" data-id="${s.id}">+</button>
+      </span>
+      <button class="small" data-a="seat-up" data-id="${s.id}" ${i===0?'disabled':''} title="Move earlier in turn order">↑</button>
+      <button class="small" data-a="seat-down" data-id="${s.id}" ${i===state.seats.length-1?'disabled':''} title="Move later in turn order">↓</button>
+      <button class="small danger" data-a="seat-del" data-id="${s.id}" ${state.seats.length<=2?'disabled':''} title="${state.seats.length<=2?'Story Tokens need at least 2 Seats':''}">Remove</button>
+    </div>
+    <div class="row"><span class="muted">Inspirations:</span>
+      ${s.inspirations.length ? s.inspirations.map((x,j) => `<span class="chip"><b>${x.value}</b>&nbsp;for ${esc(x.forTag||'anyone')}
+        <button data-a="insp-up" data-id="${s.id}" data-x="${j}" ${x.value>=6?'disabled':''} title="Raise by 1 using an Ability of level ≥ ${x.value}">+1</button>
+        <button data-a="insp-del" data-id="${s.id}" data-x="${j}" title="Spend / remove">✕</button></span>`).join('') : '<span class="muted">none</span>'}
+    </div>
+    <div class="row">
+      <input type="number" min="1" max="6" value="1" style="width:64px" data-insp-val="${s.id}" title="Value">
+      <input list="insp-tags" placeholder="for whom (character or group)" class="grow" data-insp-tag="${s.id}">
+      <button class="small" data-a="insp-add" data-id="${s.id}">Add Inspiration</button>
+    </div>
+    ${spot.length ? `<div class="muted">★ Spotlight: ${spot.map(esc).join(', ')}</div>` : ''}
+  </div>`;
+}
+
+/* ---------- Characters tab ---------- */
+function renderCharacters(){
+  return `<div class="panel">
+    <div class="row spread"><h2>Character Library <span class="muted">(${state.characters.length})</span></h2>
+      <div class="row">
+        <button class="primary" data-a="new-char" data-id="super">+ Super</button>
+        <button class="primary" data-a="new-char" data-id="mundane">+ Mundane</button>
+        <button class="primary" data-a="new-char" data-id="nonperson">+ Non-person</button>
+      </div>
+    </div>
+    <input class="full" placeholder="Filter by name, concept or type…" data-filter value="${esc(ui.filter)}">
+  </div>
+  <div id="charlist">${renderCharList()}</div>`;
+}
+function renderCharList(){
+  const f = ui.filter.toLowerCase().trim();
+  const list = state.characters
+    .filter(c => !f || `${c.name} ${c.concept} ${c.kind==='nonperson'?c.npType:KIND_LABEL[c.kind]}`.toLowerCase().includes(f))
+    .sort((a,b) => (a.name||'').localeCompare(b.name||''));
+  if (!list.length) return `<p class="muted">${state.characters.length ? 'No matches.' : 'No characters yet. Make one with the buttons above. Click and Lock is the fastest start.'}</p>`;
+  return `<div class="grid">${list.map(renderCard).join('')}</div>`;
+}
+function renderCard(c){
+  const {E} = validate(c), over = overdrawnDrives(c), seat = seatById(c.spotlightSeat);
+  const hasDebt = hasDetailedDrives(c) || c.driveMode === 'undiff';
+  return `<div class="panel card">
+    <div class="row spread"><h3>${esc(c.name||'(unnamed)')}</h3>${kindBadge(c)}</div>
+    ${c.concept ? `<div class="muted">${esc(c.concept)}</div>` : ''}
+    <div class="row">
+      ${hasDebt ? `<span class="badge">Debt ${totalDebt(c)}</span>` : ''}
+      ${over.length ? `<span class="badge err">Overdrawn: ${over.map(esc).join(', ')}</span>` : ''}
+      ${E.length ? `<span class="badge err" title="${esc(E.join('\n'))}">House rule (${E.length})</span>` : ''}
+      ${seat ? `<span class="badge">★ ${esc(seat.name)}</span>` : ''}
+    </div>
+    <div class="row">
+      <button class="small primary" data-a="view" data-id="${c.id}">Sheet</button>
+      <button class="small" data-a="edit" data-id="${c.id}">Edit</button>
+      <button class="small" data-a="dup" data-id="${c.id}">Duplicate</button>
+      <button class="small danger" data-a="del" data-id="${c.id}">Delete</button>
+    </div>
+  </div>`;
+}
+
+/* ---------- Character sheet ---------- */
+function pips(str, debt){
+  const n = Math.max(str, debt); let h = '';
+  for (let i = 0; i < n; i++) h += `<span class="pip${i<str?' cap':''}${i<debt?' full':''}"></span>`;
+  return h;
+}
+function driveRow(c, key, str, debt, desc){
+  const over = debt > str, undiff = key === '__undiff';
+  return `<div class="drive ${over?'over':''}">
+    <span class="dname">${undiff ? 'Debt' : esc(key)}</span>
+    <span class="dstr">${undiff ? 'Limit 5' : 'Strength ' + str}</span>
+    <span class="pips">${pips(str, debt)}</span>
+    <button class="small" data-a="debt-minus" data-id="${c.id}" data-x="${esc(key)}" ${debt<=0?'disabled':''}>−</button>
+    <b>${debt}</b>
+    <button class="small" data-a="debt-plus" data-id="${c.id}" data-x="${esc(key)}">+</button>
+    ${over ? '<span class="badge err">OVERDRAWN</span>' : ''}
+    <span class="muted grow">${esc(desc)}</span>
+  </div>`;
+}
+function renderSheet(){
+  const c = charById(ui.viewId);
+  if (!c){ ui.tab = 'characters'; return renderCharacters(); }
+  const seat = seatById(c.spotlightSeat);
+  const cols = catsFor(c).map(k => {
+    const abs = c.abilities.filter(a => a.cat === k).sort((a,b) => a.level - b.level);
+    if (!abs.length) return '';
+    return `<div class="sheet-col"><h4>${CAT_LABEL[k]}</h4>${abs.map(a => `<div class="sheet-ab"><span class="lvlbox">${a.level}</span><span>${esc(a.name)}</span>
+      ${a.powered ? '<span class="bolt" title="Powered: +1 Debt per use, once per Page">⚡</span>' : '<span class="muted" title="Mundane: Blocks for the rest of the Scene after one use">▢</span>'}</div>`).join('')}</div>`;
+  }).join('');
+
+  let drives;
+  if (hasDetailedDrives(c)) drives = Object.entries(c.drives).map(([n,d]) => driveRow(c, n, d.strength, d.debt, DRIVE_DESC[n])).join('');
+  else if (c.driveMode === 'undiff') drives = driveRow(c, '__undiff', 5, c.undiffDebt, 'Undifferentiated: one stack, Overdrawn above 5, may Stake up to 3 per Conflict.');
+  else drives = '<p class="muted">No Drives.</p>';
+  const over = overdrawnDrives(c);
+
+  const exOf = state.characters.flatMap(o => o.exemplars.filter(x => x.targetId === c.id).map(x => `${esc(o.name||'(unnamed)')} (${esc(x.drive||'?')})`));
+  const exemplars = c.exemplars.map(x => {
+    const shared = x.sharedWithId && charById(x.sharedWithId);
+    return `<div class="ex"><b>${esc(exName(x)||'(unnamed)')}</b> <span class="badge">${esc(x.drive||'?')} Exemplar</span>
+      ${shared ? ` <span class="badge">Shared with ${esc(shared.name)}</span>` : ''}
+      ${x.root ? `<div class="muted">${esc(x.root)}</div>` : ''}
+      ${x.conflictText ? `<div>Free ${esc(x.conflictType)}: <b>${esc(x.conflictText)}</b></div>` : ''}</div>`;
+  }).join('');
+
+  return `<div class="panel">
+    <div class="sheet-head">
+      <div><h2>${esc(c.name||'(unnamed)')}</h2>
+        <div class="row">${kindBadge(c)}${seat ? `<span class="badge">★ ${esc(seat.name)}</span>` : ''}${c.concept ? `<span class="muted">${esc(c.concept)}</span>` : ''}</div></div>
+      <div class="row">
+        <button class="primary" data-a="edit" data-id="${c.id}">Edit</button>
+        <button data-a="dup" data-id="${c.id}">Duplicate</button>
+        <button data-a="tab" data-id="characters">← Library</button>
+      </div>
+    </div>
+  </div>
+  <div class="panel"><h3>Abilities</h3>
+    <div class="sheet-cols">${cols || '<p class="muted">No abilities yet.</p>'}</div>
+    <p class="muted">⚡ Powered: +1 Debt to any Drive per use, usable once per Page. ▢ Mundane: free, but Blocks for the rest of the Scene. The ability's level must be at least the die (or Inspiration) value.</p>
+    ${c.characterConflict ? `<div class="ex">Character Conflict, Free ${esc(c.characterConflict.type)}: <b>${esc(c.characterConflict.text)}</b>
+      <div class="muted">When it Resolves, this character leaves the Scene (p.103).</div></div>` : ''}
+  </div>
+  <div class="panel"><h3>Drives &amp; Debt <span class="muted">(total ${totalDebt(c)})</span></h3>
+    ${drives}
+    ${over.length ? '<p class="muted" style="color:var(--red)">At the start of each Page, for each Overdrawn Drive, roll the highest die this character owns and accept the roll only if it is lower (p.32).</p>' : ''}
+  </div>
+  ${(c.exemplars.length || exOf.length) ? `<div class="panel"><h3>Exemplars</h3>${exemplars}
+    ${exOf.length ? `<p class="muted">This character is an Exemplar for: ${exOf.join(', ')}</p>` : ''}</div>` : ''}
+  ${c.notes ? `<div class="panel"><h3>Notes</h3><div style="white-space:pre-wrap">${esc(c.notes)}</div></div>` : ''}`;
+}
+
+/* ---------- Editor ---------- */
+function renderEditor(){
+  const c = ui.draft, isNew = !charById(c.id);
+  return `<div class="panel">
+    <div class="row spread"><h2>${isNew ? 'New' : 'Edit'} character</h2>${kindBadge(c)}</div>
+    <div class="row">
+      <label class="grow">Name<br><input class="full" data-f="name" value="${esc(c.name)}"></label>
+      <label>Type<br><select data-f="kind">${opt('super','Super-powered',c.kind)}${opt('mundane','Mundane',c.kind)}${opt('nonperson','Non-person',c.kind)}</select></label>
+      ${c.kind==='nonperson' ? `<label>Category<br><select data-f="npType">${['Thing','Location','Phenomenon','Situation'].map(t => opt(t,t,c.npType)).join('')}</select></label>` : ''}
+      <label>Spotlight Seat<br><select data-f="spotlightSeat">${opt('','— none —',c.spotlightSeat)}${state.seats.map(s => opt(s.id,s.name,c.spotlightSeat)).join('')}</select></label>
+    </div>
+    <label>Concept<br><input class="full" data-f="concept" value="${esc(c.concept)}" placeholder="e.g. Patriotic flying brick"></label>
+  </div>
+  ${renderCL(c)}
+  <div class="panel"><h2>Abilities</h2>
+    <p class="muted">Number each column 1, 2, 3… by how much each ability matters to you. Low levels get used early to raise your own dice. High levels are for later and for Reacting to good enemy rolls.</p>
+    ${catsFor(c).map(k => renderCat(c,k)).join('')}
+    ${c.kind==='nonperson' ? renderCC(c) : ''}
+  </div>
+  ${renderDrivesEdit(c)}
+  ${renderExemplarsEdit(c)}
+  <div class="panel"><h2>Notes</h2><textarea data-f="notes" placeholder="Origin, secret identity, story hooks…">${esc(c.notes)}</textarea></div>
+  <div class="panel sticky">
+    <div id="validation" class="validation"></div>
+    <div class="row"><button class="primary" data-a="save-draft" id="savebtn">Save</button><button data-a="cancel-draft">Cancel</button></div>
+  </div>`;
+}
+function renderCL(c){
+  if (!ui.cl) ui.cl = blankCL();
+  const cl = ui.cl;
+  const pickers = c.kind === 'nonperson'
+    ? `<label>Module<br>${groupedSelect('np', NONPERSON, cl.np)}</label>`
+    : `<label>${c.kind==='super'?'Power Set':'Skill Set'}<br>${groupedSelect('set', c.kind==='super'?POWER_SETS:SKILL_SETS, cl.set)}</label>
+       <label>Persona<br>${groupedSelect('persona', PERSONAE, cl.persona)}</label>`;
+  const cols = clColumns(c);
+  let body = '';
+  if (cols){
+    const chk = clCheck(cols);
+    body = `<div class="cl-cols">${cols.map(col => `<div class="cl-col"><h5>${CAT_LABEL[col.cat]}</h5>
+      ${col.items.map(it => `<span class="cl-item ${cl.crossed.includes(it.key)?'crossed':''}" data-a="cl-cross" data-id="${it.key}">${esc(it.name)}${it.powered?' <span class="bolt">⚡</span>':''}</span>`).join('')}</div>`).join('')}</div>
+      <p class="muted">Click abilities to cross them out.${cols.length===2 ? ' This module has a Character Conflict, so cross out 2.' : ' Cross out 3, not all from one column.'}</p>
+      <div class="row"><span class="${chk.ok?'ok':'muted'}">${esc(chk.msg)}</span><button class="primary" data-a="cl-build" ${chk.ok?'':'disabled'}>Build abilities</button></div>`;
+  }
+  const open = ui.clOpen || !c.abilities.length;
+  return `<details class="panel cl" ${open?'open':''}><summary><b>Click and Lock builder</b> <span class="muted">— quick start from the book's modules</span></summary>
+    <div class="row">${pickers}</div>${body}</details>`;
+}
+function powToggle(c, a){
+  if (a.cat === 'power') return '<span class="pw on">⚡ powered</span>';
+  if (a.cat === 'style' && c.kind === 'super')
+    return `<label class="pw ${a.powered?'on':''}"><input type="checkbox" data-ab="${a.id}" data-k="powered" ${a.powered?'checked':''}> ⚡ powered</label>`;
+  return '<span class="pw">mundane</span>';
+}
+function renderCat(c, k){
+  const abs = c.abilities.filter(a => a.cat === k);
+  return `<div class="cat">
+    <div class="row spread"><h4>${CAT_LABEL[k]} <span class="muted">(${abs.length})</span></h4><button class="small" data-a="ab-add" data-id="${k}">+ Add</button></div>
+    ${abs.map(a => `<div class="ab-row">
+      <input class="lvl" type="number" min="1" max="5" data-ab="${a.id}" data-k="level" value="${a.level}" title="Level">
+      <input class="grow" data-ab="${a.id}" data-k="name" value="${esc(a.name)}" placeholder="Ability name">
+      ${powToggle(c, a)}
+      <button class="small danger" data-a="ab-del" data-id="${a.id}">✕</button></div>`).join('')}
+  </div>`;
+}
+function renderCC(c){
+  const cc = c.characterConflict;
+  return `<div class="cat">
+    <label><input type="checkbox" data-cc="on" ${cc?'checked':''}> <b>Character Conflict</b></label>
+    <span class="muted">Trade one whole ability column for a Free Conflict. When it Resolves, this character leaves the Scene (p.103).</span>
+    ${cc ? `<div class="row"><select data-cc="type">${opt('Event','Event',cc.type)}${opt('Goal','Goal',cc.type)}</select>
+      <input class="grow" data-cc="text" value="${esc(cc.text)}" placeholder="e.g. Neck and Neck"></div>` : ''}
+  </div>`;
+}
+function renderDrivesEdit(c){
+  const modeSel = `<select data-f="driveMode">${opt('heroic','Heroic Drives',c.driveMode)}${opt('villainous','Villainous Drives',c.driveMode)}${opt('undiff','Undifferentiated (bit-part)',c.driveMode)}${opt('none','No Drives',c.driveMode)}</select>`;
+  let body;
+  if (hasDetailedDrives(c)){
+    const sum = Object.values(c.drives).reduce((a,d) => a + (Number(d.strength)||0), 0);
+    body = Object.entries(c.drives).map(([n,d]) => `<div class="drive-row"><b>${n}</b>
+      <input type="number" min="1" max="5" data-drive="${n}" value="${d.strength}"><span class="muted">How much the story revolves around ${DRIVE_DESC[n]}</span></div>`).join('')
+      + `<div class="row">Total: <b id="drivesum">${sum}</b> / 9 <span class="muted">(each 1–5, must total exactly 9)</span></div>`;
+  } else if (c.driveMode === 'undiff'){
+    body = '<p class="muted">A single Debt stack. Overdrawn when it holds more than 5. May Stake up to 3 on any one Conflict. Good for lackeys and bit-part supers.</p>';
+  } else {
+    body = `<p class="muted">${c.kind==='super' ? 'Supers usually need Drives. Powered abilities generate Debt.' : 'Mundane and non-person characters normally have no Drives.'}</p>`;
+  }
+  return `<div class="panel"><div class="row spread"><h2>Drives</h2>${modeSel}</div>${body}
+    <p class="muted">Track Debt on the character sheet.</p></div>`;
+}
+function renderExemplarsEdit(c){
+  const others = state.characters.filter(o => o.id !== c.id).sort((a,b) => (a.name||'').localeCompare(b.name||''));
+  const drives = Object.keys(c.drives);
+  return `<div class="panel">
+    <div class="row spread"><h2>Exemplars</h2><button class="small" data-a="ex-add">+ Add Exemplar</button></div>
+    <p class="muted">The first Exemplar is free. Any more must be Shared with another character (p.75–77). Each one has a root conflict and a Free Conflict you can play once per Scene when both characters are present.</p>
+    ${c.exemplars.map((x,i) => `<div class="ex">
+      <div class="row spread"><b>Exemplar ${i+1}</b><button class="small danger" data-a="ex-del" data-id="${x.id}">Remove</button></div>
+      <div class="row">
+        <label>Library character<br><select data-ex="${x.id}" data-k="targetId">${opt('','— not in library —',x.targetId)}${others.map(o => opt(o.id, o.name||'(unnamed)', x.targetId)).join('')}</select></label>
+        ${x.targetId ? '' : `<label class="grow">…or just a name<br><input class="full" data-ex="${x.id}" data-k="name" value="${esc(x.name)}"></label>`}
+        <label>Drive<br><select data-ex="${x.id}" data-k="drive">${opt('','—',x.drive)}${drives.map(d => opt(d,d,x.drive)).join('')}</select></label>
+      </div>
+      <label>Root conflict<br><input class="full" data-ex="${x.id}" data-k="root" value="${esc(x.root)}" placeholder="This good thing, but that bad thing"></label>
+      <div class="row">
+        <select data-ex="${x.id}" data-k="conflictType">${opt('Event','Event',x.conflictType)}${opt('Goal','Goal',x.conflictType)}</select>
+        <input class="grow" data-ex="${x.id}" data-k="conflictText" value="${esc(x.conflictText)}" placeholder="Free Conflict, e.g. Liz is about to die">
+      </div>
+      <label>Shared with<br><select data-ex="${x.id}" data-k="sharedWithId">${opt('','— not shared (the free Exemplar) —',x.sharedWithId)}${others.map(o => opt(o.id, o.name||'(unnamed)', x.sharedWithId)).join('')}</select></label>
+    </div>`).join('')}
+  </div>`;
+}
+function updateValidation(){
+  const el = document.getElementById('validation');
+  if (!el || !ui.draft) return;
+  const {E, W} = validate(ui.draft);
+  el.innerHTML = (E.length
+      ? `<div class="err"><b>Rules issues</b><ul>${E.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>`
+      : '<div class="ok">✓ Follows the creation rules.</div>')
+    + (W.length ? `<div class="warn"><b>Reminders</b><ul>${W.map(x => `<li>${esc(x)}</li>`).join('')}</ul></div>` : '');
+  const b = document.getElementById('savebtn');
+  if (b) b.textContent = E.length ? 'Save anyway (house rule)' : 'Save';
+  const ds = document.getElementById('drivesum');
+  if (ds && hasDetailedDrives(ui.draft)) ds.textContent = Object.values(ui.draft.drives).reduce((a,d) => a + (Number(d.strength)||0), 0);
+}
+function changeKind(d, k){
+  if (d.kind === k) return;
+  d.abilities.forEach(a => {
+    if (k === 'super' && a.cat === 'skill'){ a.cat = 'power'; a.powered = true; }
+    else if (k !== 'super' && a.cat === 'power'){ a.cat = 'skill'; }
+    if (k !== 'super') a.powered = false;
+  });
+  if (k === 'super' && d.driveMode === 'none'){ d.driveMode = 'heroic'; d.drives = makeDrives('heroic'); }
+  if (k !== 'super'){ d.driveMode = 'none'; d.drives = {}; d.undiffDebt = 0; }
+  if (k !== 'nonperson') d.characterConflict = null;
+  d.kind = k;
+  ui.cl = blankCL();
+}
+
+/* ================= IMPORT / EXPORT ================= */
+function download(name, obj){
+  const blob = new Blob([JSON.stringify(obj, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function mergeChars(list){
+  const existing = new Set(state.characters.map(c => c.id)), map = {};
+  const incoming = list.map(normalizeLoadedChar);
+  incoming.forEach(c => { if (existing.has(c.id)){ const n = uid(); map[c.id] = n; c.id = n; c.name += ' (imported)'; } });
+  incoming.forEach(c => {
+    if (!seatById(c.spotlightSeat)) c.spotlightSeat = '';
+    c.exemplars.forEach(x => {
+      if (map[x.targetId]) x.targetId = map[x.targetId];
+      if (map[x.sharedWithId]) x.sharedWithId = map[x.sharedWithId];
+    });
+    state.characters.push(c);
+  });
+  addLog(`Imported ${incoming.length} character(s)`);
+  alert(`Imported ${incoming.length} character(s).`);
+}
+document.getElementById('file').addEventListener('change', e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try {
+      const data = JSON.parse(r.result);
+      if (ui.importMode === 'game'){
+        if (!data.seats && !data.characters) throw new Error("This doesn't look like a Capes Tracker game file.");
+        if (!confirm('Replace the ENTIRE current game with this file?')) return;
+        state = normalizeState(data);
+        addLog('Imported game file');
+        ui.tab = 'table';
+      } else {
+        const list = Array.isArray(data) ? data : data.characters;
+        if (!Array.isArray(list)) throw new Error('No characters found in this file.');
+        mergeChars(list);
+      }
+      save(); render();
+    } catch(err){ alert('Import failed: ' + err.message); }
+  };
+  r.readAsText(f);
+});
+
+/* ================= EVENTS ================= */
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-a]');
+  if (!b || b.disabled) return;
+  const id = b.dataset.id, x = b.dataset.x, d = ui.draft;
+  const seat = id && seatById(id);
+  switch (b.dataset.a){
+    case 'tab':
+      if (ui.tab === 'edit' && !confirm('Discard unsaved changes to this character?')) return;
+      ui.draft = null; ui.tab = id; break;
+
+    /* seats */
+    case 'seat-add': {
+      const letter = String.fromCharCode(65 + state.seats.length);
+      state.seats.push(mkSeat('Seat ' + letter)); addLog(`Added Seat ${letter}`); break;
+    }
+    case 'seat-del':
+      if (!confirm(`Remove ${seat.name}? Its Story Tokens and Inspirations are lost.`)) return;
+      state.seats = state.seats.filter(s => s.id !== id);
+      state.characters.forEach(c => { if (c.spotlightSeat === id) c.spotlightSeat = ''; });
+      addLog(`Removed ${seat.name}`); break;
+    case 'seat-up': case 'seat-down': {
+      const i = state.seats.indexOf(seat), j = b.dataset.a === 'seat-up' ? i - 1 : i + 1;
+      [state.seats[i], state.seats[j]] = [state.seats[j], state.seats[i]]; break;
+    }
+    case 'st-plus': seat.storyTokens++; addLog(`${seat.name}: +1 Story Token (${seat.storyTokens})`); break;
+    case 'st-minus': seat.storyTokens = Math.max(0, seat.storyTokens - 1); addLog(`${seat.name}: −1 Story Token (${seat.storyTokens})`); break;
+    case 'insp-add': {
+      const v = Math.min(6, Math.max(1, Number(document.querySelector(`[data-insp-val="${id}"]`).value) || 1));
+      const tag = document.querySelector(`[data-insp-tag="${id}"]`).value.trim();
+      seat.inspirations.push({value:v, forTag:tag});
+      addLog(`${seat.name}: gained ${v}-point Inspiration${tag ? ' for ' + tag : ''}`); break;
+    }
+    case 'insp-up': { const ins = seat.inspirations[x]; ins.value = Math.min(6, ins.value + 1); addLog(`${seat.name}: raised Inspiration to ${ins.value}`); break; }
+    case 'insp-del': { const [ins] = seat.inspirations.splice(x, 1); addLog(`${seat.name}: spent ${ins.value}-point Inspiration${ins.forTag ? ' (' + ins.forTag + ')' : ''}`); break; }
+
+    /* table */
+    case 'code-example':
+      if (state.comicsCode.length && !confirm('Replace your current Comics Code with the example?')) return;
+      state.comicsCode = [...EXAMPLE_CODE]; break;
+    case 'export-game': download(`capes-game-${today()}.json`, state); return;
+    case 'export-chars': download(`capes-characters-${today()}.json`, {version:1, characters:state.characters}); return;
+    case 'import-game': case 'import-chars': {
+      ui.importMode = b.dataset.a === 'import-game' ? 'game' : 'chars';
+      const f = document.getElementById('file'); f.value = ''; f.click(); return;
+    }
+    case 'reset-all':
+      if (!confirm('Erase ALL Seats, characters, Comics Code and log? Export a backup first if you want one.')) return;
+      state = defaultState(); ui = {tab:'table', draft:null, viewId:null, cl:null, clOpen:false, filter:'', importMode:null}; break;
+    case 'clear-log': state.log = []; break;
+
+    /* library */
+    case 'new-char': ui.draft = blankCharacter(id); ui.cl = blankCL(); ui.clOpen = false; ui.tab = 'edit'; break;
+    case 'view': ui.viewId = id; ui.tab = 'sheet'; break;
+    case 'edit': ui.draft = clone(charById(id)); ui.cl = blankCL(); ui.clOpen = false; ui.tab = 'edit'; break;
+    case 'dup': {
+      const c = clone(charById(id));
+      c.id = uid(); c.name = (c.name || 'Character') + ' (copy)';
+      c.abilities.forEach(a => a.id = uid()); c.exemplars.forEach(x => x.id = uid());
+      state.characters.push(c); addLog(`Duplicated ${c.name}`);
+      ui.viewId = c.id; ui.tab = 'sheet'; break;
+    }
+    case 'del': {
+      const c = charById(id);
+      if (!confirm(`Delete ${c.name || 'this character'}? This cannot be undone.`)) return;
+      state.characters = state.characters.filter(o => o.id !== id);
+      state.characters.forEach(o => o.exemplars.forEach(ex => {
+        if (ex.targetId === id){ ex.targetId = ''; ex.name = c.name; }
+        if (ex.sharedWithId === id) ex.sharedWithId = '';
+      }));
+      addLog(`Deleted ${c.name}`);
+      if (ui.tab === 'sheet') ui.tab = 'characters'; break;
+    }
+    case 'debt-plus': case 'debt-minus': {
+      const c = charById(id), delta = b.dataset.a === 'debt-plus' ? 1 : -1;
+      if (x === '__undiff'){ c.undiffDebt = Math.max(0, c.undiffDebt + delta); addLog(`${c.name}: Debt ${delta>0?'+1':'−1'} (${c.undiffDebt})`); }
+      else { const dr = c.drives[x]; dr.debt = Math.max(0, dr.debt + delta); addLog(`${c.name}: ${x} Debt ${delta>0?'+1':'−1'} (${dr.debt}/${dr.strength})${dr.debt > dr.strength ? ' OVERDRAWN' : ''}`); }
+      break;
+    }
+
+    /* editor */
+    case 'ab-add': {
+      const n = d.abilities.filter(a => a.cat === id).length;
+      d.abilities.push({id:uid(), name:'', cat:id, level:n + 1, powered:id === 'power'}); break;
+    }
+    case 'ab-del': d.abilities = d.abilities.filter(a => a.id !== id); break;
+    case 'ex-add': { const ex = blankExemplar(); ex.drive = Object.keys(d.drives)[0] || ''; d.exemplars.push(ex); break; }
+    case 'ex-del': d.exemplars = d.exemplars.filter(ex => ex.id !== id); break;
+    case 'cl-cross': {
+      const cr = ui.cl.crossed, i = cr.indexOf(id);
+      i >= 0 ? cr.splice(i, 1) : cr.push(id); ui.clOpen = true; break;
+    }
+    case 'cl-build': buildFromCL(); break;
+    case 'save-draft': {
+      const {E} = validate(d);
+      if (E.length && !confirm(`This character breaks ${E.length} creation rule(s):\n\n• ${E.join('\n• ')}\n\nSave anyway as a house rule?`)) return;
+      normalizeChar(d);
+      const i = state.characters.findIndex(c => c.id === d.id);
+      if (i >= 0) state.characters[i] = d; else state.characters.push(d);
+      addLog(`${i >= 0 ? 'Updated' : 'Created'} ${d.name || '(unnamed)'}`);
+      ui.viewId = d.id; ui.draft = null; ui.tab = 'sheet'; break;
+    }
+    case 'cancel-draft': {
+      const existed = !!charById(d.id);
+      ui.draft = null;
+      if (existed){ ui.viewId = d.id; ui.tab = 'sheet'; } else ui.tab = 'characters';
+      render(); return;
+    }
+    default: return;
+  }
+  if (ui.tab !== 'edit') save();
+  render();
+});
+
+document.addEventListener('input', e => {
+  const t = e.target, d = ui.draft;
+  if (t.matches('[data-filter]')){
+    ui.filter = t.value;
+    const l = document.getElementById('charlist'); if (l) l.innerHTML = renderCharList();
+    return;
+  }
+  if (t.matches('[data-code]')){
+    state.comicsCode = t.value.split('\n').map(s => s.trim()).filter(Boolean);
+    save(); return;
+  }
+  if (!d) return;
+  if (t.dataset.f && t.tagName !== 'SELECT') d[t.dataset.f] = t.value;
+  else if (t.dataset.ab && t.type !== 'checkbox'){
+    const a = d.abilities.find(x => x.id === t.dataset.ab);
+    if (a) a[t.dataset.k] = t.dataset.k === 'level' ? Number(t.value) : t.value;
+  }
+  else if (t.dataset.drive) d.drives[t.dataset.drive].strength = Number(t.value);
+  else if (t.dataset.ex && t.tagName !== 'SELECT'){
+    const x = d.exemplars.find(ex => ex.id === t.dataset.ex);
+    if (x) x[t.dataset.k] = t.value;
+  }
+  else if (t.dataset.cc === 'text' && d.characterConflict) d.characterConflict.text = t.value;
+  else return;
+  updateValidation();
+});
+
+document.addEventListener('change', e => {
+  const t = e.target, d = ui.draft;
+  if (t.dataset.seat){
+    const s = seatById(t.dataset.seat);
+    if (s){ s.name = t.value.trim() || s.name; save(); }
+    return;
+  }
+  if (t.dataset.cl){ ui.cl[t.dataset.cl] = t.value; ui.cl.crossed = []; ui.clOpen = true; render(); return; }
+  if (!d) return;
+  if (t.dataset.f === 'kind') changeKind(d, t.value);
+  else if (t.dataset.f === 'driveMode'){
+    d.driveMode = t.value;
+    d.drives = hasDetailedDrives(d) ? makeDrives(t.value, d.drives) : {};
+    d.exemplars.forEach(x => { if (!(x.drive in d.drives)) x.drive = ''; });
+  }
+  else if (t.dataset.f && t.tagName === 'SELECT') d[t.dataset.f] = t.value;
+  else if (t.dataset.ab && t.type === 'checkbox'){
+    const a = d.abilities.find(x => x.id === t.dataset.ab); if (a) a.powered = t.checked;
+  }
+  else if (t.dataset.ex && t.tagName === 'SELECT'){
+    const x = d.exemplars.find(ex => ex.id === t.dataset.ex);
+    if (x){ x[t.dataset.k] = t.value; if (t.dataset.k === 'targetId' && t.value) x.name = charById(t.value).name; }
+  }
+  else if (t.dataset.cc === 'on') d.characterConflict = t.checked ? (d.characterConflict || {type:'Event', text:''}) : null;
+  else if (t.dataset.cc === 'type' && d.characterConflict) d.characterConflict.type = t.value;
+  else return;
+  render();
+});
+
+document.addEventListener('toggle', e => {
+  if (e.target.matches && e.target.matches('details.cl')) ui.clOpen = e.target.open;
+}, true);
+
+window.addEventListener('beforeunload', e => {
+  if (ui.tab === 'edit'){ e.preventDefault(); e.returnValue = ''; }
+});
+
+// ===================================================================
+// STEP 2 — SCENE & PAGE ENGINE (complete)
+// ===================================================================
+const PHASES = [['start','1 · Start of Page'],['claims','2 · Conflicts & Claims'],['actions','3 · Actions'],['resolve','4 · Resolve']];
+const undoStack = [];
+let sui = blankSui();
+function blankSui(seat){
+  return {actSeat:seat||'', actChar:'', mode:'die', abId:'', target:'', support:'', drive:'', inspIdx:'',
+    pending:null, react:null, rSeat:'', rChar:'', rAb:'', rSupport:'', rDrive:'', tool:null, resolve:null};
+}
+function settings(){ if (!state.settings) state.settings = {physical:false, override:false}; return state.settings; }
+const SC = () => state.scene || null;
+const sum = a => a.reduce((x,y) => x + y, 0);
+const seatName = id => (seatById(id) || {}).name || '?';
+const cname = id => (charById(id) || {}).name || '?';
+const confById = id => SC() ? SC().conflicts.find(k => k.id === id) : null;
+const sideById = (k, id) => k ? k.sides.find(s => s.id === id) : null;
+const val = sel => { const el = document.querySelector(sel); return el ? el.value : ''; };
+
+/* ---------- Undo ---------- */
+function pushUndo(){
+  undoStack.push(JSON.stringify({scene:state.scene, seats:state.seats, characters:state.characters,
+    sceneCount:state.sceneCount, lastDeclarer:state.lastDeclarer, sui}));
+  if (undoStack.length > 40) undoStack.shift();
+}
+function undo(silent){
+  const raw = undoStack.pop(); if (!raw) return;
+  const o = JSON.parse(raw);
+  state.scene = o.scene; state.seats = o.seats; state.characters = o.characters;
+  state.sceneCount = o.sceneCount; state.lastDeclarer = o.lastDeclarer; sui = o.sui;
+  if (!silent) addLog('Undo');
+}
+
+/* ---------- Debt ---------- */
+function driveKeys(c){ return !c ? [] : c.driveMode === 'undiff' ? ['__undiff'] : hasDetailedDrives(c) ? Object.keys(c.drives) : []; }
+const driveLabel = k => k === '__undiff' ? 'Debt' : k;
+function getDebt(c,k){ return k === '__undiff' ? c.undiffDebt : (c.drives[k] ? c.drives[k].debt : 0); }
+function driveCap(c,k){ return k === '__undiff' ? 5 : (c.drives[k] ? c.drives[k].strength : 0); }
+function stakeCap(c,k){ return k === '__undiff' ? 3 : driveCap(c,k); }
+function addDebt(c,k,n){
+  if (k === '__undiff') c.undiffDebt = Math.max(0, c.undiffDebt + n);
+  else if (c.drives[k]) c.drives[k].debt = Math.max(0, c.drives[k].debt + n);
+}
+
+/* ---------- Seats & cast ---------- */
+function seatOf(charId){ const sc = SC(); const e = sc && sc.cast.find(x => x.charId === charId); return e ? e.seatId : ''; }
+function orderFrom(seatId){ const i = Math.max(0, state.seats.findIndex(s => s.id === seatId)); return state.seats.slice(i).concat(state.seats.slice(0, i)); }
+function nextSeat(seatId){ const i = state.seats.findIndex(s => s.id === seatId); return state.seats[(i + 1) % state.seats.length].id; }
+function castChars(seatId){ const sc = SC(); return sc ? sc.cast.filter(e => !seatId || e.seatId === seatId).map(e => charById(e.charId)).filter(Boolean) : []; }
+
+/* ---------- Conflicts ---------- */
+function mkSide(label){ return {id:uid(), label, dice:[1], allies:[], stakes:[], claimedBy:null, claimPaid:false, gloated:0}; }
+function mkConflict(type, text, creatorId, ccOf){ return {id:uid(), type, text, creatorId:creatorId||'', ccOf:ccOf||'', sides:[mkSide('Side 1'), mkSide('Side 2')]}; }
+function controlOf(k){ const t = k.sides.map(s => sum(s.dice)), m = Math.max(...t); return t.filter(v => v === m).length === 1 ? k.sides[t.indexOf(m)].id : null; }
+const stakeTokens = s => sum(s.stakes.map(x => x.amount));
+function setAlly(k, sideId, charId){
+  k.sides.forEach(s => s.allies = s.allies.filter(a => a !== charId));
+  const s = sideById(k, sideId); if (!s) return;
+  s.allies.push(charId);
+  if (/^Side \d+$/.test(s.label)) s.label = cname(charId);
+}
+const sideOfChar = (k, charId) => k.sides.find(s => s.allies.includes(charId));
+function refundStakes(k, mult){ k.sides.forEach(s => s.stakes.forEach(st => { const c = charById(st.charId); if (c) addDebt(c, st.drive, st.amount * mult); })); }
+function allDice(sc){
+  const out = [];
+  sc.conflicts.forEach(k => k.sides.forEach(s => s.dice.forEach((v,i) => out.push({key:`${k.id}|${s.id}|${i}`, label:`${k.text} — ${s.label}: ${v}`}))));
+  return out;
+}
+function parseTarget(key){
+  if (!key) return null;
+  const [kid, sid, i] = key.split('|'); const k = confById(kid), s = sideById(k, sid);
+  if (!s || s.dice[+i] === undefined) return null;
+  return {k, s, i:+i, v:s.dice[+i]};
+}
+function evenSplit(v, n){ const b = Math.floor(v / n), r = v % n; return Array.from({length:n}, (_, i) => i < r ? b + 1 : b); }
+const priorDrives = (k, cid) => k.sides.flatMap(x => x.stakes).filter(x => x.charId === cid);
+
+/* ---------- Abilities ---------- */
+const abKey = (c, a) => c.id + '|' + a.id;
+function abilityProblem(c, a, need){
+  const sc = SC(), key = abKey(c, a);
+  if (a.level < need) return `level ${a.level} < ${need}`;
+  if (!a.powered && sc.blocked.includes(key)) return 'Blocked this Scene';
+  if (a.powered && sc.page.poweredUsed.includes(key)) return 'used this Page';
+  if (a.powered && !driveKeys(c).length) return 'no Drives for Debt';
+  return '';
+}
+function abilityOptions(c, need, sel){
+  if (!c) return '';
+  return c.abilities.map(a => {
+    const p = abilityProblem(c, a, need), dis = p && !settings().override;
+    return `<option value="${a.id}"${a.id === sel ? ' selected' : ''}${dis ? ' disabled' : ''}>${esc(a.name)} (${a.level}${a.powered ? ' ⚡' : ''})${p ? ' — ' + esc(p) : ''}</option>`;
+  }).join('');
+}
+function driveSelect(c, field, sel){
+  return `<label>Debt goes to<br><select data-s="${field}">${driveKeys(c).map(k => opt(k, `${driveLabel(k)} (${getDebt(c,k)}/${driveCap(c,k)})`, sel)).join('')}</select></label>`;
+}
+function payAbility(c, a, drive){
+  const sc = SC(), key = abKey(c, a);
+  if (a.powered){
+    sc.page.poweredUsed.push(key);
+    const keys = driveKeys(c), k = keys.includes(drive) ? drive : keys[0];
+    if (!k) return '';
+    addDebt(c, k, 1);
+    return ` (+1 Debt → ${driveLabel(k)}${getDebt(c,k) > driveCap(c,k) ? ', OVERDRAWN' : ''})`;
+  }
+  sc.blocked.push(key);
+  return ' (Blocked for the rest of the Scene)';
+}
+function d6(){
+  if (settings().physical){
+    while (true){
+      const r = prompt('Roll a physical d6 and enter the result (1–6):');
+      if (r === null) return null;
+      const v = parseInt(r, 10);
+      if (v >= 1 && v <= 6) return v;
+    }
+  }
+  return 1 + Math.floor(Math.random() * 6);
+}
+function useAction(c){
+  const pg = SC().page, n = pg.actionsUsed[c.id] || 0;
+  if (n >= 1){
+    const seat = seatById(seatOf(c.id));
+    if (!seat) return false;
+    if (seat.storyTokens < 1 && !settings().override){ alert(`${c.name} already acted this Page. An extra Action costs 1 Story Token, and ${seat.name} has none.`); return false; }
+    if (!confirm(`${c.name} already acted this Page. Pay 1 Story Token from ${seat.name} for an extra Action?`)) return false;
+    seat.storyTokens = Math.max(0, seat.storyTokens - 1);
+    addLog(`${seat.name} pays 1 Story Token for an extra Action`);
+  }
+  pg.actionsUsed[c.id] = n + 1;
+  return true;
+}
+const vetoOk = () => confirm('Any player may veto an Event, for any reason (p.28).\nPlaying every Seat, would any of them object?\n\nOK = no veto, add it.');
+
+/* ---------- Scene & Page lifecycle ---------- */
+function newPage(n, starter){ return {number:n, starterSeat:starter, phase:'start', claimsUsed:{}, actionsUsed:{}, poweredUsed:[], overChecked:[]}; }
+function startScene(declarer, title){
+  state.sceneCount = (state.sceneCount || 0) + 1;
+  state.scene = {id:uid(), number:state.sceneCount, title, declarerSeat:declarer, cast:[], castFree:[], blocked:[], exUsed:[], conflicts:[], resolved:[], page:newPage(1, declarer)};
+  state.lastDeclarer = declarer;
+  addLog(`=== Scene ${state.sceneCount} begins${title ? ': ' + title : ''} (declared by ${seatName(declarer)}) ===`);
+}
+function freeConflicts(sc){
+  const out = [], inCast = new Set(sc.cast.map(e => e.charId));
+  castChars().forEach(c => {
+    c.exemplars.forEach(x => {
+      const key = c.id + '|' + x.id;
+      if (x.targetId && inCast.has(x.targetId) && String(x.conflictText || '').trim() && !sc.exUsed.includes(key))
+        out.push({key, type:x.conflictType, text:x.conflictText, creatorId:c.id, label:`${c.name} & ${cname(x.targetId)}, ${x.drive || '?'} Exemplar`});
+    });
+    if (c.kind === 'nonperson' && c.characterConflict && String(c.characterConflict.text || '').trim() && !sc.conflicts.some(k => k.ccOf === c.id))
+      out.push({key:'cc|' + c.id, type:c.characterConflict.type, text:c.characterConflict.text, creatorId:c.id, cc:c.id, label:`${c.name}'s Character Conflict`});
+  });
+  return out;
+}
+function overdrawnCheck(c){
+  const sc = SC(), out = [];
+  for (const dn of overdrawnDrives(c)){
+    let best = null;
+    sc.conflicts.forEach(k => k.sides.forEach(s => { if (s.allies.includes(c.id)) s.dice.forEach((v,i) => { if (!best || v > best.v) best = {k, s, i, v}; }); }));
+    if (!best){ out.push(`${dn}: owns no dice`); continue; }
+    const r = d6(); if (r === null) break;
+    if (r < best.v){ best.s.dice[best.i] = r; out.push(`${dn}: rolled ${r} on "${best.k.text}" (was ${best.v}), accepted`); }
+    else out.push(`${dn}: rolled ${r} vs ${best.v}, not lower, so the die stays`);
+  }
+  sc.page.overChecked.push(c.id);
+  addLog(`Overdrawn check, ${c.name}: ${out.join('; ') || 'nothing to roll'}`);
+}
+function claim(k, s, seatId){
+  const pg = SC().page, seat = seatById(seatId), ov = settings().override;
+  if (s.claimedBy){ alert('That side is already Claimed this Page.'); return false; }
+  const mine = castChars(seatId).map(c => c.id);
+  const here = s.allies.some(a => mine.includes(a));
+  const elsewhere = k.sides.some(x => x !== s && x.allies.some(a => mine.includes(a)));
+  if (!here && elsewhere && !ov){ alert(`${seat.name}'s characters are Allied with a different side. You may only Claim a side you're Allied with, or any side if you have no Ally (p.22).`); return false; }
+  const n = pg.claimsUsed[seatId] || 0;
+  if (n >= 1){
+    if (seat.storyTokens < 1 && !ov){ alert(`${seat.name} already Claimed this Page. Extra Claims cost 1 Story Token, and it has none.`); return false; }
+    if (!confirm(`${seat.name} already Claimed this Page. Pay 1 Story Token for another Claim?`)) return false;
+    seat.storyTokens = Math.max(0, seat.storyTokens - 1); s.claimPaid = true;
+  }
+  pg.claimsUsed[seatId] = n + 1; s.claimedBy = seatId;
+  addLog(`${seat.name} Claims "${s.label}" on "${k.text}"${s.claimPaid ? ' (1 Story Token)' : ''}`);
+  return true;
+}
+
+/* ---------- Resolution maths ---------- */
+function defaultPairs(k, W){
+  const lose = [];
+  k.sides.filter(s => s !== W).forEach(s => s.dice.forEach((v,i) => lose.push({key:s.id + ':' + i, v})));
+  lose.sort((a,b) => b.v - a.v);
+  const wi = W.dice.map((v,i) => ({i, v})).sort((a,b) => b.v - a.v);
+  const pairs = {};
+  wi.forEach((w,n) => pairs[w.i] = lose[n] ? lose[n].key : '');
+  return pairs;
+}
+function resolutionPlan(k, r){
+  const W = sideById(k, r.winnerId), losers = k.sides.filter(s => s !== W), lose = [];
+  losers.forEach(s => s.dice.forEach((v,i) => lose.push({key:s.id + ':' + i, side:s, v})));
+  const used = new Set(), ins = [];
+  W.dice.forEach((v, wi) => {
+    const l = lose.find(x => x.key === r.pairs[wi] && !used.has(x.key));
+    if (l){ used.add(l.key); const d = v - l.v; if (d > 0) ins.push({side:W, value:d}); else if (d < 0) ins.push({side:l.side, value:-d}); }
+    else ins.push({side:W, value:v});
+  });
+  lose.filter(l => !used.has(l.key)).forEach(l => ins.push({side:l.side, value:l.v}));
+  return {W, losers, lose, ins};
+}
+function tokenPlan(k, W, losers, resolver){
+  const tokens = [];
+  W.stakes.forEach(st => { for (let i = 0; i < st.amount; i++) tokens.push(seatOf(st.charId)); });
+  const eligible = orderFrom(nextSeat(resolver)).map(s => s.id)
+    .filter(id => id !== resolver && losers.some(s => s.allies.some(a => seatOf(a) === id)));
+  const creatorSeat = k.creatorId && losers.some(s => s.allies.includes(k.creatorId)) ? seatOf(k.creatorId) : '';
+  const alloc = {}; let discarded = 0, rr = 0;
+  tokens.forEach((src, i) => {
+    let to = '';
+    if (i === 0 && creatorSeat && creatorSeat !== resolver && creatorSeat !== src) to = creatorSeat;
+    else for (let j = 0; j < eligible.length; j++){
+      const c = eligible[(rr + j) % eligible.length];
+      if (c !== src){ to = c; rr = (rr + j + 1) % eligible.length; break; }
+    }
+    if (to) alloc[to] = (alloc[to] || 0) + 1; else discarded++;
+  });
+  return {alloc, discarded, total:tokens.length};
+}
+function inspRecipient(x, W, r, resolver){
+  if (x.side === W) return {seat:resolver, tag: r.forSide[W.id] ? cname(r.forSide[W.id]) : W.label};
+  const cid = r.forSide[x.side.id];
+  if (cid && seatOf(cid)) return {seat:seatOf(cid), tag:cname(cid)};
+  if (x.side.claimedBy) return {seat:x.side.claimedBy, tag:x.side.label};
+  return {seat:'', tag:x.side.label};
+}
+function applyResolution(){
+  const sc = SC(), r = sui.resolve, k = confById(r.confId);
+  const plan = resolutionPlan(k, r), W = plan.W, resolver = W.claimedBy, tp = tokenPlan(k, W, plan.losers, resolver), lines = [];
+  plan.losers.forEach(s => s.stakes.forEach(st => {
+    const c = charById(st.charId); if (!c) return;
+    addDebt(c, st.drive, 2 * st.amount);
+    lines.push(`${c.name} takes back ${2 * st.amount} ${driveLabel(st.drive)}${overdrawnDrives(c).length ? ' (Overdrawn!)' : ''}`);
+  }));
+  Object.entries(tp.alloc).forEach(([sid, n]) => { const se = seatById(sid); if (se){ se.storyTokens += n; lines.push(`${se.name} +${n} Story Token${n > 1 ? 's' : ''}`); } });
+  if (tp.discarded) lines.push(`${tp.discarded} Story Token(s) discarded`);
+  plan.ins.forEach(x => {
+    const rec = inspRecipient(x, W, r, resolver), se = seatById(rec.seat);
+    if (se){ se.inspirations.push({value:x.value, forTag:rec.tag}); lines.push(`${se.name} gains ${x.value}-pt Inspiration for ${rec.tag}`); }
+    else lines.push(`${x.value}-pt Inspiration for ${rec.tag} discarded`);
+  });
+  const narration = String(r.narr || '').trim();
+  sc.conflicts = sc.conflicts.filter(x => x !== k);
+  sc.resolved.push({type:k.type, text:k.text, winner:W.label, by:seatName(resolver), page:sc.page.number, narration});
+  addLog(`RESOLVED ${k.type} "${k.text}" for ${W.label} by ${seatName(resolver)}: ${lines.join('; ') || 'no payouts'}${narration ? ` — "${narration}"` : ''}`);
+  sui.resolve = null;
+  if (k.ccOf && charById(k.ccOf) && confirm(`That was ${cname(k.ccOf)}'s Character Conflict. Remove ${cname(k.ccOf)} from the Scene (p.103)?`)){
+    sc.cast = sc.cast.filter(e => e.charId !== k.ccOf); addLog(`${cname(k.ccOf)} leaves the Scene`);
+  }
+}
+
+/* ---------- Rendering ---------- */
+function renderScene(){
+  const sc = SC();
+  if (!sc) return renderSceneStart();
+  if (!sc.castFree) sc.castFree = [];
+  sc.cast = sc.cast.filter(e => charById(e.charId) && seatById(e.seatId));
+  if (!seatById(sc.page.starterSeat)) sc.page.starterSeat = state.seats[0].id;
+  if (!seatById(sui.actSeat)) sui.actSeat = sc.page.starterSeat;
+  if (sui.resolve && !confById(sui.resolve.confId)) sui.resolve = null;
+  if (sui.tool && !confById(sui.tool.confId)) sui.tool = null;
+  return renderSceneHeader(sc) + ((sui.pending || sui.react) ? renderRollPanel(sc) : renderPhasePanel(sc))
+    + renderConflicts(sc) + renderCast(sc) + renderHistory(sc);
+}
+function renderSceneStart(){
+  const sugg = state.lastDeclarer && seatById(state.lastDeclarer) ? nextSeat(state.lastDeclarer) : state.seats[0].id;
+  return `<div class="panel"><h2>Start a Scene</h2>
+    <p class="muted">The Seat to the left of the last declarer gets first chance to declare. If it declines, the chance passes clockwise (p.20).</p>
+    <div class="row">
+      <label>Declared by<br><select id="sc-decl">${state.seats.map(s => opt(s.id, s.name, sugg)).join('')}</select></label>
+      <label class="grow">What's happening?<br><input class="full" id="sc-title" placeholder="e.g. Charity gala at the Egyptian exhibit"></label>
+    </div>
+    <div class="row"><button class="primary" data-a="sc-start">Start Scene ${(state.sceneCount || 0) + 1}</button></div>
+    <p class="muted">Pick the kind of Scene you need. Long fights generate Debt. Short personal scenes burn Debt and generate Inspirations and Story Tokens (p.135–136).</p></div>`;
+}
+function renderSceneHeader(sc){
+  const pg = sc.page, st = settings();
+  return `<div class="panel">
+    <div class="row spread"><h2>Scene ${sc.number}${sc.title ? ': ' + esc(sc.title) : ''} <span class="muted">· Page ${pg.number}</span></h2>
+      <div class="row"><button data-a="sc-undo" ${undoStack.length ? '' : 'disabled'}>↶ Undo</button>
+        <button data-a="sc-end-page">End Page ▸</button><button class="danger" data-a="sc-end-scene">End Scene</button></div></div>
+    <div class="row"><span class="muted">Turn order (★ Starter). Click a Seat to act as it:</span>
+      ${orderFrom(pg.starterSeat).map((s,i) => `<button class="small ${s.id === sui.actSeat ? 'primary' : ''}" data-a="sc-act" data-id="${s.id}">${i === 0 ? '★ ' : ''}${esc(s.name)} · ${s.storyTokens} ST${s.inspirations.length ? ' · Insp ' + s.inspirations.map(x => x.value).join('/') : ''}</button>`).join('')}</div>
+    <div class="row">${PHASES.map(([k,l]) => `<button class="${pg.phase === k ? 'primary' : ''}" data-a="sc-phase" data-id="${k}">${l}</button>`).join('')}</div>
+    <div class="row">
+      <label><input type="checkbox" data-s="physical" ${st.physical ? 'checked' : ''}> Roll physical dice (I'll type results)</label>
+      <label><input type="checkbox" data-s="override" ${st.override ? 'checked' : ''}> House-rule override (allow illegal moves, edit dice)</label>
+    </div></div>`;
+}
+function renderPhasePanel(sc){
+  const pg = sc.page, ph = pg.phase;
+  if (ph === 'start'){
+    const over = castChars().filter(c => overdrawnDrives(c).length);
+    return `<div class="panel"><h3>Start of Page ${pg.number}: ${esc(seatName(pg.starterSeat))} is Starter</h3>
+      ${!sc.cast.length ? '<p class="hint">No one is in the Scene yet. Add characters in the <b>Cast</b> panel below.</p>' : ''}
+      ${over.length ? over.map(c => { const done = pg.overChecked.includes(c.id);
+        return `<div class="row"><b>${esc(c.name)}</b> is Overdrawn in ${overdrawnDrives(c).map(esc).join(', ')}
+          <button class="small" data-a="sc-overcheck" data-id="${c.id}" ${done ? 'disabled' : ''}>${done ? 'Checked ✓' : '🎲 Roll Overdrawn check'}</button></div>`; }).join('')
+        : '<p class="muted">Nobody in the Scene is Overdrawn.</p>'}
+      <p class="muted">For each Overdrawn Drive, roll the highest die the character owns. The new roll only counts if it's lower (p.32). Narrate how their doubts get in the way.</p>
+      <button class="primary" data-a="sc-phase" data-id="claims">Go to Conflicts &amp; Claims ▸</button></div>`;
+  }
+  if (ph === 'claims'){
+    const free = freeConflicts(sc), as = seatById(sui.actSeat), mine = castChars(sui.actSeat);
+    return `<div class="panel"><h3>Conflicts &amp; Claims</h3>
+      <p class="muted">Clockwise from the Starter, each Seat may add Free Conflicts and Claim one side for free. Extra Claims and Conflicts added here cost 1 Story Token each. Claim using the buttons on each Conflict. You're acting as <b>${esc(as.name)}</b>.</p>
+      ${free.length ? `<div class="row"><span class="muted">Free Conflicts available:</span>${free.map(f => `<button class="small" data-a="sc-free" data-id="${esc(f.key)}">${esc(f.type)}: ${esc(f.text)} <span class="muted">(${esc(f.label)})</span></button>`).join('')}</div>` : ''}
+      <div class="row"><select id="nc-type">${opt('Goal','Goal','Goal')}${opt('Event','Event','')}</select>
+        <input class="grow" id="nc-text" placeholder="New Conflict…">
+        <select id="nc-creator"><option value="">creator: none</option>${castChars().map(c => opt(c.id, c.name, mine[0] ? mine[0].id : '')).join('')}</select>
+        <button data-a="sc-conf-paid">Add (1 Story Token from ${esc(as.name)})</button></div>
+      <p class="muted"><b>Goal:</b> someone tries to do something. Only that character's player may veto it. <b>Event:</b> something that will definitely happen. Anyone may veto it, so keep it vague enough for either side (p.28–29).
+      After Claims comes free narration: anyone may narrate anything a Conflict doesn't cover, until the Starter takes an Action.</p>
+      <button class="primary" data-a="sc-phase" data-id="actions">Go to Actions ▸</button></div>`;
+  }
+  if (ph === 'actions') return renderActionPanel(sc);
+  const claimed = [];
+  orderFrom(pg.starterSeat).forEach(se => sc.conflicts.forEach(k => k.sides.forEach(s => {
+    if (s.claimedBy !== se.id) return;
+    const c = controlOf(k) === s.id;
+    claimed.push(`<li>${esc(se.name)}: "${esc(k.text)}", ${esc(s.label)}: ${c ? (s.gloated === pg.number ? '<span class="muted">Gloated</span>' : '<b class="ok">Controls, ready to Resolve</b>') : '<span class="muted">doesn\'t Control, so nothing happens</span>'}</li>`);
+  })));
+  return `<div class="panel"><h3>Resolve</h3>
+    <p class="muted">In turn order from the Starter, each Seat checks the sides it Claimed. If a claimed side Controls, Resolve it, or Gloat if the outcome would break the Comics Code. Use Deadlock on a tie nobody can break.</p>
+    <ul>${claimed.join('') || '<li class="muted">No Claims this Page.</li>'}</ul>
+    <button class="primary" data-a="sc-end-page">End Page ▸</button></div>`;
+}
+function renderActionPanel(sc){
+  const seat = seatById(sui.actSeat), chars = castChars(sui.actSeat);
+  const foot = `<div class="row"><button data-a="sc-next-seat">Next Seat ▸</button><button class="primary" data-a="sc-phase" data-id="resolve">Go to Resolve ▸</button></div>`;
+  if (!chars.length) return `<div class="panel"><h3>Actions: ${esc(seat.name)}</h3><p class="muted">${esc(seat.name)} has no characters in this Scene.</p>${foot}</div>`;
+  if (!chars.some(c => c.id === sui.actChar)){ sui.actChar = chars[0].id; sui.abId = ''; }
+  const c = charById(sui.actChar), used = sc.page.actionsUsed[c.id] || 0;
+  const a = c.abilities.find(x => x.id === sui.abId);
+  let body = '';
+  if (sui.mode === 'die'){
+    const dice = allDice(sc);
+    if (!dice.some(d => d.key === sui.target)){ sui.target = dice[0] ? dice[0].key : ''; sui.support = ''; }
+    const t = parseTarget(sui.target);
+    if (!t) body = '<p class="muted">No Conflicts yet. Create one first.</p>';
+    else {
+      if (!sideById(t.k, sui.support)){ const m = sideOfChar(t.k, c.id); sui.support = m ? m.id : t.s.id; }
+      body = `<div class="row">
+        <label>Target die<br><select data-s="target">${dice.map(d => opt(d.key, d.label, sui.target)).join('')}</select></label>
+        <label>Supporting side<br><select data-s="support">${t.k.sides.map(s => opt(s.id, s.label, sui.support)).join('')}</select></label></div>
+        <div class="row"><label>Ability (level ≥ ${t.v})<br><select data-s="abId"><option value="">— choose —</option>${abilityOptions(c, t.v, sui.abId)}</select></label>
+        ${a && a.powered ? driveSelect(c, 'drive', sui.drive) : ''}
+        <button class="primary" data-a="sc-roll" ${a ? '' : 'disabled'}>🎲 Roll</button></div>
+        <p class="muted">Roll up a die on your side, or roll down an opponent's. Either way the character becomes Allied with the side they support.</p>`;
+    }
+  } else if (sui.mode === 'insp'){
+    const ins = seatById(seatOf(c.id)).inspirations;
+    if (!ins.length) body = `<p class="muted">${esc(seat.name)} has no Inspirations.</p>`;
+    else {
+      if (!ins[sui.inspIdx]) sui.inspIdx = '0';
+      const iv = ins[+sui.inspIdx].value;
+      body = `<div class="row"><label>Inspiration<br><select data-s="inspIdx">${ins.map((x,j) => opt(String(j), `${x.value} for ${x.forTag || 'anyone'}`, String(sui.inspIdx))).join('')}</select></label>
+        <label>Ability (level ≥ ${iv})<br><select data-s="abId"><option value="">— choose —</option>${abilityOptions(c, iv, sui.abId)}</select></label>
+        ${a && a.powered ? driveSelect(c, 'drive', sui.drive) : ''}
+        <button class="primary" data-a="sc-raise" ${a ? '' : 'disabled'}>Raise +1</button></div>`;
+    }
+  } else {
+    body = `<div class="row"><select id="ac-type">${opt('Goal','Goal','Goal')}${opt('Event','Event','')}</select>
+      <input class="grow" id="ac-text" placeholder="${esc(c.name)} creates a Conflict…">
+      <button class="primary" data-a="sc-conf-action">Create (uses this Action)</button></div>`;
+  }
+  return `<div class="panel"><h3>Actions: ${esc(seat.name)}</h3>
+    <div class="row"><select data-s="actChar">${chars.map(x => opt(x.id, x.name, sui.actChar)).join('')}</select>
+      <span class="muted">Actions this Page: ${used}. The first is free, and each extra costs 1 Story Token.</span></div>
+    <div class="row">${[['die','Ability → roll a die'],['insp','Ability → raise an Inspiration'],['conflict','Create a Conflict']].map(([m,l]) => `<button class="small ${sui.mode === m ? 'primary' : ''}" data-a="sc-mode" data-id="${m}">${l}</button>`).join('')}</div>
+    ${body}
+    <p class="muted">Before or after an Action (not during one), use <b>Stake</b>, <b>Split</b>, <b>Inspiration</b> and <b>Schism</b> on the Conflict cards below.</p>
+    ${foot}</div>`;
+}
+function renderRollPanel(sc){
+  if (sui.pending){
+    const p = sui.pending, k = confById(p.confId), s = sideById(k, p.sideId);
+    return `<div class="panel rollp"><h3>${p.kind === 'action' ? 'Action' : 'Reaction'}: ${esc(cname(p.charId))} uses ${esc(p.abName)}</h3>
+      <p>"${esc(k ? k.text : '?')}", ${esc(s ? s.label : '?')}: the die was <span class="die">${p.old}</span>, rolled <span class="die big">${p.rolled}</span></p>
+      <div class="row"><button class="primary" data-a="sc-accept">Accept ${p.rolled}</button><button data-a="sc-revert">Turn it back to ${p.old}</button></div>
+      <p class="muted">Narrate what happens either way, with the ability front and center. If your side doesn't Control afterward, say <b>"And then…"</b> and let the Controlling side finish the narration (p.26).${p.kind === 'action' ? ' If you turn the roll back, nobody gets to React.' : ''}</p></div>`;
+  }
+  const r = sui.react, k = confById(r.confId), s = sideById(k, r.sideId);
+  if (!s || s.dice[r.idx] === undefined){ sui.react = null; return renderPhasePanel(sc); }
+  const v = s.dice[r.idx];
+  const seats = orderFrom(r.actorSeat).filter(x => !r.reacted.includes(x.id) && castChars(x.id).length);
+  if (!seats.some(x => x.id === sui.rSeat)){ sui.rSeat = seats[0] ? seats[0].id : ''; sui.rChar = ''; }
+  const chars = sui.rSeat ? castChars(sui.rSeat) : [];
+  if (!chars.some(c => c.id === sui.rChar)){ sui.rChar = chars[0] ? chars[0].id : ''; sui.rAb = ''; sui.rSupport = ''; }
+  const c = charById(sui.rChar), a = c && c.abilities.find(x => x.id === sui.rAb);
+  if (!sideById(k, sui.rSupport)){ const m = c && sideOfChar(k, c.id); sui.rSupport = m ? m.id : s.id; }
+  return `<div class="panel rollp"><h3>Reactions</h3>
+    <p>"${esc(k.text)}", ${esc(s.label)}: the die is now <span class="die">${v}</span>. Any Seat may React once with an Ability of level ≥ ${v}. The acting Seat goes first, then clockwise (p.40).</p>
+    ${seats.length ? `<div class="row">
+      <select data-s="rSeat">${seats.map(x => opt(x.id, x.name, sui.rSeat)).join('')}</select>
+      <select data-s="rChar">${chars.map(x => opt(x.id, x.name, sui.rChar)).join('')}</select>
+      <select data-s="rAb"><option value="">— ability —</option>${abilityOptions(c, v, sui.rAb)}</select>
+      <label>Supporting <select data-s="rSupport">${k.sides.map(x => opt(x.id, x.label, sui.rSupport)).join('')}</select></label>
+      ${a && a.powered ? driveSelect(c, 'rDrive', sui.rDrive) : ''}
+      <button class="primary" data-a="sc-react" ${a ? '' : 'disabled'}>🎲 React</button></div>` : '<p class="muted">Every Seat with characters has Reacted.</p>'}
+    <p class="muted">Already reacted: ${r.reacted.map(seatName).map(esc).join(', ') || 'nobody'}</p>
+    <button data-a="sc-react-done">Done with Reactions</button></div>`;
+}
+function renderConflicts(sc){
+  return `<div class="panel"><h3>Conflicts <span class="muted">(${sc.conflicts.length})</span></h3>
+    ${sc.conflicts.length ? sc.conflicts.map(k => renderConflict(k, sc)).join('') : '<p class="muted">No Conflicts yet. Add one in Conflicts &amp; Claims, or create one as an Action.</p>'}</div>`;
+}
+function renderConflict(k, sc){
+  if (sui.resolve && sui.resolve.confId === k.id) return renderResolve(k, sc);
+  const ctrl = controlOf(k), ph = sc.page.phase;
+  return `<div class="conf">
+    <div class="row spread"><div><span class="badge ${k.type === 'Event' ? 'ev' : 'go'}">${esc(k.type)}</span> <b>${esc(k.text)}</b>
+      ${k.creatorId ? `<span class="muted">· created by ${esc(cname(k.creatorId))}</span>` : ''} ${k.ccOf ? '<span class="badge">Character Conflict</span>' : ''}</div>
+      <div class="row">${ctrl ? '' : '<span class="badge">Tied, nobody Controls</span>'}
+        ${ph === 'resolve' && !ctrl ? `<button class="small" data-a="sc-deadlock" data-conf="${k.id}">Deadlock…</button>` : ''}
+        <button class="small danger" data-a="sc-conf-del" data-conf="${k.id}" title="Remove Conflict">✕</button></div></div>
+    <div class="sides">${k.sides.map(s => renderSide(k, s, ctrl, sc)).join('')}</div>
+    ${sui.tool && sui.tool.confId === k.id ? renderTool(k) : ''}</div>`;
+}
+function renderSide(k, s, ctrl, sc){
+  if (s.claimedBy && !seatById(s.claimedBy)) s.claimedBy = null;
+  const ph = sc.page.phase, busy = !!(sui.pending || sui.react || sui.resolve), ov = settings().override, isC = ctrl === s.id;
+  const dice = s.dice.map((v,i) => ov ? `<button class="die" data-a="sc-die-set" data-conf="${k.id}" data-side="${s.id}" data-x="${i}" title="Override: set value">${v}</button>` : `<span class="die">${v}</span>`).join('');
+  const tb = (kind, label) => `<button class="small" data-a="sc-tool" data-id="${kind}" data-conf="${k.id}" data-side="${s.id}" ${busy ? 'disabled' : ''}>${label}</button>`;
+  let claimHtml = '';
+  if (s.claimedBy) claimHtml = `<span class="badge claim">Claimed: ${esc(seatName(s.claimedBy))}</span>${ph === 'claims' && s.claimedBy === sui.actSeat ? ` <button class="small" data-a="sc-unclaim" data-conf="${k.id}" data-side="${s.id}">Unclaim</button>` : ''}`;
+  else if (ph === 'claims') claimHtml = `<button class="small primary" data-a="sc-claim" data-conf="${k.id}" data-side="${s.id}">Claim as ${esc(seatName(sui.actSeat))}</button>`;
+  const res = ph === 'resolve' && s.claimedBy && isC && s.gloated !== sc.page.number && !busy
+    ? `<button class="small primary" data-a="sc-resolve-open" data-conf="${k.id}" data-side="${s.id}">Resolve (${esc(seatName(s.claimedBy))})</button> <button class="small" data-a="sc-gloat" data-conf="${k.id}" data-side="${s.id}">Gloat…</button>` : '';
+  return `<div class="side ${isC ? 'ctrl' : ''}">
+    <div class="row spread"><input class="sidelabel" data-s="label" data-conf="${k.id}" data-side="${s.id}" value="${esc(s.label)}" title="Rename side">
+      <span>${isC ? '<b class="ok">CONTROLS</b> · ' : ''}total <b>${sum(s.dice)}</b></span></div>
+    <div class="row">${dice}</div>
+    <div class="row muted">${s.allies.length ? 'Allies: ' + s.allies.map(cname).map(esc).join(', ') : 'No Allies yet'}</div>
+    ${s.stakes.length ? `<div class="row muted">Staked (${stakeTokens(s)}): ${s.stakes.map(st => `${esc(cname(st.charId))} ${st.amount} ${esc(driveLabel(st.drive))}`).join(', ')}</div>` : ''}
+    <div class="row">${claimHtml} ${res}</div>
+    <div class="row">${tb('stake','Stake')}${tb('split','Split')}${tb('insp','Inspiration')}${tb('schism','Schism')}</div>
+  </div>`;
+}
+function renderTool(k){
+  const t = sui.tool, s = sideById(k, t.sideId);
+  if (!s){ sui.tool = null; return ''; }
+  const close = '<button class="small" data-a="sc-tool-close">Cancel</button>';
+  const apply = l => `<button class="small primary" data-a="sc-tool-apply">${l}</button>`;
+  const cast = castChars().sort((a,b) => (seatOf(b.id) === sui.actSeat) - (seatOf(a.id) === sui.actSeat));
+  const cd = cast.flatMap(c => driveKeys(c).map(d => opt(c.id + '|' + d, `${c.name}: ${driveLabel(d)} (${getDebt(c,d)} Debt, cap ${stakeCap(c,d)})`, ''))).join('');
+  const dieSel = `<select id="tl-die">${s.dice.map((v,i) => opt(String(i), `die ${i+1} (${v})`, '')).join('')}</select>`;
+  const titles = {stake:'Stake Debt', split:'Split a die', insp:'Use an Inspiration', schism:'Schism: found a new side'};
+  const noDrives = `<div class="row muted">No one in the Scene has Drives. ${close}</div>`;
+  let body;
+  if (t.kind === 'stake') body = cd ? `<div class="row"><select id="tl-cd">${cd}</select><input id="tl-amt" type="number" min="1" max="5" value="1" style="width:64px">${apply('Stake')}${close}</div>
+    <p class="muted">Each character may Stake from one Drive per Conflict, no more in total than that Drive's Strength (3 if Undifferentiated). Staked Debt doesn't count toward Overdraw. If this side loses, the Debt comes back doubled. If it wins, the Debt goes to the losers as Story Tokens (p.36).</p>` : noDrives;
+  else if (t.kind === 'split') body = `<div class="row">${dieSel} into <input id="tl-n" type="number" min="2" max="6" value="2" style="width:64px"> dice ${apply('Split')}${close}</div>
+    <p class="muted">This side has ${stakeTokens(s)} Staked Debt and ${s.dice.length} dice. It may hold as many dice as it has Stakes. Splits are as even as possible (p.37).</p>`;
+  else if (t.kind === 'insp'){
+    const ins = seatById(sui.actSeat).inspirations;
+    body = ins.length ? `<div class="row"><select id="tl-insp">${ins.map((x,j) => opt(String(j), `${x.value} for ${x.forTag || 'anyone'}`, '')).join('')}</select> → ${dieSel} ${apply('Raise die')}${close}</div>
+      <p class="muted">Using ${esc(seatName(sui.actSeat))}'s Inspirations. Click a different Seat in the turn order to use theirs. An Inspiration may only raise a die on the side of the character or group it's for (p.25).</p>`
+      : `<div class="row muted">${esc(seatName(sui.actSeat))} has no Inspirations. ${close}</div>`;
+  } else body = cd ? `<div class="row"><select id="tl-cd">${cd}</select> splits ${dieSel} ${apply('Schism')}${close}</div>
+    <p class="muted">The character must already be Allied with this side, usually from rolling on its behalf. They Stake 1 Debt, split the die, leave the smaller half here, and take the larger half to found their own side (p.37, example p.63).</p>` : noDrives;
+  return `<div class="tool"><b>${titles[t.kind]}</b> on "${esc(s.label)}"${body}</div>`;
+}
+function renderResolve(k, sc){
+  const r = sui.resolve, plan = resolutionPlan(k, r), W = plan.W, resolver = W.claimedBy;
+  const tp = tokenPlan(k, W, plan.losers, resolver);
+  const loseOpts = wi => `<option value="">unmatched (full value)</option>` + plan.lose.map(l => opt(l.key, `${l.side.label}: ${l.v}`, r.pairs[wi])).join('');
+  const forSel = side => `<select data-s="forSide" data-side="${side.id}"><option value="">${side === W ? '(side name)' : '(Claimant / no one)'}</option>${side.allies.map(a => opt(a, cname(a), r.forSide[side.id] || '')).join('')}</select>`;
+  const debtLines = plan.losers.flatMap(s => s.stakes.map(st => `${esc(cname(st.charId))} takes back ${2 * st.amount} ${esc(driveLabel(st.drive))}`));
+  const tokLines = Object.entries(tp.alloc).map(([sid,n]) => `${esc(seatName(sid))} +${n}`);
+  const insLines = plan.ins.map(x => { const rec = inspRecipient(x, W, r, resolver); return `${x.value} pt → ${rec.seat ? esc(seatName(rec.seat)) + ' (for ' + esc(rec.tag) + ')' : 'discarded'}`; });
+  return `<div class="conf resolving">
+    <div class="row spread"><div><span class="badge ${k.type === 'Event' ? 'ev' : 'go'}">${esc(k.type)}</span> <b>Resolving: ${esc(k.text)}</b></div>
+      <span>for <b>${esc(W.label)}</b> by ${esc(seatName(resolver))}</span></div>
+    <p class="muted">${k.type === 'Event' ? 'The Event happens no matter what. You narrate how it happens and what it leads to.' : `You narrate whether "${esc(W.label)}" gets what it wants. If a Goal fails, that character can't try the same Goal again this Scene.`} Remember Not Yet: nothing about this outcome is settled until now.</p>
+    ${state.comicsCode.length ? `<details><summary class="muted">Comics Code check: if this outcome would break the Code, Cancel and Gloat instead.</summary><ul>${state.comicsCode.map(x => `<li>${esc(x)}</li>`).join('')}</ul></details>` : ''}
+    <h4>Match dice</h4>
+    ${W.dice.map((v,wi) => `<div class="row"><span class="die">${v}</span> vs <select data-s="pair" data-x="${wi}">${loseOpts(wi)}</select></div>`).join('')}
+    <p class="muted">Each pair gives an Inspiration worth the difference, to whichever side rolled higher. Equal pairs give nothing. Unmatched dice give their full value to their own side (p.30).</p>
+    <h4>Inspirations are for</h4><div class="row">${k.sides.map(s => `<label>${esc(s.label)}<br>${forSel(s)}</label>`).join('')}</div>
+    <h4>Payouts</h4><ul>
+      <li>Inspirations: ${insLines.join(', ') || 'none'}</li>
+      <li>Debt returned (doubled): ${debtLines.join(', ') || 'none'}</li>
+      <li>Story Tokens: ${tp.total ? (tokLines.join(', ') || '—') + (tp.discarded ? ` (${tp.discarded} discarded)` : '') : 'none (the winners Staked nothing)'}</li></ul>
+    <label>Narration (optional, goes in the log)<br><textarea id="rs-narr" style="min-height:60px">${esc(r.narr || '')}</textarea></label>
+    <div class="row"><button class="primary" data-a="sc-resolve-apply">Apply Resolution</button><button data-a="sc-resolve-cancel">Cancel</button></div></div>`;
+}
+function castCard(c, sc){
+  const over = overdrawnDrives(c);
+  const debt = driveKeys(c).map(k => `${driveLabel(k)} ${getDebt(c,k)}/${driveCap(c,k)}`).join(' · ');
+  const abs = c.abilities.map(a => {
+    const key = abKey(c, a), spent = a.powered ? sc.page.poweredUsed.includes(key) : sc.blocked.includes(key);
+    const t = `${a.level} ${esc(a.name)}${a.powered ? '⚡' : ''}`;
+    return spent ? `<s class="muted">${t}</s>` : t;
+  }).join(', ');
+  return `<div class="castchar"><div class="row spread"><b>${esc(c.name)}</b><button class="small danger" data-a="sc-cast-del" data-id="${c.id}">✕</button></div>
+    ${debt ? `<div>${debt}${over.length ? ` <span class="over">Overdrawn: ${over.map(esc).join(', ')}</span>` : ''}</div>` : ''}
+    <div class="muted">${abs}</div></div>`;
+}
+function renderCast(sc){
+  const notIn = state.characters.filter(c => !sc.cast.some(e => e.charId === c.id)).sort((a,b) => (a.name||'').localeCompare(b.name||''));
+  return `<div class="panel"><h3>Cast</h3>
+    ${orderFrom(sc.declarerSeat).map(se => `<div class="castseat"><b>${esc(se.name)}</b>${sc.castFree.includes(se.id) ? '' : ' <span class="muted">(free pick available)</span>'}<br>${castChars(se.id).map(c => castCard(c, sc)).join('') || '<span class="muted">no characters</span>'}</div>`).join('')}
+    <div class="row"><select id="cast-char">${notIn.map(c => opt(c.id, c.name || '(unnamed)', '')).join('')}</select> played by
+      <select id="cast-seat">${state.seats.map(s => opt(s.id, s.name, sui.actSeat)).join('')}</select>
+      <button data-a="sc-cast-add" ${notIn.length ? '' : 'disabled'}>Add to Scene</button></div>
+    <p class="muted">Starting with the declarer and going clockwise, each Seat picks one character for free. Each extra character costs 1 Story Token, even mid-Scene (p.20). Need someone new? Build them on the Characters tab, and the Scene will wait. Struck-out abilities are Blocked (mundane) or already used this Page (⚡).</p></div>`;
+}
+function renderHistory(sc){
+  if (!sc.resolved.length) return '';
+  return `<div class="panel"><h3>Resolved this Scene</h3><ul>${sc.resolved.map(x => `<li>Page ${x.page}: ${esc(x.type)} "${esc(x.text)}", won by <b>${esc(x.winner)}</b> (${esc(x.by)})${x.narration ? ` — <i>${esc(x.narration)}</i>` : ''}</li>`).join('')}</ul></div>`;
+}
+
+/* ---------- Hook into the app ---------- */
+render = function(){
+  renderNav();
+  const m = document.getElementById('main');
+  if (ui.tab === 'table') m.innerHTML = renderTable();
+  else if (ui.tab === 'scene') m.innerHTML = renderScene();
+  else if (ui.tab === 'characters') m.innerHTML = renderCharacters();
+  else if (ui.tab === 'sheet') m.innerHTML = renderSheet();
+  else if (ui.tab === 'edit'){ m.innerHTML = renderEditor(); updateValidation(); }
+};
+renderNav = function(){
+  const cur = ui.tab === 'table' ? 'table' : ui.tab === 'scene' ? 'scene' : 'characters';
+  document.getElementById('nav').innerHTML = [['table','Table'],['scene','Scene' + (state.scene ? ' ●' : '')],['characters','Characters']]
+    .map(([k,l]) => `<button data-a="tab" data-id="${k}" class="${k === cur ? 'active' : ''}">${l}</button>`).join('');
+};
+
+/* ---------- Scene events ---------- */
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-a]');
+  if (!b || b.disabled || !b.dataset.a.startsWith('sc-')) return;
+  const A = b.dataset.a, id = b.dataset.id, sc = SC(), ov = settings().override;
+  const k = confById(b.dataset.conf), s = sideById(k, b.dataset.side);
+  switch (A){
+    case 'sc-start': pushUndo(); startScene(val('#sc-decl'), val('#sc-title').trim()); sui = blankSui(SC().page.starterSeat); break;
+    case 'sc-undo': undo(); break;
+    case 'sc-act': sui.actSeat = id; sui.actChar = ''; sui.abId = ''; break;
+    case 'sc-next-seat': sui.actSeat = nextSeat(sui.actSeat); sui.actChar = ''; sui.abId = ''; break;
+    case 'sc-mode': sui.mode = id; sui.abId = ''; break;
+    case 'sc-phase':
+      if (sui.pending || sui.react){ alert('Finish the current roll first.'); return; }
+      sc.page.phase = id;
+      if (id === 'actions' || id === 'resolve' || id === 'claims') sui.actSeat = sc.page.starterSeat;
+      sui.actChar = ''; sui.abId = ''; sui.tool = null; break;
+    case 'sc-overcheck': { const c = charById(id); if (!c) return; pushUndo(); overdrawnCheck(c); break; }
+
+    /* cast */
+    case 'sc-cast-add': {
+      const c = charById(val('#cast-char')), se = seatById(val('#cast-seat'));
+      if (!c || !se) return;
+      const paid = sc.castFree.includes(se.id);
+      if (paid){
+        if (se.storyTokens < 1 && !ov){ alert(`${se.name} already took its free character. Extra characters cost 1 Story Token, and it has none.`); return; }
+        if (!confirm(`${se.name} already took its free character. Pay 1 Story Token to add ${c.name}?`)) return;
+      }
+      pushUndo();
+      if (paid) se.storyTokens = Math.max(0, se.storyTokens - 1); else sc.castFree.push(se.id);
+      sc.cast.push({charId:c.id, seatId:se.id});
+      addLog(`${se.name} plays ${c.name}${paid ? ' (1 Story Token)' : ''}`);
+      if (c.kind === 'super' && !driveKeys(c).length) alert(`${c.name} has no Drives, so their powered abilities can't take Debt. Set Drives on the Characters tab.`);
+      break;
+    }
+    case 'sc-cast-del':
+      if (!confirm(`Remove ${cname(id)} from the Scene?`)) return;
+      pushUndo(); sc.cast = sc.cast.filter(x => x.charId !== id); addLog(`${cname(id)} leaves the Scene`); break;
+
+    /* conflicts & claims */
+    case 'sc-free': {
+      const f = freeConflicts(sc).find(x => x.key === id); if (!f) return;
+      pushUndo(); sc.conflicts.push(mkConflict(f.type, f.text, f.creatorId, f.cc || ''));
+      if (!f.cc) sc.exUsed.push(f.key);
+      addLog(`Free ${f.type} added: "${f.text}" (${f.label})`); break;
+    }
+    case 'sc-conf-paid': {
+      const text = val('#nc-text').trim(), type = val('#nc-type'), se = seatById(sui.actSeat);
+      if (!text){ alert('Write the Conflict first.'); return; }
+      if (se.storyTokens < 1 && !ov){ alert(`Adding a Conflict here costs 1 Story Token, and ${se.name} has none. Create it as an Action instead.`); return; }
+      if (type === 'Event' && !vetoOk()) return;
+      pushUndo(); se.storyTokens = Math.max(0, se.storyTokens - 1);
+      sc.conflicts.push(mkConflict(type, text, val('#nc-creator')));
+      addLog(`${se.name} pays 1 Story Token to add ${type}: "${text}"`); break;
+    }
+    case 'sc-conf-action': {
+      const c = charById(sui.actChar), text = val('#ac-text').trim(), type = val('#ac-type');
+      if (!c) return;
+      if (!text){ alert('Write the Conflict first.'); return; }
+      if (type === 'Event' && !vetoOk()) return;
+      pushUndo(); if (!useAction(c)){ undoStack.pop(); return; }
+      sc.conflicts.push(mkConflict(type, text, c.id));
+      addLog(`${c.name}'s Action: creates ${type} "${text}"`); break;
+    }
+    case 'sc-conf-del':
+      if (!confirm(`Remove "${k.text}"? Any Staked Debt goes back to its Drives as it was (not doubled).`)) return;
+      pushUndo(); refundStakes(k, 1); sc.conflicts = sc.conflicts.filter(x => x !== k); addLog(`Removed Conflict "${k.text}"`); break;
+    case 'sc-claim': pushUndo(); if (!claim(k, s, sui.actSeat)){ undoStack.pop(); return; } break;
+    case 'sc-unclaim': {
+      pushUndo(); const se = seatById(s.claimedBy);
+      if (s.claimPaid && se) se.storyTokens++;
+      sc.page.claimsUsed[s.claimedBy] = Math.max(0, (sc.page.claimsUsed[s.claimedBy] || 1) - 1);
+      s.claimedBy = null; s.claimPaid = false; break;
+    }
+    case 'sc-die-set': {
+      const v = parseInt(prompt('Override: set this die to (1–6):', s.dice[b.dataset.x]), 10);
+      if (!(v >= 1 && v <= 6)) return;
+      pushUndo(); s.dice[b.dataset.x] = v; addLog(`Override: die on "${k.text}" (${s.label}) set to ${v}`); break;
+    }
+
+    /* actions & reactions */
+    case 'sc-roll': {
+      const c = charById(sui.actChar), a = c && c.abilities.find(x => x.id === sui.abId), t = parseTarget(sui.target);
+      if (!c || !a || !t) return;
+      const p = abilityProblem(c, a, t.v); if (p && !ov){ alert(`${a.name} can't be used: ${p}.`); return; }
+      pushUndo(); if (!useAction(c)){ undoStack.pop(); return; }
+      const r = d6(); if (r === null){ undo(true); render(); return; }
+      const note = payAbility(c, a, sui.drive);
+      setAlly(t.k, sui.support || t.s.id, c.id);
+      sui.pending = {kind:'action', confId:t.k.id, sideId:t.s.id, idx:t.i, old:t.v, rolled:r, charId:c.id, abName:a.name, actorSeat:sui.actSeat};
+      addLog(`${c.name} uses ${a.name}${note} on "${t.k.text}" (${t.s.label} ${t.v}): rolls ${r}`);
+      sui.abId = ''; break;
+    }
+    case 'sc-raise': {
+      const c = charById(sui.actChar), se = c && seatById(seatOf(c.id)), ins = se && se.inspirations[+sui.inspIdx], a = c && c.abilities.find(x => x.id === sui.abId);
+      if (!ins || !a) return;
+      if (ins.value >= 6){ alert('That Inspiration is already at 6.'); return; }
+      const p = abilityProblem(c, a, ins.value); if (p && !ov){ alert(`${a.name} can't be used: ${p}.`); return; }
+      pushUndo(); if (!useAction(c)){ undoStack.pop(); return; }
+      const note = payAbility(c, a, sui.drive); ins.value++;
+      addLog(`${c.name} uses ${a.name}${note} to raise an Inspiration (for ${ins.forTag || 'anyone'}) to ${ins.value}`);
+      sui.abId = ''; break;
+    }
+    case 'sc-accept': {
+      const p = sui.pending, k2 = confById(p.confId), s2 = sideById(k2, p.sideId);
+      if (s2 && s2.dice[p.idx] !== undefined) s2.dice[p.idx] = p.rolled;
+      addLog(`Accepted ${p.rolled} on "${k2 ? k2.text : '?'}"`);
+      sui.react = p.kind === 'action' ? {confId:p.confId, sideId:p.sideId, idx:p.idx, actorSeat:p.actorSeat, reacted:[]} : p.ctx;
+      sui.pending = null; sui.rSeat = ''; sui.rChar = ''; sui.rAb = ''; sui.rSupport = ''; break;
+    }
+    case 'sc-revert': {
+      const p = sui.pending;
+      addLog(`Turned the die back to ${p.old}${p.kind === 'action' ? ', so no Reactions' : ''}`);
+      sui.react = p.kind === 'action' ? null : p.ctx; sui.pending = null; break;
+    }
+    case 'sc-react': {
+      const r0 = sui.react, k2 = confById(r0.confId), s2 = sideById(k2, r0.sideId);
+      if (!s2) return;
+      const v = s2.dice[r0.idx], c = charById(sui.rChar), a = c && c.abilities.find(x => x.id === sui.rAb);
+      if (!c || !a) return;
+      if (r0.reacted.includes(sui.rSeat) && !ov){ alert('That Seat already Reacted to this Action.'); return; }
+      const p = abilityProblem(c, a, v); if (p && !ov){ alert(`${a.name} can't be used: ${p}.`); return; }
+      pushUndo();
+      const r = d6(); if (r === null){ undo(true); render(); return; }
+      const note = payAbility(c, a, sui.rDrive);
+      setAlly(k2, sui.rSupport || s2.id, c.id);
+      r0.reacted.push(sui.rSeat);
+      sui.pending = {kind:'react', confId:r0.confId, sideId:r0.sideId, idx:r0.idx, old:v, rolled:r, charId:c.id, abName:a.name, actorSeat:r0.actorSeat, ctx:r0};
+      sui.react = null;
+      addLog(`Reaction: ${c.name} uses ${a.name}${note}, rolls ${r} (was ${v})`); break;
+    }
+    case 'sc-react-done': sui.react = null; break;
+
+    /* stake / split / inspiration / schism */
+    case 'sc-tool': sui.tool = {kind:id, confId:k.id, sideId:s.id}; break;
+    case 'sc-tool-close': sui.tool = null; break;
+    case 'sc-tool-apply': {
+      const t = sui.tool, k2 = confById(t.confId), s2 = sideById(k2, t.sideId);
+      if (!s2) return;
+      if (t.kind === 'stake' || t.kind === 'schism'){
+        const [cid, dr] = val('#tl-cd').split('|'), c = charById(cid);
+        if (!c) return;
+        const amt = t.kind === 'stake' ? Math.max(1, parseInt(val('#tl-amt'), 10) || 1) : 1;
+        const prev = priorDrives(k2, cid);
+        if (prev.some(x => x.drive !== dr) && !ov){ alert(`${c.name} already Staked a different Drive on this Conflict. Only one Drive per Conflict (p.36).`); return; }
+        if (sum(prev.map(x => x.amount)) + amt > stakeCap(c, dr) && !ov){ alert(`That would put more than ${stakeCap(c, dr)} ${driveLabel(dr)} on this Conflict.`); return; }
+        if (getDebt(c, dr) < amt && !ov){ alert(`${c.name} only has ${getDebt(c, dr)} ${driveLabel(dr)} Debt.`); return; }
+        if (t.kind === 'stake'){
+          const other = k2.sides.find(x => x !== s2 && x.allies.includes(cid));
+          if (other && !ov){ alert(`${c.name} is Allied with "${other.label}". Use Schism to break away instead.`); return; }
+          if (!confirm(`Is "${k2.text}" morally charged for ${c.name}'s ${driveLabel(dr)} Drive (p.32)?`)) return;
+          pushUndo(); addDebt(c, dr, -amt);
+          const ex = s2.stakes.find(x => x.charId === cid && x.drive === dr);
+          if (ex) ex.amount += amt; else s2.stakes.push({charId:cid, drive:dr, amount:amt});
+          setAlly(k2, s2.id, cid);
+          addLog(`${c.name} Stakes ${amt} ${driveLabel(dr)} on "${k2.text}" (${s2.label})`);
+        } else {
+          const i = +val('#tl-die'), v = s2.dice[i];
+          if (!s2.allies.includes(cid) && !ov){ alert(`${c.name} must already be Allied with "${s2.label}". Roll on its behalf first (p.63).`); return; }
+          if (v < 2){ alert("A 1 can't be split."); return; }
+          if (!confirm(`Is "${k2.text}" morally charged for ${c.name}'s ${driveLabel(dr)} Drive (p.32)?`)) return;
+          pushUndo(); addDebt(c, dr, -1);
+          const [hi, lo] = evenSplit(v, 2);
+          s2.dice.splice(i, 1, lo);
+          const ns = mkSide(c.name); ns.dice = [hi]; ns.stakes = [{charId:cid, drive:dr, amount:1}];
+          k2.sides.push(ns); setAlly(k2, ns.id, cid);
+          addLog(`${c.name} Schisms from "${s2.label}" on "${k2.text}": Stakes 1 ${driveLabel(dr)}, splits ${v} into ${hi}/${lo}, and founds a new side with the ${hi}`);
+        }
+      } else if (t.kind === 'split'){
+        const i = +val('#tl-die'), n = Math.max(2, parseInt(val('#tl-n'), 10) || 2), v = s2.dice[i];
+        if (v < n){ alert(`A ${v} can't be split into ${n} dice. Each die must be at least 1.`); return; }
+        if (s2.dice.length - 1 + n > stakeTokens(s2) && !ov){ alert(`This side has ${stakeTokens(s2)} Staked Debt, so it can hold at most ${stakeTokens(s2)} dice. Stake more first.`); return; }
+        pushUndo(); const parts = evenSplit(v, n); s2.dice.splice(i, 1, ...parts);
+        addLog(`Split ${v} into ${parts.join('/')} on "${k2.text}" (${s2.label})`);
+      } else {
+        const se = seatById(sui.actSeat), j = +val('#tl-insp'), ins = se.inspirations[j], i = +val('#tl-die');
+        if (!ins) return;
+        if (ins.value <= s2.dice[i]){ alert(`That die is already ${s2.dice[i]}. The Inspiration (${ins.value}) wouldn't raise it.`); return; }
+        pushUndo(); const old = s2.dice[i]; s2.dice[i] = ins.value; se.inspirations.splice(j, 1);
+        addLog(`${se.name} spends a ${ins.value}-pt Inspiration (for ${ins.forTag || 'anyone'}) to raise a die from ${old} to ${ins.value} on "${k2.text}" (${s2.label})`);
+      }
+      sui.tool = null; break;
+    }
+
+    /* resolution */
+    case 'sc-resolve-open': {
+      const fs = {}; k.sides.forEach(x => fs[x.id] = x.allies[0] || '');
+      sui.resolve = {confId:k.id, winnerId:s.id, pairs:defaultPairs(k, s), forSide:fs, narr:''}; sui.tool = null; break;
+    }
+    case 'sc-resolve-cancel': sui.resolve = null; break;
+    case 'sc-resolve-apply': pushUndo(); applyResolution(); break;
+    case 'sc-gloat': {
+      const n = s.dice.filter(v => v > 1).length;
+      if (!n){ alert('No dice above 1 to turn down.'); return; }
+      const r = prompt(`Gloat (p.41): turn "${s.label}"'s dice to 1, starting with the highest. Each die turned earns ${seatName(s.claimedBy)} 1 Story Token. The Conflict stays on the table.\n\nHow many dice to turn down? (1–${n})`, String(n));
+      if (r === null) return;
+      const m = Math.min(n, Math.max(1, parseInt(r, 10) || 1));
+      pushUndo();
+      s.dice.map((v,i) => ({v, i})).sort((a,b) => b.v - a.v).slice(0, m).forEach(x => s.dice[x.i] = 1);
+      seatById(s.claimedBy).storyTokens += m; s.gloated = sc.page.number;
+      addLog(`${seatName(s.claimedBy)} GLOATS on "${k.text}": turns ${m} dice to 1, +${m} Story Token${m > 1 ? 's' : ''}`); break;
+    }
+    case 'sc-deadlock': {
+      if (!confirm(`Deadlock "${k.text}"? Only do this if the tie can't be broken: nobody can Stake more and every die is a 6.\n\nAll Staked Debt counts as lost and comes back doubled. Every die becomes an Inspiration for its own side, with no matching. You narrate the outcome together (p.30).`)) return;
+      pushUndo(); refundStakes(k, 2);
+      k.sides.forEach(x => {
+        const cid = x.allies[0], se = seatById(cid ? seatOf(cid) : x.claimedBy);
+        if (se) x.dice.forEach(v => se.inspirations.push({value:v, forTag: cid ? cname(cid) : x.label}));
+      });
+      sc.conflicts = sc.conflicts.filter(x => x !== k);
+      sc.resolved.push({type:k.type, text:k.text, winner:'Deadlock', by:'everyone', page:sc.page.number, narration:''});
+      addLog(`DEADLOCK on "${k.text}": Stakes returned doubled, all dice converted to Inspirations`); break;
+    }
+
+    /* page & scene */
+    case 'sc-end-page': {
+      if (sui.pending || sui.react){ alert('Finish the current roll first.'); return; }
+      const ready = sc.conflicts.some(x => x.sides.some(y => y.claimedBy && controlOf(x) === y.id && y.gloated !== sc.page.number));
+      if (ready && !confirm('Some Claimed sides Control their Conflicts and haven\'t been Resolved or Gloated. End the Page anyway?')) return;
+      pushUndo();
+      sc.conflicts.forEach(x => x.sides.forEach(y => { y.claimedBy = null; y.claimPaid = false; }));
+      const st = nextSeat(sc.page.starterSeat);
+      addLog(`— End of Page ${sc.page.number}. Page ${sc.page.number + 1}: ${seatName(st)} is Starter —`);
+      sc.page = newPage(sc.page.number + 1, st); sui = blankSui(st); break;
+    }
+    case 'sc-end-scene': {
+      if (!confirm(`End Scene ${sc.number}? Unresolved Conflicts are dropped, and their Staked Debt goes back to its Drives as it was (not doubled). Mundane abilities unblock.`)) return;
+      pushUndo();
+      sc.conflicts.forEach(x => refundStakes(x, 1));
+      addLog(`=== Scene ${sc.number} ends after ${sc.page.number} Page(s). ${sc.resolved.length} Conflict(s) resolved, ${sc.conflicts.length} dropped ===`);
+      state.scene = null; sui = blankSui(); break;
+    }
+    default: return;
+  }
+  save(); render();
+});
+
+document.addEventListener('change', e => {
+  const t = e.target, f = t.dataset.s;
+  if (!f) return;
+  if (f === 'physical' || f === 'override'){ settings()[f] = t.checked; save(); render(); return; }
+  if (f === 'label'){ const s = sideById(confById(t.dataset.conf), t.dataset.side); if (s){ s.label = t.value.trim() || s.label; save(); } render(); return; }
+  if (f === 'pair'){ if (sui.resolve) sui.resolve.pairs[t.dataset.x] = t.value; render(); return; }
+  if (f === 'forSide'){ if (sui.resolve) sui.resolve.forSide[t.dataset.side] = t.value; render(); return; }
+  sui[f] = t.value;
+  if (f === 'actChar' || f === 'inspIdx') sui.abId = '';
+  if (f === 'target'){ sui.support = ''; sui.abId = ''; }
+  if (f === 'rSeat'){ sui.rChar = ''; sui.rAb = ''; sui.rSupport = ''; }
+  if (f === 'rChar'){ sui.rAb = ''; sui.rSupport = ''; }
+  render();
+});
+document.addEventListener('input', e => {
+  if (e.target.id === 'rs-narr' && sui.resolve) sui.resolve.narr = e.target.value;
+});
+
+// ===================================================================
+// STEP 3 — JOURNAL (comic script) & GENERATORS (complete)
+// ===================================================================
+document.head.insertAdjacentHTML('beforeend', `<style>
+.script{background:#fff;border:1px solid var(--line);border-radius:10px;padding:18px 22px;font-family:Georgia,"Times New Roman",serif;font-size:16px;line-height:1.55}
+.script h2{font-family:system-ui,sans-serif;font-style:italic;font-weight:900;border-bottom:3px solid #1c1c1e;margin:22px 0 4px}
+.script h3{font-family:system-ui,sans-serif;font-size:13px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin:16px 0 6px}
+.script p{margin:6px 0}
+.script .spk{font-family:system-ui,sans-serif;font-weight:800;text-transform:uppercase;font-size:13px;letter-spacing:.5px}
+.script .mech{font-family:system-ui,sans-serif;font-size:12px;color:var(--muted);margin:2px 0 2px 12px}
+.script .res{font-family:system-ui,sans-serif;font-size:13px;background:#f4f8fd;border-left:3px solid var(--blue);padding:4px 8px;margin:6px 0}
+.script .ed{visibility:hidden}
+.script p:hover .ed{visibility:visible}
+.genres{padding:2px 0}
+.genres.first{font-size:18px;font-weight:700}
+</style>`);
+
+/* ---------- Appendix data ---------- */
+const NAME_ROWS = `Adam Alex Alfred|Alice Elizabeth Evelyn|York Olsen Ilyan
+Eddie Eric Arthur|Annie Angela Iris|Hart Osborne Harper
+Hugh Henry Holland|Audrey Yvonne Holly|Hayes Hunter Hood
+Nick Norman Noel|Nina Nicky Nikita|Knight Nelson Noble
+Max Michael Monty|Mary Maggie Michelle|May Morgan Moon
+Bruce Peter Brandon|Betty Becky Bonnie|Black Banner Bishop
+Bill Bobby Brent|Paula Peggy Polly|Pace Parker Powers
+Frank Phillip Felix|Fay Felicia Phyllis|Frost Foster Faust
+Victor Vincent Vance|Vicky Vanessa Vivian|West Watson White
+Will Walter Wayne|Wendy Veronica Wanda|Wayne Wagner Valentine
+Dan Dave Dennis|Tina Theresa Donna|Tate Doyle Drake
+Tim Douglas Terry|Dana Diana Dawn|Duke Tucker Tombs
+Tom Tony Dale|Doris Dorothy Trudy|Troy Tesla Trueheart
+Kurt Kevin Kirk|Kim Kathy Kelly|Kent Kirby King
+Glen Gordon Guy|Gwen Christine Grace|Grey Griffin Queen
+Carl Calvin Clark|Carol Claudia Constance|Cross Gardner Graves
+Jack Charlie Chester|Jill Jackie Charlotte|Giles Jenkins Chase
+John Jimmy Charles|Jane Jenny Jean|James Jackson Jordan
+Steve Stanley Sidney|Sarah Sandy Sylvia|Stark Stacey Savage
+Scott Stuart Cecil|Sue Susan Sharon|Snow Santiago Strange
+Rick Richard Reed|Rita Rebecca Renee|Roy Richards Rasputin
+Rex Robert Roland|Rose Robin Roxanne|Rush Rogers Rook
+Lance Leo Theo|Lois Lana Lilith|Lane Logan Love`.split('\n').map(r => r.split('|').map(c => c.trim().split(' ')));
+
+const GADGET_ROWS = `Meta-|Quantum|Resonant|Flux|Oscillator
+Proto-|Nucleic|Intrinsic|Probability|Discriminator
+Quasi-|Temporal|Inertial|Asymmetry|Capacitor
+Hyper-|Dimensional|Harmonic|Spin|Accelerator
+Inter-|Spatial|Proton|Polarity|Stabilizer
+Mono-|Molecular|Vibration|Field|Scrambler
+Mega-|Atomic|Gravity|Particle|Anchor
+Anti-|Magnetic|Energy|Wave|Scope
+Micro-|Electric|Fluid|Beam|Cannon
+Super-|Hydraulic|Steam|Pulse|Bomb`.split('\n').map(r => r.split('|'));
+
+const INCANT_ROWS = `Akhenaton's|Awesome|Ankh
+Baldur's|Bristling|Beard
+Cuchulainn's|Crystal|Circle
+Durendal's|Divine|Dance
+Eris's|Enticing|Exorcism
+Fenris's|Fractured|Fangs
+Gilgamesh's|Gruesome|Glare
+Hoggoth's|Hoary|Hosts
+Isis's|Immutable|Illusion
+Jove's|Jewelled|Judgment
+Kali's|Kindred|Killer
+Legba's|Legendary|Lore
+Merlin's|Mystic|Might
+Nebuchadnezzar's|Nefarious|Needle
+Odin's|Onerous|Ordeal
+Perseus's|Princely|Portal
+Quetzacoatl's|Quivering|Quills
+Ra's|Raging|Rod
+Sibyll's|Soothing|Shield
+Titania's|Trusty|Titan
+Uriel's|Unstoppable|Uprising
+Vishnu's|Vast|Virtue
+Wakanda's|Wasted|Weaving
+Yggdrasil's|Yearning|Yell
+Zoroaster's|Zealous|Zombies`.split('\n').map(r => r.split('|'));
+
+/* ---------- Generators ---------- */
+const rnd = n => Math.floor(Math.random() * n);
+const pick = a => a[rnd(a.length)];
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+let gs = {gender:'any', allit:3, era:5, spread:1, incForm:'by', incAllit:true, incStack:0, names:[], gadgets:[], incs:[]};
+
+function genName(){
+  const N = NAME_ROWS.length, r = rnd(N), g = gs.gender === 'any' ? rnd(2) : (gs.gender === 'male' ? 0 : 1), a = +gs.allit;
+  const sr = a >= N ? rnd(N) : clamp(r + rnd(2 * a + 1) - a, 0, N - 1);
+  return pick(NAME_ROWS[r][g]) + ' ' + pick(NAME_ROWS[sr][2]);
+}
+function genGadget(){
+  const e = +gs.era, s = +gs.spread;
+  const w = [0,1,2,3,4].map(c => GADGET_ROWS[clamp(e + rnd(2 * s + 1) - s, 0, 9)][c]);
+  return w[0] + w[1] + ' ' + w.slice(2).join(' ');
+}
+function genIncant(){
+  const R = INCANT_ROWS, r = rnd(R.length), cell = c => gs.incAllit ? R[r][c] : pick(R)[c];
+  const who = cell(0), words = [cell(1)];
+  for (let i = 0; i < +gs.incStack; i++) words.push(pick(R)[1 + rnd(2)]);
+  words.push(cell(2));
+  const phrase = words.join(' ');
+  if (gs.incForm === 'of') return `the ${phrase} of ${who.replace(/'s$/, '')}`;
+  if (gs.incForm === 'plain') return `${who} ${phrase}`;
+  return `By ${who} ${phrase}!`;
+}
+function pushRes(list, v){ list.unshift(v); if (list.length > 12) list.pop(); }
+function gLabel(k, v){
+  v = +v;
+  if (k === 'allit') return v === 0 ? 'same row (heavy)' : v >= NAME_ROWS.length ? 'anywhere (none)' : `±${v} rows`;
+  if (k === 'era') return `${v} (${v < 3 ? 'modern' : v < 7 ? 'mid-century' : 'antique'})`;
+  return `±${v}`;
+}
+function resList(list, asChar){
+  if (!list.length) return '<p class="muted">Nothing yet.</p>';
+  return list.map((v, i) => `<div class="row genres ${i === 0 ? 'first' : ''}"><span class="grow">${esc(v)}</span>
+    <button class="small" data-a="gn-copy" data-x="${esc(v)}">Copy</button>
+    ${asChar ? `<button class="small" data-a="gn-char" data-x="${esc(v)}">New character</button>` : ''}</div>`).join('');
+}
+function renderGen(){
+  return `<div class="hint">Quick names, gadgets and incantations from the book's appendices (p.155–158). Click <b>Copy</b>, or turn a name straight into a new character.</div>
+  <div class="grid">
+    <div class="panel"><h2>Mundane Names</h2>
+      <div class="row"><label>Gender<br><select data-g="gender">${opt('any','Any',gs.gender)}${opt('male','Male',gs.gender)}${opt('female','Female',gs.gender)}</select></label>
+        <label class="grow">Alliteration: <span id="gl-allit">${gLabel('allit', gs.allit)}</span><br><input type="range" class="full" min="0" max="${NAME_ROWS.length}" data-g="allit" value="${gs.allit}"></label></div>
+      <div class="row"><button class="primary" data-a="gn-name">Generate</button><button data-a="gn-name" data-n="5">×5</button><button class="small" data-a="gn-clear" data-x="names">Clear</button></div>
+      ${resList(gs.names, true)}</div>
+    <div class="panel"><h2>Scientific Gadgets</h2>
+      <div class="row"><label class="grow">Era: <span id="gl-era">${gLabel('era', gs.era)}</span><br><input type="range" class="full" min="0" max="9" data-g="era" value="${gs.era}"></label>
+        <label>Mix: <span id="gl-spread">${gLabel('spread', gs.spread)}</span><br><input type="range" min="0" max="5" data-g="spread" value="${gs.spread}"></label></div>
+      <div class="row"><button class="primary" data-a="gn-gadget">Generate</button><button data-a="gn-gadget" data-n="5">×5</button><button class="small" data-a="gn-clear" data-x="gadgets">Clear</button></div>
+      ${resList(gs.gadgets, false)}</div>
+    <div class="panel"><h2>Magical Incantations</h2>
+      <div class="row"><label>Form<br><select data-g="incForm">${opt('by','By X\'s …!',gs.incForm)}${opt('of','the … of X',gs.incForm)}${opt('plain','X\'s …',gs.incForm)}</select></label>
+        <label>Extra words<br><input type="number" min="0" max="8" style="width:64px" data-g="incStack" value="${gs.incStack}"></label>
+        <label><input type="checkbox" data-g="incAllit" ${gs.incAllit ? 'checked' : ''}> Alliterate</label></div>
+      <div class="row"><button class="primary" data-a="gn-incant">Generate</button><button data-a="gn-incant" data-n="5">×5</button><button class="small" data-a="gn-clear" data-x="incs">Clear</button></div>
+      ${resList(gs.incs, false)}</div>
+  </div>`;
+}
+
+/* ---------- Clipboard & download ---------- */
+function fallbackCopy(t){
+  const ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); setSaved('Copied ✓'); } catch(e){ prompt('Copy this:', t); }
+  ta.remove();
+}
+function copyText(t){
+  if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(t).then(() => setSaved('Copied ✓'), () => fallbackCopy(t));
+  else fallbackCopy(t);
+}
+function downloadText(name, text){
+  const blob = new Blob([text], {type:'text/markdown'}), a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+/* ---------- Journal ---------- */
+addLog = function(msg, extra){
+  const sc = state.scene;
+  state.log.push(Object.assign({t:Date.now(), msg, scene: sc ? sc.number : null, page: sc ? sc.page.number : null}, extra || {}));
+  if (state.log.length > 5000) state.log.splice(0, state.log.length - 5000);
+};
+function journalItems(){
+  const items = []; let scene = 0;
+  state.log.forEach((l, idx) => {
+    const m = String(l.msg || ''); let x;
+    if (l.kind === 'narr'){ items.push({type:'p', text:m, speaker:l.speaker || '', idx, scene}); return; }
+    if ((x = m.match(/^=== Scene (\d+) begins(?:: (.*?))? \(declared by (.*?)\) ===$/))){
+      scene = +x[1];
+      items.push({type:'h2', text:`Scene ${x[1]}${x[2] ? ': ' + x[2] : ''}`, sub:`declared by ${x[3]}`, scene});
+      items.push({type:'h3', text:'Page 1', sub:'', scene}); return;
+    }
+    if ((x = m.match(/^— End of Page \d+\. Page (\d+): (.*?) is Starter —$/))){ items.push({type:'h3', text:`Page ${x[1]}`, sub:`${x[2]} starts`, scene}); return; }
+    if (m.startsWith('RESOLVED ')){
+      const cut = m.lastIndexOf(' — "'), narr = cut >= 0 ? m.slice(cut + 4, -1) : '', head = cut >= 0 ? m.slice(0, cut) : m;
+      const y = head.match(/^RESOLVED (\w+) "(.*)" for (.*?) by (.*?): (.*)$/);
+      items.push({type:'res', text: y ? `${y[1]} “${y[2]}”: won by ${y[3]}` : head, pay: y ? y[5] : '', narr, scene}); return;
+    }
+    if (m.startsWith('DEADLOCK')){ items.push({type:'res', text:m, pay:'', narr:'', scene}); return; }
+    items.push({type:'mech', text:m.replace(/^=+\s*|\s*=+$/g, ''), scene});
+  });
+  return items;
+}
+function journalView(){
+  let it = journalItems();
+  if (ui.jrScene && ui.jrScene !== 'all') it = it.filter(x => String(x.scene) === ui.jrScene);
+  if (!ui.jrMech) it = it.filter(x => x.type !== 'mech');
+  return it.filter((x, i) => x.type !== 'h3' || (it[i + 1] && !['h2','h3'].includes(it[i + 1].type)));
+}
+function journalHTML(it){
+  return it.map(x => {
+    if (x.type === 'h2') return `<h2>${esc(x.text)}</h2><div class="muted">${esc(x.sub)}</div>`;
+    if (x.type === 'h3') return `<h3>${esc(x.text)}${x.sub ? ' · ' + esc(x.sub) : ''}</h3>`;
+    if (x.type === 'p') return `<p>${x.speaker ? `<span class="spk">${esc(x.speaker)}:</span> ` : ''}${esc(x.text)}
+      <span class="ed"><button class="small" data-a="jr-edit" data-x="${x.idx}">Edit</button><button class="small danger" data-a="jr-del" data-x="${x.idx}">✕</button></span></p>`;
+    if (x.type === 'res') return `${x.narr ? `<p>${esc(x.narr)}</p>` : ''}<div class="res">✔ ${esc(x.text)}${ui.jrMech && x.pay ? `<div class="muted">${esc(x.pay)}</div>` : ''}</div>`;
+    return `<div class="mech">${esc(x.text)}</div>`;
+  }).join('');
+}
+function journalMD(it){
+  const out = [`# ${state.journalTitle || 'Capes! — Session Journal'}`, ''];
+  it.forEach(x => {
+    if (x.type === 'h2') out.push('', `## ${x.text}`, `*${x.sub}*`, '');
+    else if (x.type === 'h3') out.push(`### ${x.text}${x.sub ? ' · ' + x.sub : ''}`, '');
+    else if (x.type === 'p') out.push(x.speaker ? `**${x.speaker.toUpperCase()}:** ${x.text}` : x.text, '');
+    else if (x.type === 'res'){ if (x.narr) out.push(x.narr, ''); out.push(`> ✔ ${x.text}${ui.jrMech && x.pay ? ` (${x.pay})` : ''}`, ''); }
+    else out.push(`- *${x.text}*`);
+  });
+  return out.join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n';
+}
+function narrBox(inScene){
+  const sc = SC(), speakers = sc ? castChars() : [];
+  const recent = inScene && sc ? state.log.filter(l => l.kind === 'narr' && l.scene === sc.number).slice(-4) : [];
+  return `<div class="panel"><h3>Narrate</h3>
+    ${recent.length ? `<div class="muted">${recent.map(l => `<div>${l.speaker ? '<b>' + esc(l.speaker) + ':</b> ' : ''}${esc(l.msg)}</div>`).join('')}</div>` : ''}
+    <div class="row"><select id="jr-spk"><option value="">Narration (no speaker)</option>${speakers.map(c => opt(c.name, c.name, ui.jrSpk || '')).join('')}<option value="__other">Other speaker…</option></select></div>
+    <textarea id="jr-text" style="min-height:70px" placeholder="What happens? Captions, dialogue, sound effects… (Ctrl+Enter to add)">${esc(ui.jrDraft || '')}</textarea>
+    <div class="row"><button class="primary" data-a="jr-add">Add to journal</button></div></div>`;
+}
+function addNarration(){
+  const ta = document.getElementById('jr-text'), text = ta ? ta.value.trim() : '';
+  if (!text) return false;
+  let spk = val('#jr-spk');
+  if (spk === '__other'){ const p = prompt('Speaker name:'); if (p === null) return false; spk = p.trim(); }
+  ui.jrSpk = spk; ui.jrDraft = '';
+  addLog(text, {kind:'narr', speaker:spk});
+  return true;
+}
+function renderJournal(){
+  const scenes = [...new Set(journalItems().map(x => x.scene))].filter(n => n);
+  const it = journalView();
+  return `<div class="panel"><div class="row spread"><h2>Journal</h2><div class="row">
+      <button data-a="jr-copy">Copy as text</button><button class="primary" data-a="jr-export">Export .md</button></div></div>
+    <div class="row">
+      <label>Show<br><select data-j="jrScene">${opt('all','All scenes',ui.jrScene || 'all')}${scenes.map(n => opt(String(n), 'Scene ' + n, ui.jrScene)).join('')}</select></label>
+      <label><input type="checkbox" data-j="jrMech" ${ui.jrMech ? 'checked' : ''}> Include game mechanics</label>
+      <label class="grow">Title<br><input class="full" data-j="jrTitle" value="${esc(state.journalTitle || '')}" placeholder="e.g. Freedom Society #1"></label>
+    </div>
+    <p class="muted">Your narration and every resolved Conflict, laid out like a comic script. Add narration from the Scene tab while you play, or here. Hover over a line to edit or delete it.</p></div>
+  ${narrBox(false)}
+  <div class="script">${it.length ? journalHTML(it) : '<p class="muted">Nothing here yet. Narrate something!</p>'}</div>`;
+}
+
+/* ---------- Hook into the app ---------- */
+const _renderScene3 = renderScene;
+renderScene = function(){
+  const h = _renderScene3();
+  if (!SC()) return h;
+  const box = narrBox(true), i = h.indexOf('<div class="panel"><h3>Conflicts');
+  return i < 0 ? h + box : h.slice(0, i) + box + h.slice(i);
+};
+const _renderTable3 = renderTable;
+renderTable = function(){
+  return _renderTable3().replace('This step handles bookkeeping. Roll real dice for now. The Scene and Page engine comes in step 2.', 'Play Scenes on the Scene tab and keep the story in the Journal.');
+};
+renderNav = function(){
+  const cur = ['table','scene','journal','gen'].includes(ui.tab) ? ui.tab : 'characters';
+  document.getElementById('nav').innerHTML = [['table','Table'],['scene','Scene' + (state.scene ? ' ●' : '')],['characters','Characters'],['journal','Journal'],['gen','Generators']]
+    .map(([k,l]) => `<button data-a="tab" data-id="${k}" class="${k === cur ? 'active' : ''}">${l}</button>`).join('');
+};
+const _render3 = render;
+render = function(){
+  if (ui.tab === 'journal' || ui.tab === 'gen'){
+    renderNav();
+    document.getElementById('main').innerHTML = ui.tab === 'journal' ? renderJournal() : renderGen();
+    return;
+  }
+  _render3();
+};
+
+/* ---------- Events ---------- */
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-a="clear-log"]');
+  if (b && state.log.some(l => l.kind === 'narr') && !confirm('Clearing the log also erases your Journal narration. Export the Journal first if you want to keep it.\n\nClear anyway?'))
+    e.stopImmediatePropagation();
+}, true);
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-a]');
+  if (!b || b.disabled) return;
+  const A = b.dataset.a, x = b.dataset.x, n = +b.dataset.n || 1;
+  if (!A.startsWith('gn-') && !A.startsWith('jr-')) return;
+  switch (A){
+    case 'gn-name': for (let i = 0; i < n; i++) pushRes(gs.names, genName()); render(); return;
+    case 'gn-gadget': for (let i = 0; i < n; i++) pushRes(gs.gadgets, genGadget()); render(); return;
+    case 'gn-incant': for (let i = 0; i < n; i++) pushRes(gs.incs, genIncant()); render(); return;
+    case 'gn-clear': gs[x] = []; render(); return;
+    case 'gn-copy': copyText(x); return;
+    case 'gn-char': ui.draft = blankCharacter('mundane'); ui.draft.name = x; ui.cl = blankCL(); ui.clOpen = false; ui.tab = 'edit'; render(); return;
+    case 'jr-add': if (!addNarration()) return; break;
+    case 'jr-edit': {
+      const l = state.log[+x]; if (!l) return;
+      const t = prompt('Edit narration (leave empty to delete):', l.msg); if (t === null) return;
+      if (t.trim()) l.msg = t.trim(); else state.log.splice(+x, 1); break;
+    }
+    case 'jr-del': if (!confirm('Delete this line?')) return; state.log.splice(+x, 1); break;
+    case 'jr-copy': copyText(journalMD(journalView())); return;
+    case 'jr-export': downloadText(`capes-journal-${today()}.md`, journalMD(journalView())); return;
+    default: return;
+  }
+  save(); render();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.target.id === 'jr-text' && e.key === 'Enter' && (e.ctrlKey || e.metaKey)){
+    e.preventDefault();
+    if (addNarration()){ save(); render(); const t = document.getElementById('jr-text'); if (t) t.focus(); }
+  }
+});
+document.addEventListener('input', e => {
+  const t = e.target;
+  if (t.id === 'jr-text') ui.jrDraft = t.value;
+  if (t.dataset.g && t.type === 'range'){ const sp = document.getElementById('gl-' + t.dataset.g); if (sp) sp.textContent = gLabel(t.dataset.g, t.value); }
+});
+document.addEventListener('change', e => {
+  const t = e.target;
+  if (t.id === 'jr-spk'){ ui.jrSpk = t.value; return; }
+  if (t.dataset.g){ gs[t.dataset.g] = t.type === 'checkbox' ? t.checked : t.value; render(); return; }
+  if (t.dataset.j){
+    if (t.dataset.j === 'jrTitle'){ state.journalTitle = t.value.trim(); save(); return; }
+    ui[t.dataset.j] = t.type === 'checkbox' ? t.checked : t.value; render();
+  }
+});
+
+// ===================================================================
+// STEP 4: ADVISOR, ODDS, AGENDAS, PROMPT TABLES, ORACLE, AI PROMPT
+// ===================================================================
+document.head.insertAdjacentHTML('beforeend', `<style>
+.odds{background:#eef7ee;border:1px solid #bfe0bf;border-radius:6px;padding:5px 9px;margin:6px 0;font-size:14px}
+details.adv{border:2px solid #1c1c1e}
+details.adv>summary{cursor:pointer;font-weight:700;font-size:16px}
+details.advtools{margin-top:10px;border-top:1px dashed var(--line);padding-top:8px}
+details.advtools>summary{cursor:pointer;font-weight:600}
+.sugg{padding:6px 0;border-bottom:1px dotted var(--line)}
+.sugg .cite{color:var(--muted);font-size:12px}
+.sugg.top{font-weight:600}
+</style>`);
+
+/* ---------- Data ---------- */
+const AGENDAS = {
+  none:   ['No agenda',      {}],
+  hog:    ['Spotlight Hog',  {win:3, spot:4, tokens:-1}],
+  farmer: ['Token Farmer',   {tokens:4, debt:1, win:-2}],
+  chaos:  ['Agent of Chaos', {chaos:5, story:1}],
+  steward:['Story Steward',  {story:5, defense:1}]
+};
+const AGENDA_DESC = {
+  none:'Suggestions ranked on tactics alone.',
+  hog:'Fights hardest for its Spotlight characters and for winning.',
+  farmer:'Hunts for Stakes to lose and Story Tokens to collect. Good for villain Seats.',
+  chaos:'Rocks the boat: old characters come back, distractions pile up (p.137).',
+  steward:'Follows its Story-Thread (Chapter 8). Write the thread below.'
+};
+const DRIVE_PROMPTS = {
+  Justice:['{c} is accused of a crime they did not commit','A cop or official demands {h} stand down','A law protects {v} and stands in the way','{h} is tempted to cross a line to stop {v}','A rule {h} believes in produces an unjust result'],
+  Truth:["Someone nearly sees through {h}'s secret identity",'{c} catches {h} in a lie',"A secret about {h}'s origin surfaces",'A disguise or cover story starts to crack','{c} asks a direct question {h} cannot honestly answer'],
+  Love:['{e} is endangered',"A rival for {e}'s affection appears",'{h} must choose between a date and duty','{c} feels neglected and says so','An old flame returns at the worst moment'],
+  Hope:['Bystanders are caught in the crossfire','The public turns against {h}','A child idolizes {h} and copies something reckless','Ordinary people need help nobody will notice','A news story paints {h} as a menace'],
+  Duty:['Only {h} can stop a disaster, but it means abandoning something else',"A mentor judges {h}'s worth",'{h} is assigned a task they hate','A team-mate fails and {h} must cover for them','Two responsibilities collide at the same moment'],
+  Fear:["A minion questions {v}'s courage",'{v} faces the thing they dread most','{h} stands up to {v} without flinching',"{v}'s plan depends on someone staying afraid",'A trusted lieutenant shows {v} pity'],
+  Obsession:["{v}'s theory is about to be proven, or disproven",'A clue leads {v} back to the one thing they cannot let go','{v} sacrifices an ally for the plan','Someone offers {v} a shortcut with a price','The plan needs one more impossible ingredient'],
+  Pride:['{h} mocks {v} in public','{v} insists on defeating {h} personally',"A lesser villain gets credit for {v}'s work",'{v} must accept help to win','{v} is simply ignored'],
+  Power:["{v}'s superior punishes them for no reason",'A chance to seize command presents itself','A minion is ready to betray {v}','{v} demands total submission from {c}','Someone more powerful takes notice'],
+  Despair:["{v} tries to break {h}'s hope","A small kindness shakes {v}'s certainty",'{v} arranges for the heroes to fail publicly','{c} offers {v} a reason to believe','{v} returns to the scene of an old atrocity']
+};
+const TWISTS = [
+  '{e} is endangered or kidnapped (p.148)',
+  '{c} turns out to be the secret alter-ego of a super (p.148)',
+  'A coincidence turns out to be a conspiracy (p.148)',
+  'Someone from an old Scene returns and rocks the boat (p.137)',
+  '{c} picks a fight with someone close to them (Stage-Setting Event, p.126)',
+  'A bigger crisis demands attention right now (Distraction Conflict, p.126)',
+  '{c} switches sides, or seems to',
+  "The villain's plan was a decoy all along",
+  'A secret is overheard by the worst possible person',
+  'The location turns dangerous: collapse, fire or flood',
+  'A flash-back shows why this matters to {c} (p.136)',
+  'Help arrives from an unexpected quarter, at a price'
+];
+const ODDS_LV = [['Very unlikely',10],['Unlikely',25],['50/50',50],['Likely',75],['Very likely',90]];
+const AI_RULES = 'Conflicts are Goals (someone tries something) or Events (something will definitely happen) with two or more sides holding d6s; the side with the highest total Controls. An Action either uses an Ability to roll any one die (the ability level must be at least the die value; the roller may accept the new value or turn it back), uses an Ability to raise an Inspiration by 1, or creates a Conflict. Powered abilities (⚡) give +1 Debt and can be used once per Page; mundane ones Block for the rest of the Scene. After an accepted roll, each Seat may React once with an Ability of level ≥ the die. Staking moves Debt from a Drive onto a Conflict (one Drive per Conflict, at most its Strength) and lets that side Split dice (max dice = Stakes). On Resolution the winners\' Stakes become Story Tokens for the losers, the losers take their Stakes back doubled, and matched dice become Inspirations. Story Tokens buy extra Actions, Claims, Conflicts and characters. A Drive is Overdrawn when its Debt exceeds its Strength. "Not Yet": no one narrates a Conflict\'s outcome until it Resolves. "And Then": if the narrator\'s side doesn\'t Control, the Controlling side finishes the narration with a setback.';
+const AI_TASKS = {
+  move:  ['Suggest a move', 'Suggest ONE legal move for this Seat in the current phase: which character, which ability, which die or Conflict (or which side to Claim). Give the tactical reason in one sentence, then narrate it in 2–3 sentences of comic-book prose. Do not decide any dice results; I will roll.'],
+  narrate:['Narrate the last action', 'Narrate the most recent action in the log in 3–4 sentences of comic-book prose (captions plus a line of dialogue). Respect "Not Yet": do not narrate the outcome of any unresolved Conflict. If the acting side does not Control that Conflict, end with "And then…" and a setback from the Controlling side.'],
+  twist: ['Suggest twists', 'Suggest three twists or new Conflicts, each written as "Goal: …" or "Event: …", that would raise the stakes. Favor ones charged for the cast\'s most indebted Drives, and ones the other Seats would fight over. One sentence each.']
+};
+
+/* ---------- Odds ---------- */
+function rollOdds(k, s, i, supId){
+  const v = s.dice[i], good = r => supId === s.id ? r > v : r < v;
+  let better = 0, ctrl = 0;
+  const now = controlOf(k) === supId;
+  for (let r = 1; r <= 6; r++){
+    if (good(r)) better++;
+    const old = s.dice[i]; s.dice[i] = good(r) ? r : v;
+    if (controlOf(k) === supId) ctrl++;
+    s.dice[i] = old;
+  }
+  return {better, ctrl, now};
+}
+const pct6 = n => Math.round(n / 6 * 100) + '%';
+function oddsHTML(k, s, i, supId){
+  const o = rollOdds(k, s, i, supId), sup = sideById(k, supId), dir = supId === s.id ? 'higher' : 'lower';
+  return `<div class="odds">🎲 <b>${pct6(o.better)}</b> to roll ${dir} than ${s.dice[i]} · <b>${pct6(o.ctrl)}</b> that "${esc(sup.label)}" Controls afterward <span class="muted">(${o.now ? 'Controls now' : "doesn't Control now"})</span></div>`;
+}
+const _rap4 = renderActionPanel;
+renderActionPanel = function(sc){
+  let h = _rap4(sc);
+  if (sui.mode === 'die'){
+    const t = parseTarget(sui.target);
+    if (t && sideById(t.k, sui.support)) h = h.replace('<p class="muted">Roll up a die', oddsHTML(t.k, t.s, t.i, sui.support) + '<p class="muted">Roll up a die');
+  }
+  return h;
+};
+const _rrp4 = renderRollPanel;
+renderRollPanel = function(sc){
+  let h = _rrp4(sc);
+  const r = sui.react;
+  if (!sui.pending && r){
+    const k = confById(r.confId), s = sideById(k, r.sideId);
+    if (s && s.dice[r.idx] !== undefined && sideById(k, sui.rSupport))
+      h = h.replace('<p class="muted">Already reacted:', oddsHTML(k, s, r.idx, sui.rSupport) + '<p class="muted">Already reacted:');
+  }
+  return h;
+};
+
+/* ---------- Advisor ---------- */
+const agendaOf = id => (state.agendas || {})[id] || 'none';
+function advCtx(){
+  const sc = SC(), seat = seatById(sui.actSeat) || state.seats[0], ph = sc.page.phase;
+  const order = orderFrom(sc.page.starterSeat), pos = order.findIndex(s => s.id === seat.id);
+  const mine = castChars(seat.id), mineIds = new Set(mine.map(c => c.id));
+  const others = castChars().filter(c => !mineIds.has(c.id));
+  const mySide = k => k.sides.find(s => s.allies.some(a => mineIds.has(a)));
+  return {sc, seat, ph, pos, last: pos === order.length - 1, mine, mineIds, others, mySide};
+}
+const ADV = [
+  // Claim what you already Control
+  x => x.ph !== 'claims' ? [] : x.sc.conflicts.flatMap(k => {
+    const s = x.mySide(k);
+    return s && !s.claimedBy && controlOf(k) === s.id ? [{s: x.last ? 7 : 5, tags:['win'],
+      t:`Claim "${s.label}" on "${k.text}". Your side Controls it${x.last ? ', and you act last, so defending it is cheap' : ''}.`, p:'p.127'}] : [];
+  }),
+  // Page position
+  x => {
+    const m = [['As Starter you move first and everyone can answer you. Stick to low-risk moves and build on last Page\'s groundwork.','defense'],
+               ['Second is the flexible spot. Grab something good, and create a juicy Conflict you can Claim as Starter next Page.','story'],
+               ['You act last, so you get the final word. This is the best place for high-risk tactics.','win']];
+    const i = x.pos === 0 ? 0 : x.last ? 2 : 1;
+    return [{s:2, tags:[m[i][1]], t:m[i][0], p:'p.127'}];
+  },
+  // Find a mark
+  x => {
+    if (x.seat.storyTokens > 2) return [];
+    const m = x.others.flatMap(c => driveKeys(c).map(d => ({c, d, n:getDebt(c, d)}))).filter(m => m.n >= 2).sort((a,b) => b.n - a.n)[0];
+    return m ? [{s:4 + m.n, tags:['tokens'],
+      t:`Mark found: ${m.c.name} carries ${m.n} ${driveLabel(m.d)} Debt. Create a Conflict charged for ${driveLabel(m.d)} and take the opposing side. When they Stake and win, you collect Story Tokens.`, p:'p.132–133'}] : [];
+  },
+  // Overdrawn
+  x => x.mine.filter(c => overdrawnDrives(c).length).map(c => ({s:7, tags:['debt','defense'],
+    t:`${c.name} is Overdrawn (${overdrawnDrives(c).join(', ')}). Stake that Debt on a Conflict charged for the Drive, which takes it off the Drive right away. The cheapest win is a small Conflict that only matters to ${c.name}.`, p:'p.36, p.131'})),
+  // Low Debt
+  x => x.mine.filter(c => c.kind === 'super' && driveKeys(c).length && totalDebt(c) < 2).map(c => ({s:3, tags:['debt'],
+    t:`${c.name} has almost no Debt. Use powers freely, on Reactions too. Debt is fuel for Staking and Splitting.`, p:'p.130–131'})),
+  // Heavy Debt
+  x => x.mine.filter(c => totalDebt(c) >= 6).map(c => ({s:4, tags:['debt'],
+    t:`${c.name} carries ${totalDebt(c)} Debt. Spawn minor Conflicts, Stake on them, and spend Story Tokens to Claim several per Page.`, p:'p.135'})),
+  // Preventative Goal
+  x => {
+    if (x.sc.conflicts.some(q => /escape/i.test(q.text))) return [];
+    for (const k of x.sc.conflicts){
+      const my = x.mySide(k); if (!my || controlOf(k) !== my.id) continue;
+      for (const s of k.sides){
+        if (s === my) continue;
+        const opp = s.allies.find(a => !x.mineIds.has(a));
+        if (opp) return [{s:3, tags:['defense','story'],
+          t:`${cname(opp)} is losing "${k.text}" and could just narrate an escape. Pin them down by declaring "Goal: ${cname(opp)} escapes to fight another day".`, p:'p.126'}];
+      }
+    }
+    return [];
+  },
+  // Gloat
+  x => !state.comicsCode.length ? [] : x.sc.conflicts.flatMap(k => k.sides
+    .filter(s => s.claimedBy === x.seat.id && controlOf(k) === s.id && s.gloated !== x.sc.page.number)
+    .map(s => { const n = s.dice.filter(v => v > 1).length; return {s: x.ph === 'resolve' ? 6 : 3, tags:['tokens'],
+      t:`If Resolving "${k.text}" would break the Comics Code, Gloat instead: ${n} die${n === 1 ? '' : 's'} above 1 means up to ${n} Story Token${n === 1 ? '' : 's'}. With a spare Story Token, buy an Action, Stake and Split first for a bigger Gloat (Multi-Gloat).`, p:'p.41, p.125'}; })),
+  // Ready to React against high opposing dice
+  x => {
+    if (x.ph !== 'actions') return [];
+    const out = [];
+    x.sc.conflicts.forEach(k => {
+      const my = x.mySide(k); if (!my) return;
+      k.sides.filter(s => s !== my).forEach(s => s.dice.forEach((v, i) => {
+        if (v < 4) return;
+        let best = null;
+        x.mine.forEach(c => c.abilities.forEach(a => { if (!abilityProblem(c, a, v) && (!best || a.level < best.a.level)) best = {c, a}; }));
+        if (!best) return;
+        const o = rollOdds(k, s, i, my.id);
+        out.push({s:2 + v, tags:['win','defense'],
+          t:`Ready to answer "${s.label}"'s ${v} on "${k.text}" with ${best.c.name}'s ${best.a.name} (level ${best.a.level}): ${pct6(o.better)} to lower it, ${pct6(o.ctrl)} that you Control afterward.`, p:'p.38, p.40'});
+      }));
+    });
+    return out.sort((a,b) => b.s - a.s).slice(0, 2);
+  },
+  // Inspiration takes Control
+  x => {
+    const out = [];
+    x.seat.inspirations.forEach(ins => x.sc.conflicts.forEach(k => {
+      const my = x.mySide(k); if (!my || controlOf(k) === my.id) return;
+      my.dice.forEach((v, i) => {
+        if (ins.value <= v) return;
+        const old = my.dice[i]; my.dice[i] = ins.value; const ok = controlOf(k) === my.id; my.dice[i] = old;
+        if (ok) out.push({s:6, tags:['win'],
+          t:`Spend your ${ins.value}-pt Inspiration (for ${ins.forTag || 'anyone'}) on the ${v} in "${k.text}" to take Control. Check that it's for that side.`, p:'p.25'});
+      });
+    }));
+    return out.slice(0, 2);
+  },
+  // Instant-Split
+  x => {
+    if (!x.seat.inspirations.some(i => i.value === 2)) return [];
+    if (!x.mine.some(c => driveKeys(c).some(d => getDebt(c, d) >= 2))) return [];
+    const k = x.sc.conflicts.find(k => { const my = x.mySide(k); return my && my.dice.length === 1 && my.dice[0] === 1; });
+    return [{s:3, tags:['win'],
+      t:`Instant-Split${k ? ` on "${k.text}"` : ''}: raise a 1 to 2 with your 2-pt Inspiration, Stake 2, split into 1/1, then roll one of them.`, p:'p.124'}];
+  },
+  // Free Conflicts
+  x => x.ph !== 'claims' ? [] : freeConflicts(x.sc).map(f => ({s: x.mineIds.has(f.creatorId) ? 5 : 3, tags:['story','tokens'],
+    t:`Free Conflict available: ${f.type} "${f.text}" (${f.label}). Adding it costs nothing.`, p:'p.22, p.76'})),
+  // Story Token Conflicts
+  x => x.seat.storyTokens <= 1 ? [{s:3, tags:['tokens'],
+    t:'Low on Story Tokens? Declare the Conflict the story obviously needs, one the other Seats will fight over. If the creator ends up on the losing side, they get the first Story Token.', p:'p.126, p.30'}] : [],
+  // Distraction
+  x => {
+    const k = x.sc.conflicts.find(k => { const my = x.mySide(k), c = controlOf(k); return my && c && c !== my.id && sideById(k, c).stakes.length; });
+    return k ? [{s:3, tags:['chaos','win'],
+      t:`You're losing "${k.text}" to a side that has Staked on it. Create a Distraction Conflict they care about more (e.g. "Event: Headquarters self-destructs") and win this one while they're busy.`, p:'p.126'}] : [];
+  },
+  // Lose Stakes early
+  x => (x.sc.page.number > 3 || x.seat.storyTokens > 2) ? [] : [{s:2, tags:['tokens','debt'],
+    t:"Early in a story, losing a Conflict you Staked on is a good trade. You get the winners' Stakes as Story Tokens and your own Debt back doubled.", p:'p.135'}],
+  // Rock the boat
+  x => {
+    const pool = state.characters.filter(c => !x.sc.cast.some(e => e.charId === c.id));
+    if (!pool.length) return [];
+    const linked = pool.find(c => c.exemplars.some(e => x.sc.cast.some(z => z.charId === e.targetId)) || castChars().some(z => z.exemplars.some(e => e.targetId === c.id)));
+    const c = linked || pool.slice().sort((a,b) => (a.name || '').localeCompare(b.name || ''))[0];
+    return [{s:1, tags:['chaos'],
+      t:`Rock the boat: bring ${c.name} into the Scene${linked ? '. They have ties to someone already here' : ''}. Or roll a Twist below.`, p:'p.137'}];
+  },
+  // Spotlight
+  x => {
+    const sp = state.characters.filter(c => c.spotlightSeat === x.seat.id);
+    const out = sp.filter(c => !x.mineIds.has(c.id)).map(c => ({s:2, tags:['spot'],
+      t:`Your Spotlight character ${c.name} isn't in this Scene. That's fine if someone else fits better, or bring them in.`, p:'p.20, p.137'}));
+    sp.filter(c => x.mineIds.has(c.id)).forEach(c => {
+      const k = x.sc.conflicts.find(k => { const s = sideOfChar(k, c.id); return s && controlOf(k) !== s.id; });
+      if (k) out.push({s:3, tags:['spot','win'], t:`${c.name} is losing "${k.text}". Spotlight moments are worth spending on.`, p:'p.119'});
+    });
+    return out;
+  },
+  // Story Steward
+  x => {
+    const th = (state.threads || {})[x.seat.id];
+    return th ? [{s:2, tags:['story'],
+      t:`Push your thread: "${th}". Create a Conflict that moves it one step closer to its next "things got worse" beat, and make it one the other Seats want to fight over.`, p:'p.143, p.147'}] : [];
+  }
+];
+function advList(x){
+  const w = AGENDAS[agendaOf(x.seat.id)][1];
+  return ADV.flatMap(r => { try { return r(x) || []; } catch(e){ console.warn('Advisor rule failed', e); return []; } })
+    .map(it => ({...it, score: it.s + it.tags.reduce((a,t) => a + (w[t] || 0), 0)}))
+    .sort((a,b) => b.score - a.score);
+}
+
+/* ---------- Tables & oracle ---------- */
+function castPick(pred){ const l = castChars().filter(pred); return l.length ? pick(l).name : null; }
+function fillTpl(t){
+  const any = () => castPick(() => true) || 'someone';
+  return t.replace(/\{(\w)\}/g, (_, k) => {
+    if (k === 'h') return castPick(c => c.driveMode === 'heroic') || any();
+    if (k === 'v') return castPick(c => c.driveMode === 'villainous') || any();
+    if (k === 'e') return pick(castChars().flatMap(c => c.exemplars.map(exName)).filter(Boolean)) || any();
+    return any();
+  });
+}
+function topDrive(){
+  let best = null;
+  castChars().forEach(c => driveKeys(c).forEach(d => {
+    if (d === '__undiff') return;
+    const n = getDebt(c, d); if (!best || n > best.n) best = {d, n};
+  }));
+  return best && best.n > 0 ? best.d : pick(Object.keys(DRIVE_PROMPTS));
+}
+function oracle(p){
+  const r = rnd(100) + 1, yes = r <= p;
+  let t = yes ? 'Yes' : 'No';
+  if (yes && r <= p / 5) t = 'Yes, and…';
+  else if (!yes && r > 100 - (100 - p) / 5) t = 'No, and…';
+  else if (Math.abs(r - p) <= 5) t += ', but…';
+  return `${t} (rolled ${r} vs ${p}%)`;
+}
+
+/* ---------- AI prompt ---------- */
+function aiChar(c, sc){
+  const groups = catsFor(c).map(cat => {
+    const abs = c.abilities.filter(a => a.cat === cat).sort((a,b) => a.level - b.level).map(a => {
+      const k = abKey(c, a), off = a.powered ? sc.page.poweredUsed.includes(k) : sc.blocked.includes(k);
+      return `${a.name} ${a.level}${a.powered ? '⚡' : ''}${off ? (a.powered ? ' (used this Page)' : ' (Blocked)') : ''}`;
+    });
+    return abs.length ? `${CAT_LABEL[cat]}: ${abs.join(', ')}` : '';
+  }).filter(Boolean).join('; ');
+  const dr = driveKeys(c).map(d => `${driveLabel(d)} ${getDebt(c, d)}/${driveCap(c, d)}`).join(', ');
+  const over = overdrawnDrives(c);
+  const ex = c.exemplars.map(e => `${exName(e)} (${e.drive || '?'}${e.root ? '; ' + e.root : ''})`).join('; ');
+  return `- ${c.name} [${seatName(seatOf(c.id))}; ${c.kind === 'nonperson' ? c.npType : KIND_LABEL[c.kind]}]${c.concept ? ' "' + c.concept + '"' : ''}. ${groups || 'No abilities'}.`
+    + (dr ? ` Drives (Debt/Strength): ${dr}.` : '') + (over.length ? ` OVERDRAWN: ${over.join(', ')}.` : '') + (ex ? ` Exemplars: ${ex}.` : '');
+}
+function aiConf(k){
+  const ctrl = controlOf(k);
+  return `- ${k.type} "${k.text}"${k.creatorId ? ' (created by ' + cname(k.creatorId) + ')' : ''}${ctrl ? '' : ' [TIED]'}:` + k.sides.map(s =>
+    `\n    · ${s.label}: dice ${s.dice.join('+')} = ${sum(s.dice)}; allies ${s.allies.map(cname).join(', ') || 'none'}; staked ${s.stakes.map(st => st.amount + ' ' + driveLabel(st.drive) + ' by ' + cname(st.charId)).join(', ') || 'nothing'}${s.claimedBy ? '; claimed by ' + seatName(s.claimedBy) : ''}${ctrl === s.id ? '; CONTROLS' : ''}`).join('');
+}
+function aiPrompt(task){
+  const sc = SC(), x = advCtx(), ag = agendaOf(x.seat.id), th = (state.threads || {})[x.seat.id];
+  const ph = (PHASES.find(p => p[0] === sc.page.phase) || ['', sc.page.phase])[1].replace(/^\d · /, '');
+  const narr = state.log.filter(l => l.scene === sc.number && l.kind === 'narr').slice(-8);
+  const mech = state.log.filter(l => l.scene === sc.number && l.kind !== 'narr').slice(-10);
+  const L = [
+    "I'm playing the GM-less superhero RPG Capes (Tony Lower-Basch, 2005) solo. I run every \"Seat\" (virtual player) myself and want help with one of them.",
+    '', 'RULES REMINDER: ' + AI_RULES,
+    '', `SCENE ${sc.number}${sc.title ? ': ' + sc.title : ''} · Page ${sc.page.number} · Phase: ${ph}`,
+    '', 'COMICS CODE (these can never happen; the Resolver must Gloat instead):',
+    ...(state.comicsCode.length ? state.comicsCode.map(c => '- ' + c) : ['- (none)']),
+    '', 'SEATS in turn order (★ = Starter):',
+    ...orderFrom(sc.page.starterSeat).map((s, i) => `- ${i === 0 ? '★ ' : ''}${s.name}: ${s.storyTokens} Story Tokens; Inspirations: ${s.inspirations.map(v => v.value + ' for ' + (v.forTag || 'anyone')).join(', ') || 'none'}; agenda: ${AGENDAS[agendaOf(s.id)][0]}`),
+    '', 'CAST:', ...(castChars().length ? castChars().map(c => aiChar(c, sc)) : ['- (nobody yet)']),
+    '', 'CONFLICTS:', ...(sc.conflicts.length ? sc.conflicts.map(aiConf) : ['- (none)']),
+    '', 'STORY SO FAR THIS SCENE:', ...(narr.length ? narr.map(l => '- ' + (l.speaker ? l.speaker + ': ' : '') + l.msg) : ['- (no narration yet)']),
+    '', 'RECENT GAME LOG:', ...(mech.length ? mech.map(l => '- ' + l.msg) : ['- (nothing yet)']),
+    '', `TASK, for ${x.seat.name} (agenda: ${AGENDAS[ag][0]} — ${AGENDA_DESC[ag]}${th ? ` Story thread: "${th}"` : ''}):`,
+    AI_TASKS[task][1]
+  ];
+  if (task === 'move'){
+    const top = advList(x).slice(0, 3);
+    if (top.length) L.push('', 'My tactics helper suggests (feel free to disagree):', ...top.map(t => '- ' + t.t));
+  }
+  return L.join('\n');
+}
+
+/* ---------- Render ---------- */
+function renderAdvisor(){
+  const x = advCtx(), ag = agendaOf(x.seat.id), list = advList(x), shown = ui.advAll ? list : list.slice(0, 4);
+  const th = (state.threads || {})[x.seat.id] || '', res = ui.advRes || [];
+  return `<details class="panel adv" ${ui.advOpen === false ? '' : 'open'}>
+    <summary>🧠 Advisor: ${esc(x.seat.name)} <span class="badge">${esc(AGENDAS[ag][0])}</span> <span class="muted">· suggestions only, you decide</span></summary>
+    <div class="row"><label>Agenda for ${esc(x.seat.name)}<br><select data-adv="agenda">${Object.entries(AGENDAS).map(([k,v]) => opt(k, v[0], ag)).join('')}</select></label>
+      <span class="muted grow">${esc(AGENDA_DESC[ag])}</span></div>
+    ${ag === 'steward' ? `<label>Story-Thread for ${esc(x.seat.name)}<br><input class="full" data-adv="thread" value="${esc(th)}" placeholder="e.g. Donna's parents visit; ends at a stilted dinner at La Bergerie"></label>` : ''}
+    <div>${shown.map((it, i) => `<div class="sugg ${i === 0 ? 'top' : ''}">${esc(it.t)} <span class="cite">(${esc(it.p)})</span></div>`).join('') || '<p class="muted">No suggestions right now.</p>'}</div>
+    ${list.length > 4 ? `<div class="row"><button class="small" data-a="adv-all">${ui.advAll ? 'Show fewer' : 'Show all ' + list.length}</button></div>` : ''}
+    <details class="advtools" ${ui.advTools ? 'open' : ''}><summary>Prompt tables, oracle &amp; AI prompt</summary>
+      <div class="row"><select data-adv="drive">${opt('auto', 'Most-indebted Drive', ui.advDrive || 'auto')}${Object.keys(DRIVE_PROMPTS).map(d => opt(d, d, ui.advDrive)).join('')}</select>
+        <button data-a="adv-prompt">🎲 Drive prompt</button><button data-a="adv-twist">🔀 Twist</button></div>
+      <div class="row"><input class="grow" id="adv-q" value="${esc(ui.advQ || '')}" placeholder="Yes/No question (optional), e.g. Is the bomb real?">
+        <select data-adv="lv">${ODDS_LV.map(([n,p]) => opt(String(p), n, String(ui.advLv || 50))).join('')}</select>
+        <button data-a="adv-oracle">Ask the oracle</button></div>
+      ${res.length ? res.map((r, i) => `<div class="row genres ${i === 0 ? 'first' : ''}"><span class="grow">${esc(r)}</span>
+        <button class="small" data-a="adv-jr" data-x="${i}">+ Journal</button><button class="small" data-a="gn-copy" data-x="${esc(r)}">Copy</button></div>`).join('')
+        + '<div class="row"><button class="small" data-a="adv-clear">Clear results</button></div>' : ''}
+      <div class="row"><select data-adv="aiTask">${Object.entries(AI_TASKS).map(([k,v]) => opt(k, v[0], ui.aiTask || 'move')).join('')}</select>
+        <button class="primary" data-a="adv-ai">📋 Copy AI prompt</button></div>
+      <p class="muted">Copies a full text summary of the table plus a task. Paste it into any chatbot. Nothing is sent anywhere by this file.</p>
+    </details></details>`;
+}
+const _renderScene4 = renderScene;
+renderScene = function(){
+  const h = _renderScene4();
+  if (!SC()) return h;
+  const adv = renderAdvisor(), m = '<div class="panel"><h3>Narrate</h3>', i = h.indexOf(m);
+  return i < 0 ? h + adv : h.slice(0, i) + adv + h.slice(i);
+};
+
+/* ---------- Events ---------- */
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-a]');
+  if (!b || b.disabled || !b.dataset.a.startsWith('adv-')) return;
+  ui.advRes = ui.advRes || [];
+  const push = t => { ui.advRes.unshift(t); if (ui.advRes.length > 8) ui.advRes.pop(); };
+  switch (b.dataset.a){
+    case 'adv-all': ui.advAll = !ui.advAll; break;
+    case 'adv-prompt': {
+      const d = ui.advDrive && ui.advDrive !== 'auto' ? ui.advDrive : topDrive();
+      push(`${d}: ${fillTpl(pick(DRIVE_PROMPTS[d]))}`); break;
+    }
+    case 'adv-twist': push(`Twist: ${fillTpl(pick(TWISTS))}`); break;
+    case 'adv-oracle': {
+      const q = val('#adv-q').trim(); ui.advQ = '';
+      push(`${q ? q + ' → ' : 'Oracle: '}${oracle(+(ui.advLv || 50))}`); break;
+    }
+    case 'adv-jr': {
+      const t = ui.advRes[+b.dataset.x]; if (!t) return;
+      addLog(t, {kind:'narr', speaker:''}); save(); break;
+    }
+    case 'adv-clear': ui.advRes = []; break;
+    case 'adv-ai': copyText(aiPrompt(ui.aiTask || 'move')); return;
+    default: return;
+  }
+  render();
+});
+document.addEventListener('change', e => {
+  const t = e.target, f = t.dataset.adv;
+  if (!f) return;
+  if (f === 'agenda'){ state.agendas = state.agendas || {}; state.agendas[sui.actSeat] = t.value; save(); render(); return; }
+  if (f === 'thread'){ state.threads = state.threads || {}; state.threads[sui.actSeat] = t.value.trim(); save(); render(); return; }
+  if (f === 'drive') ui.advDrive = t.value;
+  else if (f === 'lv') ui.advLv = t.value;
+  else if (f === 'aiTask') ui.aiTask = t.value;
+});
+document.addEventListener('input', e => { if (e.target.id === 'adv-q') ui.advQ = e.target.value; });
+document.addEventListener('toggle', e => {
+  const t = e.target;
+  if (!t.matches) return;
+  if (t.matches('details.adv')) ui.advOpen = t.open;
+  else if (t.matches('details.advtools')) ui.advTools = t.open;
+}, true);
+
+/* ================= INIT ================= */
+render();
+setSaved(state.characters.length || state.log.length ? 'Loaded from this browser' : 'New game');
+</script>
+</body>
+</html>

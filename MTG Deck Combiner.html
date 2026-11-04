@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MTG Decklist Merger — Best 99 + Commander</title>
+<style>
+  :root{
+    --bg:#15171c; --panel:#1e2128; --panel2:#262a33; --border:#363b47;
+    --text:#e6e8ee; --muted:#9aa3b2; --accent:#d9a441; --accent2:#5b8def;
+    --good:#5fb878; --bad:#e06c75; --gcc:#b87fd9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.5}
+  header{padding:22px 20px;border-bottom:1px solid var(--border);background:linear-gradient(180deg,#1c1f26,#15171c)}
+  h1{margin:0;font-size:1.5rem}h1 span{color:var(--accent)}
+  .sub{color:var(--muted);font-size:.9rem;margin-top:4px}
+  .wrap{max-width:1000px;margin:0 auto;padding:20px}
+  .deck-block{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;margin-bottom:14px}
+  .deck-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .deck-head label{font-weight:600;color:var(--accent)}
+  textarea{width:100%;min-height:140px;resize:vertical;background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.85rem}
+  button{background:var(--panel2);color:var(--text);border:1px solid var(--border);padding:9px 16px;border-radius:8px;cursor:pointer;font-size:.9rem;font-weight:600;transition:.15s}
+  button:hover{border-color:var(--accent);color:var(--accent)}
+  button.primary{background:var(--accent);color:#1a1a1a;border-color:var(--accent)}
+  button.primary:hover{background:#e8b556;color:#1a1a1a}
+  button.small{padding:5px 10px;font-size:.78rem;font-weight:500}
+  button.danger:hover{border-color:var(--bad);color:var(--bad)}
+  .options{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px;margin:14px 0;display:flex;flex-wrap:wrap;gap:18px;align-items:center}
+  .opt label{display:block;font-size:.78rem;color:var(--muted);margin-bottom:4px}
+  select,input[type=number]{background:var(--panel2);color:var(--text);border:1px solid var(--border);border-radius:7px;padding:7px 9px;font-size:.9rem}
+  .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  #status{margin:14px 0;color:var(--muted);min-height:1.2em}
+  .bar{height:7px;background:var(--panel2);border-radius:4px;overflow:hidden;margin-top:8px;display:none}
+  .bar>div{height:100%;width:0;background:var(--accent2);transition:width .2s}
+  #results{display:none;margin-top:10px}
+  .stats{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}
+  .stat{background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:10px 14px;min-width:110px}
+  .stat .k{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  .stat .v{font-size:1.25rem;font-weight:700;margin-top:2px}
+  .group{margin:18px 0}
+  .group h3{margin:0 0 6px;font-size:1rem;color:var(--accent);border-bottom:1px solid var(--border);padding-bottom:4px}
+  .card-line{display:flex;justify-content:space-between;padding:2px 4px;font-size:.88rem;border-radius:4px}
+  .card-line:hover{background:var(--panel2)}
+  .card-line .rk{color:var(--muted);font-size:.78rem;margin-left:10px;white-space:nowrap}
+  .gc{color:var(--gcc);font-weight:700;font-size:.7rem;margin-left:6px}
+  .pip{display:inline-block;width:14px;height:14px;border-radius:50%;margin-right:3px;vertical-align:middle;font-size:9px;text-align:center;line-height:14px;font-weight:700}
+  .W{background:#f8f3d6;color:#000}.U{background:#aae0fa;color:#000}.B{background:#9b8e8c;color:#000}
+  .R{background:#f9aa8f;color:#000}.G{background:#9bd3ae;color:#000}.C{background:#ccc;color:#000}
+  .commander-pick{background:var(--panel);border:1px solid var(--accent);border-radius:10px;padding:14px;margin-bottom:14px}
+  details{background:var(--panel);border:1px solid var(--border);border-radius:9px;padding:10px 14px;margin:12px 0}
+  summary{cursor:pointer;font-weight:600}
+  .excluded{color:var(--bad);font-size:.85rem}.notfound{color:var(--accent)}
+  pre{background:var(--panel2);border:1px solid var(--border);border-radius:8px;padding:12px;overflow:auto;font-size:.82rem;max-height:300px}
+  .muted{color:var(--muted);font-size:.85rem}
+  .attrib{font-size:.75rem;color:var(--muted);margin-top:8px}
+  .attrib a{color:var(--accent2)}
+</style>
+</head>
+<body>
+<header>
+  <h1>MTG Decklist Merger — <span>Best 99 + Commander</span></h1>
+  <div class="sub">Paste two or more Commander decklists. Cards are looked up via the Scryfall API, deduplicated, filtered to your commander's color identity, and the strongest 99 are kept.</div>
+</header>
+
+<div class="wrap">
+  <div id="decks"></div>
+  <div class="row">
+    <button id="addDeck">+ Add another decklist</button>
+    <button id="loadExample" class="small">Load example lists</button>
+  </div>
+
+  <div class="options">
+    <div class="opt">
+      <label>Rank "best" by</label>
+      <select id="mode">
+        <option value="edhrec">EDHREC popularity</option>
+        <option value="freq">Appears in most lists, then popularity</option>
+        <option value="priceHigh">Price — highest first</option>
+        <option value="priceLow">Price — lowest first</option>
+      </select>
+    </div>
+    <div class="opt">
+      <label><input type="checkbox" id="minLandsChk"> Ensure minimum lands</label>
+      <input type="number" id="minLands" value="36" min="0" max="99" style="width:70px">
+    </div>
+    <div class="opt">
+      <label><input type="checkbox" id="fuzzyChk" checked> Try fuzzy matching for unresolved names</label>
+    </div>
+    <button id="combine" class="primary">Combine decks</button>
+  </div>
+
+  <div id="status"></div>
+  <div class="bar" id="bar"><div id="barfill"></div></div>
+
+  <div id="results">
+    <div class="commander-pick">
+      <div class="row">
+        <div><label style="font-weight:600;color:var(--accent)">Commander</label><br>
+          <select id="commanderSelect" style="min-width:260px;margin-top:4px"></select></div>
+        <div><label style="font-weight:600;color:var(--accent)">Partner (optional)</label><br>
+          <select id="partnerSelect" style="min-width:200px;margin-top:4px"></select></div>
+        <span class="muted" id="ciLabel"></span>
+      </div>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div id="deckOut"></div>
+    <details id="exclBox" style="display:none">
+      <summary>Excluded cards & lookup issues</summary>
+      <div id="excl"></div>
+    </details>
+    <div class="group">
+      <div class="row" style="margin-bottom:8px">
+        <button id="copyBtn" class="primary small">Copy decklist</button>
+        <button id="dlBtn" class="small">Download .txt</button>
+      </div>
+      <pre id="exportText"></pre>
+    </div>
+    <div class="attrib" id="attrib"></div>
+  </div>
+</div>
+
+<script>
+// ---------- constants ----------
+const SCRYFALL_COLLECTION = 'https://api.scryfall.com/cards/collection';
+const SCRYFALL_SEARCH     = 'https://api.scryfall.com/cards/search';
+const SCRYFALL_NAMED      = 'https://api.scryfall.com/cards/named';
+const BASICS = {W:'Plains',U:'Island',B:'Swamp',R:'Mountain',G:'Forest',C:'Wastes'};
+const BASIC_NAMES = new Set(Object.values(BASICS).map(s=>s.toLowerCase())
+  .concat(Object.values(BASICS).map(s=>'snow-covered '+s.toLowerCase())));
+const HEADERS = new Set(['commander','commanders','deck','mainboard','sideboard','maybeboard','companion','tokens','about','']);
+const sleep = ms => new Promise(r=>setTimeout(r,ms));
+
+// ---------- deck input ----------
+let deckCount = 0;
+function addDeck(text=''){
+  const id = ++deckCount;
+  const div = document.createElement('div');
+  div.className='deck-block';
+  div.innerHTML = `
+    <div class="deck-head"><label>Decklist ${id}</label>
+      <button class="small danger" onclick="this.closest('.deck-block').remove()">Remove</button></div>
+    <textarea placeholder="1 Sol Ring&#10;1 Atraxa, Praetors' Voice&#10;1x Cultivate (or just one card per line)">${text}</textarea>`;
+  document.getElementById('decks').appendChild(div);
+}
+addDeck(); addDeck();
+document.getElementById('addDeck').onclick = ()=>addDeck();
+document.getElementById('loadExample').onclick = ()=>{
+  document.getElementById('decks').innerHTML='';deckCount=0;
+  addDeck("1 Atraxa, Praetors' Voice\n1 Sol Ring\n1 Cultivate\n1 Kodama's Reach\n1 Doubling Season\n1 Vorinclex, Monstrous Raider\n1 Birds of Paradise\n1 Smothering Tithe\n1 Cyclonic Rift\n1 Toxic Deluge\n1 Damnation\n1 Counterspell\n1 Swords to Plowshares\n1 Eternal Witness\n1 Nezumi Graverobber // Nighteyes the Desecrator");
+  addDeck("1 Atraxa, Praetors' Voice\n1 Sol Ring\n1 Dockside Extortionist\n1 Lightning Greaves\n1 Birds of Paradise\n1 Cultivate\n1 Demonic Tutor\n1 Vampiric Tutor\n1 Rhystic Study\n1 Mystic Remora\n1 Anguished Unmaking\n1 Assassin's Trophy");
+};
+
+// ---------- parsing ----------
+function cleanName(line){
+  let s = line.trim();
+  s = s.replace(/^\s*(?:SB:|sb:)\s*/,'');
+  s = s.replace(/^\s*\d+\s*[xX]?\s+/,'');
+  s = s.replace(/\s*\*[A-Za-z]+\*\s*$/,'');
+  s = s.replace(/\s*\([^)]*\).*$/,'');
+  s = s.replace(/\s*\[[^\]]*\].*$/,'');
+  s = s.replace(/\s*<[^>]*>.*$/,'');
+  return s.trim();
+}
+function parseDeck(text){
+  const cards=[]; let section='';
+  text.split(/\r?\n/).forEach(raw=>{
+    const line=raw.trim();
+    if(!line || line.startsWith('//') || line.startsWith('#')) return;
+    const low=line.toLowerCase().replace(/[:]/g,'').trim();
+    if(HEADERS.has(low)){ section=low; return; }
+    const name=cleanName(line);
+    if(!name) return;
+    cards.push({name, commander: section==='commander'||section==='commanders'});
+  });
+  return cards;
+}
+
+// ---------- Scryfall (rate-limit compliant: 4 escalating lookup passes) ----------
+function indexCard(map,c){
+  map[c.name.toLowerCase()]=c;
+  if(c.card_faces && c.card_faces[0] && c.card_faces[0].name){
+    const fn=c.card_faces[0].name.toLowerCase();
+    if(!map[fn]) map[fn]=c;
+  }
+}
+// every localized/face string this card could be typed as
+function cardAliases(c){
+  const out=[];
+  ['name','printed_name'].forEach(k=>{ if(c[k]) out.push(c[k]); });
+  (c.card_faces||[]).forEach(f=>['name','printed_name'].forEach(k=>{ if(f[k]) out.push(f[k]); }));
+  return out.map(s=>s.toLowerCase());
+}
+
+async function fetchCards(names,onProgress,onStatus,allowFuzzy){
+  const map={}; let notFound=[];
+  // Browser sets its own User-Agent & Accept per Scryfall guidance; we only set Content-Type for POSTs.
+  async function postBatch(identifiers){
+    let resp, attempt=0;
+    while(true){
+      attempt++;
+      try{ resp=await fetch(SCRYFALL_COLLECTION,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({identifiers})}); }
+      catch(e){ throw new Error('Network error contacting Scryfall.'); }
+      if(resp.status===429){
+        if(attempt>2) throw new Error('Scryfall rate limit hit repeatedly — wait a minute and retry.');
+        onStatus && onStatus('⏳ Scryfall rate limit hit — backing off 30s as required…');
+        await sleep(30000); continue;
+      }
+      break;
+    }
+    if(!resp.ok) throw new Error('Scryfall returned '+resp.status);
+    return resp.json();
+  }
+  async function search(q){ // GET /cards/search; 404 = no matches
+    let resp, attempt=0;
+    while(true){
+      attempt++;
+      try{ resp=await fetch(SCRYFALL_SEARCH+'?include_multilingual=true&q='+encodeURIComponent(q)); }
+      catch(e){ return null; }
+      if(resp.status===429){
+        if(attempt>2) return null;
+        onStatus && onStatus('⏳ Scryfall rate limit hit — backing off 30s as required…');
+        await sleep(30000); continue;
+      }
+      break;
+    }
+    if(resp.status===404) return {data:[]};
+    if(!resp.ok) return null;
+    return resp.json();
+  }
+
+  // Pass 1: exact English names.
+  for(let i=0;i<names.length;i+=75){
+    const data=await postBatch(names.slice(i,i+75).map(n=>({name:n})));
+    (data.data||[]).forEach(c=>indexCard(map,c));
+    (data.not_found||[]).forEach(nf=>notFound.push(nf.name));
+    onProgress(Math.min(i+75,names.length),names.length);
+    if(i+75<names.length) await sleep(550); // /cards/collection = 2/sec
+  }
+
+  // Pass 2: English multi-face cards typed as "A // B" → query each face.
+  if(notFound.length){
+    onStatus && onStatus('Retrying multi-face cards…');
+    const retry=[], faceToOrig={};
+    notFound.forEach(orig=>{ if(orig.includes('//'))
+      orig.split('//').map(s=>s.trim()).filter(Boolean).forEach(f=>{ retry.push({name:f}); faceToOrig[f.toLowerCase()]=orig; }); });
+    const still=new Set(notFound);
+    for(let i=0;i<retry.length;i+=75){
+      const data=await postBatch(retry.slice(i,i+75));
+      (data.data||[]).forEach(c=>{ indexCard(map,c);
+        cardAliases(c).forEach(a=>{ const o=faceToOrig[a]; if(o){ map[o.toLowerCase()]=c; still.delete(o); } });
+      });
+      if(i+75<retry.length) await sleep(550);
+    }
+    notFound=[...still];
+  }
+
+  // Pass 3: non-English names → multilingual exact-name search.
+  if(notFound.length){
+    onStatus && onStatus('Retrying non-English names…');
+    const still=new Set(notFound);
+    const termToOrig={}; const terms=[];
+    notFound.forEach(orig=>{
+      const parts = orig.includes('//') ? orig.split('//').map(s=>s.trim()).filter(Boolean) : [orig];
+      parts.forEach(p=>{ termToOrig[p.toLowerCase()]=orig; terms.push(p); });
+    });
+    for(let i=0;i<terms.length;i+=40){
+      const chunk=terms.slice(i,i+40);
+      const q=chunk.map(t=>'!"'+t.replace(/"/g,'')+'"').join(' or ');
+      const data=await search(q);
+      if(data && data.data) data.data.forEach(c=>{ indexCard(map,c);
+        cardAliases(c).forEach(a=>{ const o=termToOrig[a]; if(o){ map[o.toLowerCase()]=c; still.delete(o); } });
+      });
+      if(i+40<terms.length) await sleep(550); // /cards/search = 2/sec
+    }
+    notFound=[...still];
+  }
+
+  // Pass 4: fuzzy single-name lookup (partial names / typos), one request each.
+  const fuzzyResolved=[];
+  if(allowFuzzy && notFound.length){
+    onStatus && onStatus('Trying fuzzy matches…');
+    const still=new Set(notFound);
+    for(let i=0;i<notFound.length;i++){
+      const orig=notFound[i];
+      if((orig.match(/[A-Za-z\u00C0-\u024F]/g)||[]).length<3) continue; // skip obvious junk
+      let resp;
+      try{ resp=await fetch(SCRYFALL_NAMED+'?fuzzy='+encodeURIComponent(orig)); }
+      catch(e){ resp=null; }
+      if(resp && resp.status===429){
+        onStatus && onStatus('⏳ Scryfall rate limit hit — backing off 30s as required…');
+        await sleep(30000); i--; continue; // retry this one
+      }
+      if(resp && resp.ok){
+        const c=await resp.json();
+        if(c && c.object==='card'){
+          indexCard(map,c);
+          map[orig.toLowerCase()]=c;           // key under what the user typed
+          still.delete(orig);
+          fuzzyResolved.push({typed:orig, name:c.name});
+        }
+      }
+      // 404 (not found / ambiguous) → leave it in the not-found list
+      if(i<notFound.length-1) await sleep(550); // /cards/named = 2/sec
+    }
+    notFound=[...still];
+  }
+
+  return {map,notFound,fuzzy:fuzzyResolved};
+}
+
+// ---------- helpers ----------
+const getRank  = c => (c.edhrec_rank!=null?c.edhrec_rank:9e9);
+const getPrice = c => parseFloat(c.prices && c.prices.usd)||0;
+const isLand   = c => /\bLand\b/.test(c.type_line||'');
+function isCommanderEligible(c){
+  const tl=(c.type_line||'').toLowerCase();
+  if(tl.includes('legendary')&&tl.includes('creature')) return true;
+  let ot=c.oracle_text||'';
+  if(c.card_faces) ot+=' '+c.card_faces.map(f=>f.oracle_text||'').join(' ');
+  return /can be your commander/i.test(ot);
+}
+function hasPartner(c){
+  let ot=c.oracle_text||'';
+  if(c.card_faces) ot+=' '+c.card_faces.map(f=>f.oracle_text||'').join(' ');
+  return /\bPartner\b/.test(ot) || /Friends forever/i.test(ot) || /Choose a Background/i.test(ot);
+}
+function ciLegal(c,ci){ return (c.color_identity||[]).every(x=>ci.includes(x)); }
+function comparator(mode){
+  return (a,b)=>{
+    if(mode==='freq'){ if(b._cnt!==a._cnt) return b._cnt-a._cnt; return getRank(a)-getRank(b); }
+    if(mode==='priceHigh') return getPrice(b)-getPrice(a) || getRank(a)-getRank(b);
+    if(mode==='priceLow') return getPrice(a)-getPrice(b) || getRank(a)-getRank(b);
+    return getRank(a)-getRank(b); // edhrec (default)
+  };
+}
+function category(c){
+  if(c._isCmd) return 'Commander';
+  const t=(c.type_line||'');
+  if(/Land/.test(t)) return 'Lands';
+  if(/Creature/.test(t)) return 'Creatures';
+  if(/Planeswalker/.test(t)) return 'Planeswalkers';
+  if(/Instant/.test(t)) return 'Instants';
+  if(/Sorcery/.test(t)) return 'Sorceries';
+  if(/Artifact/.test(t)) return 'Artifacts';
+  if(/Enchantment/.test(t)) return 'Enchantments';
+  if(/Battle/.test(t)) return 'Battles';
+  return 'Other';
+}
+function pips(arr){
+  if(!arr || arr.length===0) return '<span class="pip C">C</span>';
+  return arr.map(c=>`<span class="pip ${c}">${c}</span>`).join('');
+}
+
+// ---------- state ----------
+let CARDMAP={}, RESOLVED=[], NOTFOUND=[], MISSING=[], COMMANDERS=[], FUZZY=[];
+
+document.getElementById('combine').onclick = async ()=>{
+  const status=document.getElementById('status');
+  const bar=document.getElementById('bar'), fill=document.getElementById('barfill');
+  document.getElementById('results').style.display='none';
+
+  const unique={};
+  document.querySelectorAll('#decks textarea').forEach(a=>{
+    parseDeck(a.value).forEach(c=>{
+      const key=c.name.toLowerCase();
+      if(BASIC_NAMES.has(key)) return;
+      if(!unique[key]) unique[key]={name:c.name,cnt:0,cmd:false};
+      unique[key].cnt++;
+      if(c.commander) unique[key].cmd=true;
+    });
+  });
+  const keys=Object.keys(unique);
+  if(keys.length===0){ status.textContent='No cards found — paste some decklists first.'; return; }
+
+  status.textContent=`Looking up ${keys.length} unique cards on Scryfall…`;
+  bar.style.display='block'; fill.style.width='0';
+  const allowFuzzy=document.getElementById('fuzzyChk').checked;
+  let res;
+  try{
+    res=await fetchCards(keys.map(k=>unique[k].name),
+      (d,t)=>{ fill.style.width=Math.round(d/t*100)+'%'; status.textContent=`Looking up cards… ${d}/${t}`; },
+      msg=>{ status.textContent=msg; },
+      allowFuzzy);
+  }catch(e){ status.textContent='⚠️ '+e.message; bar.style.display='none'; return; }
+  bar.style.display='none';
+
+  CARDMAP=res.map; NOTFOUND=res.notFound; FUZZY=res.fuzzy||[]; RESOLVED=[]; MISSING=[];
+  keys.forEach(k=>{
+    const c=CARDMAP[k];
+    if(!c){ MISSING.push(unique[k].name); return; }
+    if(!RESOLVED.includes(c)){ c._cnt=unique[k].cnt; c._designated=unique[k].cmd; RESOLVED.push(c); }
+    else c._cnt=Math.max(c._cnt,unique[k].cnt);
+  });
+
+  COMMANDERS=RESOLVED.filter(isCommanderEligible).sort((a,b)=>{
+    if(b._designated!==a._designated) return b._designated?1:-1;
+    if(b._cnt!==a._cnt) return b._cnt-a._cnt; // prefer a legend present in both lists
+    return getRank(a)-getRank(b);
+  });
+
+  const sel=document.getElementById('commanderSelect');
+  sel.innerHTML='';
+  if(COMMANDERS.length===0){
+    const o=document.createElement('option'); o.value=''; o.textContent='(no legendary creature found — best 99 only)'; sel.appendChild(o);
+  }else{
+    COMMANDERS.forEach(c=>{
+      const o=document.createElement('option');
+      o.value=c.name.toLowerCase();
+      o.textContent=c.name+(c._designated?'  ★':'')+(c._cnt>1?'  ('+c._cnt+'× lists)':'')+'  ['+(c.color_identity.join('')||'C')+']';
+      sel.appendChild(o);
+    });
+  }
+  sel.onchange=()=>{ refreshPartners(); buildAndRender(); };
+  refreshPartners();
+  status.textContent=`Resolved ${RESOLVED.length} cards. ${COMMANDERS.length} possible commander(s).`;
+  document.getElementById('results').style.display='block';
+  buildAndRender();
+};
+
+function refreshPartners(){
+  const cmd = CARDMAP[document.getElementById('commanderSelect').value];
+  const psel = document.getElementById('partnerSelect');
+  psel.innerHTML='<option value="">(none)</option>';
+  const eligible = cmd && hasPartner(cmd);
+  psel.disabled = !eligible;
+  if(eligible){
+    COMMANDERS.filter(c=>c!==cmd && hasPartner(c)).forEach(c=>{
+      const o=document.createElement('option'); o.value=c.name.toLowerCase(); o.textContent=c.name; psel.appendChild(o);
+    });
+  }
+  psel.onchange=buildAndRender;
+}
+
+function buildAndRender(){
+  const mode=document.getElementById('mode').value;
+  const cmdName=document.getElementById('commanderSelect').value;
+  const partnerName=document.getElementById('partnerSelect').value;
+  const commander = cmdName? CARDMAP[cmdName] : null;
+  const partner   = partnerName? CARDMAP[partnerName] : null;
+
+  let ci;
+  if(commander){
+    ci=[...new Set([...(commander.color_identity||[]), ...(partner?partner.color_identity:[])])];
+  }else ci=['W','U','B','R','G'];
+
+  RESOLVED.forEach(c=>{c._isCmd=false;});
+  if(commander) commander._isCmd=true;
+  if(partner) partner._isCmd=true;
+
+  const excludedCI=[], excludedBan=[];
+  let pool=RESOLVED.filter(c=>{
+    if(c===commander||c===partner) return false;
+    if((c.legalities&&c.legalities.commander)==='banned'){ excludedBan.push(c); return false; }
+    if(!ciLegal(c,ci)){ excludedCI.push(c); return false; }
+    return true;
+  }).sort(comparator(mode));
+
+  let selected=pool.slice(0,99);
+
+  if(document.getElementById('minLandsChk').checked){
+    const minN=parseInt(document.getElementById('minLands').value)||0;
+    let landsSel=selected.filter(isLand).length;
+    if(landsSel<minN){
+      const unusedLands=pool.filter(c=>isLand(c)&&!selected.includes(c)).sort(comparator(mode));
+      const worstNonLand=selected.filter(c=>!isLand(c)).sort((a,b)=>comparator(mode)(b,a));
+      while(landsSel<minN && unusedLands.length && worstNonLand.length){
+        const drop=worstNonLand.shift();
+        selected.splice(selected.indexOf(drop),1);
+        selected.push(unusedLands.shift());
+        landsSel++;
+      }
+      selected.sort(comparator(mode));
+    }
+  }
+
+  let basics={};
+  let slots=99-selected.length;
+  if(slots>0){
+    const cols = ci.length? ci : ['C'];
+    for(let i=0;i<slots;i++){ const n=BASICS[cols[i%cols.length]]; basics[n]=(basics[n]||0)+1; }
+  }
+
+  render(commander,partner,ci,selected,basics,excludedCI,excludedBan,mode);
+}
+
+function render(commander,partner,ci,selected,basics,exCI,exBan,mode){
+  const basicCount=Object.values(basics).reduce((a,b)=>a+b,0);
+  const cmdCards=[commander,partner].filter(Boolean);
+  const totalCards=selected.length+cmdCards.length+basicCount;
+  const price=cmdCards.reduce((s,c)=>s+getPrice(c),0)+selected.reduce((s,c)=>s+getPrice(c),0);
+  const ranks=selected.filter(c=>c.edhrec_rank!=null).map(c=>c.edhrec_rank);
+  const avgRank=ranks.length?Math.round(ranks.reduce((a,b)=>a+b,0)/ranks.length):'—';
+  const lands=selected.filter(isLand).length+basicCount;
+  const gc=[...cmdCards,...selected].filter(c=>c.game_changer).length;
+
+  document.getElementById('ciLabel').innerHTML='Color identity: '+pips(ci);
+  document.getElementById('stats').innerHTML=`
+    <div class="stat"><div class="k">Total cards</div><div class="v">${totalCards}</div></div>
+    <div class="stat"><div class="k">Lands</div><div class="v">${lands}</div></div>
+    <div class="stat"><div class="k">Game Changers</div><div class="v">${gc}</div></div>
+    <div class="stat"><div class="k">Avg EDHREC rank</div><div class="v">${avgRank}</div></div>
+    <div class="stat"><div class="k">Est. price (USD)</div><div class="v">$${price.toFixed(0)}</div></div>`;
+
+  const order=['Commander','Creatures','Planeswalkers','Instants','Sorceries','Artifacts','Enchantments','Battles','Other','Lands'];
+  const groups={};
+  cmdCards.concat(selected).forEach(c=>{ const g=category(c); (groups[g]=groups[g]||[]).push(c); });
+
+  const meta=c=> mode.startsWith('price') ? '$'+getPrice(c).toFixed(2)
+              : (c.edhrec_rank!=null?'#'+c.edhrec_rank:'unranked');
+
+  let html='';
+  order.forEach(g=>{
+    if(!groups[g]) return;
+    groups[g].sort(comparator(mode));
+    html+=`<div class="group"><h3>${g} (${groups[g].length})</h3>`;
+    groups[g].forEach(c=>{
+      html+=`<div class="card-line"><span>${pips(c.color_identity)} ${c.name}${c._isCmd?' <b style="color:var(--accent)">(CMDR)</b>':''}${c.game_changer?'<span class="gc">GC</span>':''}</span><span class="rk">${c._cnt>1?c._cnt+'× lists · ':''}${meta(c)}</span></div>`;
+    });
+    html+='</div>';
+  });
+  if(Object.keys(basics).length){
+    html+=`<div class="group"><h3>Basic lands added (${basicCount})</h3>`;
+    Object.entries(basics).forEach(([n,q])=>{ html+=`<div class="card-line"><span>${n}</span><span class="rk">${q}×</span></div>`; });
+    html+='</div>';
+  }
+  document.getElementById('deckOut').innerHTML=html;
+
+  const exBox=document.getElementById('exclBox'), ex=document.getElementById('excl');
+  let exHtml='';
+  if(FUZZY.length) exHtml+=`<p class="notfound"><b>Resolved by fuzzy match — please verify:</b> ${FUZZY.map(f=>`"${f.typed}" → ${f.name}`).join(', ')}</p>`;
+  if(exCI.length) exHtml+=`<p class="excluded"><b>Outside color identity (${exCI.length}):</b> ${exCI.map(c=>c.name).join(', ')}</p>`;
+  if(exBan.length) exHtml+=`<p class="excluded"><b>Banned in Commander:</b> ${exBan.map(c=>c.name).join(', ')}</p>`;
+  if(MISSING.length) exHtml+=`<p class="notfound"><b>Not found on Scryfall (check spelling):</b> ${MISSING.join(', ')}</p>`;
+  if(NOTFOUND.length) exHtml+=`<p class="notfound"><b>Scryfall reported missing:</b> ${NOTFOUND.join(', ')}</p>`;
+  ex.innerHTML=exHtml; exBox.style.display = exHtml? 'block':'none';
+
+  let txt='';
+  cmdCards.forEach(c=> txt+=`1 ${c.name} *CMDR*\n`);
+  selected.forEach(c=> txt+=`1 ${c.name}\n`);
+  Object.entries(basics).forEach(([n,q])=> txt+=`${q} ${n}\n`);
+  document.getElementById('exportText').textContent=txt.trim();
+
+  document.getElementById('attrib').innerHTML =
+    'Card data and prices © Wizards of the Coast, via the <a href="https://scryfall.com" target="_blank" rel="noopener">Scryfall</a> API.';
+}
+
+['mode','minLandsChk','minLands'].forEach(id=>{
+  document.getElementById(id).addEventListener('change',()=>{ if(RESOLVED.length) buildAndRender(); });
+});
+document.getElementById('copyBtn').onclick = ()=>{
+  navigator.clipboard.writeText(document.getElementById('exportText').textContent)
+    .then(()=>{ const b=document.getElementById('copyBtn'); b.textContent='Copied!'; setTimeout(()=>b.textContent='Copy decklist',1500); });
+};
+document.getElementById('dlBtn').onclick = ()=>{
+  const blob=new Blob([document.getElementById('exportText').textContent],{type:'text/plain'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='merged-commander-deck.txt'; a.click();
+};
+</script>
+</body>
+</html>

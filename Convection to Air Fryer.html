@@ -1,0 +1,1480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#ff6b35" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1a202c" media="(prefers-color-scheme: dark)">
+<title>Air Fryer Converter</title>
+<meta name="description" content="Convert frozen appetizer oven instructions to air fryer time and temperature.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🍟%3C/text%3E%3C/svg%3E">
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  :root{
+    --primary:#ff6b35; --primary-dark:#e55a2b; --primary-light:#fff5f0;
+    --secondary:#1a202c; --accent:#ffd166; --ok:#2d6a4f;
+    --bg:#fff9f5; --card:#fff; --text:#1a202c; --muted:#636e72;
+    --border:#e2e8f0; --danger:#c62828; --warn:#8d6e00;
+    --chip-bg:#fff; --chip-border:#e2e8f0;
+    --tip-bg:#eefbf4; --tip-border:#b7ebd0; --tip-text:#1b7a43; --tip-item:#2d7a4a;
+    --note-bg:#fff0e0; --note-border:#ffd0a0;
+    --danger-bg:#fff5f5; --danger-border:#feb2b2; --danger-text:#742a2a;
+    --grad-start:#ff6b35; --grad-end:#f7931e;
+    --result-grad-start:#fff0e8; --result-grad-end:#ffe4d1;
+    --input-bg:#fff; --subtle:#edf2f7; --subtle-hover:#e2e8f0;
+    --shadow:0 10px 25px rgba(0,0,0,.08); --radius:14px;
+  }
+  [data-theme="dark"]{
+    --primary:#ff8c5a; --primary-dark:#ff6b35; --primary-light:#3a2218;
+    --secondary:#0d1117; --bg:#1a202c; --card:#242b38; --text:#e8ecf1; --muted:#9aa5b4;
+    --border:#3a4556; --subtle:#2d3648; --subtle-hover:#374254;
+    --chip-bg:#2d3648; --chip-border:#3a4556;
+    --tip-bg:#18331f; --tip-border:#2d5a3d; --tip-text:#7fd9a0; --tip-item:#a8e6c1;
+    --note-bg:#3a2a18; --note-border:#6b4a20; --warn:#ffc966;
+    --danger-bg:#3a1e1e; --danger-border:#8b3a3a; --danger-text:#ffb0b0; --danger:#ff7b7b;
+    --grad-start:#c44416; --grad-end:#b56b14;
+    --result-grad-start:#3a2a1e; --result-grad-end:#4a321f;
+    --input-bg:#1a202c;
+    --shadow:0 10px 25px rgba(0,0,0,.4);
+  }
+  html{scroll-behavior:smooth}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:linear-gradient(135deg,var(--grad-start) 0%,var(--grad-end) 100%);
+    color:var(--text); line-height:1.55; padding:20px;
+    min-height:100vh; display:flex; align-items:center; justify-content:center;
+    transition:background .4s;
+  }
+  .container{width:100%; max-width:680px; background:var(--card);
+    border-radius:20px; box-shadow:var(--shadow); overflow:hidden; position:relative}
+  header{background:var(--secondary); color:#fff; padding:24px; text-align:center; position:relative}
+  header h1{font-size:1.55rem; margin-bottom:4px}
+  header p{opacity:.82; font-size:.92rem}
+  .theme-toggle{position:absolute; top:16px; right:16px; background:rgba(255,255,255,.12);
+    border:none; color:#fff; width:36px; height:36px; border-radius:50%; cursor:pointer;
+    font-size:1rem; display:flex; align-items:center; justify-content:center;
+    transition:background .2s}
+  .theme-toggle:hover{background:rgba(255,255,255,.22)}
+  .progress{display:flex; background:var(--subtle)}
+  .progress-step{flex:1; height:6px; background:var(--subtle); transition:background .4s}
+  .progress-step.active{background:var(--primary)}
+  .wizard{padding:28px 24px; min-height:360px}
+  .step{display:none; animation:fadeIn .35s ease}
+  .step.active{display:block}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+  .step-label{color:var(--primary); font-size:.78rem; font-weight:700;
+    letter-spacing:1px; text-transform:uppercase; margin-bottom:6px}
+  .step h2{font-size:1.3rem; margin-bottom:6px; outline:none}
+  .desc{color:var(--muted); font-size:.93rem; margin-bottom:18px}
+  .field{margin-bottom:16px}
+  label{display:block; font-weight:600; font-size:.92rem; margin-bottom:6px}
+  input[type="number"],input[type="text"],select{
+    width:100%; padding:12px 14px; border:2px solid var(--border);
+    border-radius:10px; font-size:1rem; font-family:inherit; background:var(--input-bg);
+    color:var(--text); transition:border-color .2s;
+  }
+  input:focus,select:focus{outline:none; border-color:var(--primary)}
+  input[aria-invalid="true"]{border-color:var(--danger)}
+  input[type="number"]::-webkit-outer-spin-button,
+  input[type="number"]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
+  .row{display:flex; gap:10px; align-items:center}
+  .row input{flex:1; min-width:0}
+  .hyphen{font-weight:700; color:var(--muted)}
+  .help{font-size:.8rem; color:var(--muted); margin-top:6px}
+  .err{color:var(--danger); font-size:.83rem; margin-top:6px; display:none}
+  .warn-soft{color:var(--warn); font-size:.83rem; margin-top:6px; display:none}
+  .unit-toggle{display:flex; border:2px solid var(--border); border-radius:10px; overflow:hidden; flex-shrink:0}
+  .unit-toggle button{padding:12px 14px; border:none; background:var(--input-bg);
+    font-weight:700; cursor:pointer; color:var(--muted); font-family:inherit}
+  .unit-toggle button.on{background:var(--primary); color:#fff}
+  .presets{display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; align-items:center}
+  .presets .lbl{font-size:.82rem; color:var(--muted); margin-right:4px}
+  .preset{padding:6px 12px; border:1.5px solid var(--border); border-radius:20px;
+    background:var(--bg); cursor:pointer; font-size:.83rem; color:var(--muted); font-family:inherit}
+  .preset:hover{border-color:var(--primary); color:var(--primary)}
+  .opt-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+  .food-grid{display:grid; grid-template-columns:1fr 1fr; gap:10px}
+  @media(min-width:520px){.food-grid{grid-template-columns:1fr 1fr 1fr}}
+  .opt{padding:14px 10px; border:2px solid var(--border); border-radius:12px;
+    background:var(--card); cursor:pointer; text-align:center; font-family:inherit;
+    color:var(--text); transition:all .2s; width:100%}
+  .opt:hover{border-color:var(--primary); background:var(--primary-light)}
+  .opt:focus-visible{outline:3px solid var(--accent); outline-offset:2px}
+  .opt.sel{border-color:var(--primary); background:var(--primary-light);
+    box-shadow:0 0 0 3px rgba(255,107,53,.15)}
+  .opt .emo{display:block; font-size:1.8rem; margin-bottom:4px}
+  .opt .lbl{display:block; font-weight:700; font-size:.9rem; color:var(--text)}
+  .opt .dsc{display:block; font-size:.73rem; color:var(--muted); margin-top:2px; line-height:1.3}
+  .recent-section{margin-top:22px; padding-top:18px; border-top:1px dashed var(--border)}
+  .recent-section h3{font-size:.85rem; color:var(--muted); margin-bottom:10px;
+    text-transform:uppercase; letter-spacing:.5px; font-weight:700}
+  .recent-list{display:flex; flex-wrap:wrap; gap:8px}
+  .recent-chip{padding:8px 14px; background:var(--chip-bg); border:1.5px solid var(--chip-border);
+    border-radius:20px; font-size:.85rem; cursor:pointer; color:var(--text);
+    font-family:inherit; display:inline-flex; align-items:center; gap:6px; transition:all .2s}
+  .recent-chip:hover{border-color:var(--primary); color:var(--primary)}
+  .recent-chip .x{color:var(--muted); font-size:.9rem; padding:0 2px; border-radius:3px}
+  .recent-chip .x:hover{color:var(--danger)}
+  .nav{display:flex; gap:10px; padding:18px 24px; border-top:1px solid var(--border);
+    background:var(--bg); flex-wrap:wrap}
+  .btn{padding:11px 20px; border:none; border-radius:10px; font-family:inherit;
+    font-size:.94rem; font-weight:600; cursor:pointer; transition:all .2s;
+    display:inline-flex; align-items:center; justify-content:center; gap:6px}
+  .btn:disabled{opacity:.45; cursor:not-allowed}
+  .btn:active:not(:disabled){transform:scale(.97)}
+  .btn-primary{background:var(--primary); color:#fff; flex:1; min-width:120px}
+  .btn-primary:hover:not(:disabled){background:var(--primary-dark)}
+  .btn-secondary{background:var(--subtle); color:var(--text)}
+  .btn-secondary:hover{background:var(--subtle-hover)}
+  .btn-ghost{background:transparent; color:var(--muted)}
+  .btn-ghost:hover:not(:disabled){color:var(--danger)}
+  .btn-success{background:var(--ok); color:#fff}
+  .btn-sm{padding:7px 12px; font-size:.82rem}
+  .res-head{text-align:center; margin-bottom:18px}
+  .res-head .icon{font-size:2.8rem; margin-bottom:6px}
+  .res-head .item-name{font-size:1.05rem; color:var(--primary-dark); font-weight:700;
+    margin-top:4px; font-style:italic}
+  .cmp{display:grid; grid-template-columns:1fr auto 1fr; gap:10px; align-items:center;
+    padding:14px; background:var(--bg); border-radius:var(--radius); margin-bottom:14px}
+  .cmp-col{text-align:center}
+  .cmp-col .k{font-size:.72rem; text-transform:uppercase; letter-spacing:.5px;
+    color:var(--muted); font-weight:700}
+  .cmp-col .v{font-size:.98rem; font-weight:700; margin-top:3px}
+  .cmp-arr{font-size:1.5rem; color:var(--primary)}
+  .summary{background:var(--bg); border-radius:var(--radius); padding:12px;
+    margin-bottom:14px; font-size:.85rem}
+  .summary-head{color:var(--muted); font-size:.75rem; text-transform:uppercase;
+    letter-spacing:.5px; font-weight:700; margin-bottom:8px}
+  .summary-chips{display:flex; flex-wrap:wrap; gap:6px}
+  .sum-chip{background:var(--chip-bg); border:1px solid var(--chip-border);
+    padding:5px 10px; border-radius:14px; font-size:.8rem; cursor:pointer;
+    color:var(--text); font-family:inherit; display:inline-flex; align-items:center; gap:4px}
+  .sum-chip:hover{border-color:var(--primary); color:var(--primary)}
+  .sum-chip .edit-ico{font-size:.7rem; opacity:.7}
+  .result-grid{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:14px}
+  .result-card{background:linear-gradient(135deg,var(--result-grad-start),var(--result-grad-end));
+    border-radius:var(--radius); padding:18px 12px; text-align:center}
+  .result-card .k{font-size:.75rem; text-transform:uppercase; letter-spacing:.5px;
+    color:var(--muted); font-weight:700}
+  .result-card .v{font-size:2rem; font-weight:800; color:var(--primary-dark); margin-top:4px}
+  .result-card .u{font-size:.85rem; color:var(--muted); font-weight:600}
+  .note{background:var(--note-bg); border:1px solid var(--note-border); border-radius:8px;
+    padding:10px 12px; font-size:.83rem; color:var(--warn); margin-bottom:10px; display:none}
+  .note.show{display:block}
+  .tips{background:var(--tip-bg); border:1px solid var(--tip-border); border-radius:var(--radius);
+    padding:14px 16px; margin-bottom:14px}
+  .tips h3{font-size:.95rem; color:var(--tip-text); margin-bottom:8px}
+  .tips ul{list-style:none; padding:0}
+  .tips li{padding:3px 0 3px 22px; position:relative; font-size:.87rem; color:var(--tip-item)}
+  .tips li::before{content:'✓'; position:absolute; left:0; font-weight:bold; color:var(--tip-text)}
+  .disclaimer{background:var(--danger-bg); border:1px solid var(--danger-border); border-radius:var(--radius);
+    padding:14px; font-size:.82rem; color:var(--danger-text); line-height:1.55}
+  .disclaimer h4{font-size:.9rem; color:var(--danger); margin-bottom:6px}
+  .disclaimer ul{padding-left:20px; margin-top:6px}
+  .disclaimer a{color:var(--danger); font-weight:600}
+  /* TIMER */
+  .timer-card{background:var(--card); border:2px solid var(--primary); border-radius:var(--radius);
+    padding:16px; margin-bottom:14px; text-align:center}
+  .timer-display{font-size:2.6rem; font-weight:800; color:var(--primary-dark);
+    font-variant-numeric:tabular-nums; letter-spacing:1px; margin:6px 0}
+  .timer-display.warn{color:var(--warn); animation:pulse 1s infinite}
+  .timer-display.done{color:var(--ok); animation:pulse .6s infinite}
+  @keyframes pulse{50%{opacity:.5}}
+  .timer-bar{height:8px; background:var(--subtle); border-radius:4px; overflow:hidden; margin:8px 0 12px}
+  .timer-bar-fill{height:100%; background:linear-gradient(90deg,var(--primary),var(--primary-dark));
+    width:0%; transition:width .5s linear}
+  .timer-controls{display:flex; gap:8px; justify-content:center; flex-wrap:wrap}
+  .timer-status{font-size:.8rem; color:var(--muted); margin-top:4px; min-height:1em}
+  /* TOAST */
+  .toast{position:fixed; bottom:30px; left:50%;
+    transform:translateX(-50%) translateY(100px);
+    background:var(--secondary); color:#fff; padding:12px 18px;
+    border-radius:30px; font-weight:500; box-shadow:var(--shadow);
+    opacity:0; transition:all .3s; z-index:1000; display:flex; gap:10px; align-items:center;
+    max-width:90vw}
+  .toast.show{transform:translateX(-50%) translateY(0); opacity:1}
+  .toast-action{background:var(--primary); color:#fff; border:none; padding:6px 12px;
+    border-radius:16px; font-weight:700; cursor:pointer; font-family:inherit; font-size:.85rem}
+  .toast-action:hover{background:var(--primary-dark)}
+  .sr-only{position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+    overflow:hidden; clip:rect(0,0,0,0); border:0}
+  /* RESUME BANNER */
+  .resume{background:var(--primary-light); border-bottom:1px solid var(--border);
+    padding:10px 16px; display:flex; align-items:center; gap:10px; font-size:.88rem}
+  .resume .msg{flex:1; color:var(--text)}
+  /* RESPONSIVE */
+  @media(max-width:480px){
+    body{padding:10px}
+    header{padding:20px 16px}
+    header h1{font-size:1.3rem}
+    .theme-toggle{top:12px; right:12px}
+    .wizard{padding:22px 16px}
+    .nav{padding:14px 16px}
+    .cmp{grid-template-columns:1fr; gap:6px}
+    .cmp-arr{transform:rotate(90deg); font-size:1.2rem}
+    .result-grid{grid-template-columns:1fr}
+    .food-grid{grid-template-columns:1fr 1fr}
+    .opt .emo{font-size:1.5rem}
+    .btn{padding:10px 14px; font-size:.88rem}
+    .timer-display{font-size:2rem}
+  }
+  /* PRINT */
+  @media print{
+    body{background:#fff; padding:0; display:block}
+    .container{box-shadow:none; max-width:100%}
+    header{background:#fff; color:#000; border-bottom:2px solid #000}
+    .theme-toggle, .progress, .nav, .step:not(.active), .toast, .resume,
+    .timer-card, .summary{display:none !important}
+    .wizard{min-height:auto}
+    .result-card{background:#f5f5f5 !important; border:1px solid #ccc;
+      -webkit-print-color-adjust:exact; print-color-adjust:exact}
+    .tips, .disclaimer, .cmp, .note{border:1px solid #ccc; background:#fff !important}
+    a{color:#000; text-decoration:underline}
+  }
+</style>
+</head>
+<body>
+
+<main class="container" role="main" aria-labelledby="app-title">
+  <header>
+    <h1 id="app-title">🍟 Air Fryer Converter</h1>
+    <p>Turn frozen appetizer oven instructions into air fryer settings</p>
+    <button class="theme-toggle" id="themeBtn" type="button" aria-label="Toggle dark mode" title="Toggle dark mode">🌙</button>
+  </header>
+
+  <div class="resume" id="resumeBanner" style="display:none" role="region" aria-label="Resume session">
+    <span aria-hidden="true">💾</span>
+    <span class="msg">We saved your previous conversion.</span>
+    <button class="btn btn-secondary btn-sm" type="button" data-action="resume">Resume</button>
+    <button class="btn btn-ghost btn-sm" type="button" data-action="dismiss-resume" aria-label="Dismiss">✕</button>
+  </div>
+
+  <div class="progress" role="progressbar" aria-label="Wizard progress" aria-valuemin="1" aria-valuemax="5" aria-valuenow="1">
+    <div class="progress-step active" id="p1"></div>
+    <div class="progress-step" id="p2"></div>
+    <div class="progress-step" id="p3"></div>
+    <div class="progress-step" id="p4"></div>
+    <div class="progress-step" id="p5"></div>
+  </div>
+
+  <div class="wizard" id="wizard">
+
+    <!-- STEP 1 -->
+    <section class="step active" data-step="1" aria-labelledby="s1-title">
+      <div class="step-label" data-step-counter>Step 1 of 5</div>
+      <h2 id="s1-title" tabindex="-1">What type of oven instructions are on the package?</h2>
+      <p class="desc">Most frozen appetizer packages list <strong>conventional</strong> oven directions. Look for the word "convection" specifically.</p>
+      <div class="opt-grid" role="radiogroup" aria-label="Oven type">
+        <button class="opt" type="button" data-pick="oven" data-v="conventional" role="radio" aria-checked="false">
+          <span class="emo" aria-hidden="true">🔥</span>
+          <span class="lbl">Conventional</span>
+          <span class="dsc">Standard / regular oven</span>
+        </button>
+        <button class="opt" type="button" data-pick="oven" data-v="convection" role="radio" aria-checked="false">
+          <span class="emo" aria-hidden="true">🌀</span>
+          <span class="lbl">Convection</span>
+          <span class="dsc">Fan-assisted oven</span>
+        </button>
+      </div>
+      <div class="recent-section" id="recentSection" style="display:none">
+        <h3>⭐ Recent Conversions</h3>
+        <div class="recent-list" id="recentList"></div>
+      </div>
+    </section>
+
+    <!-- STEP 2 -->
+    <section class="step" data-step="2" aria-labelledby="s2-title">
+      <div class="step-label" data-step-counter>Step 2 of 5</div>
+      <h2 id="s2-title" tabindex="-1">Package Temperature</h2>
+      <p class="desc">Enter the oven temperature listed on the package.</p>
+      <div class="field">
+        <label for="tempInput">Temperature</label>
+        <div class="row">
+          <input type="number" id="tempInput" inputmode="numeric" placeholder="e.g. 400" aria-describedby="tempErr">
+          <div class="unit-toggle" role="group" aria-label="Temperature unit">
+            <button type="button" class="on" id="uF" data-unit="F" aria-pressed="true">°F</button>
+            <button type="button" id="uC" data-unit="C" aria-pressed="false">°C</button>
+          </div>
+        </div>
+        <div class="err" id="tempErr" role="alert"></div>
+      </div>
+      <div class="presets" id="presetBox">
+        <span class="lbl">Common:</span>
+      </div>
+    </section>
+
+    <!-- STEP 3 -->
+    <section class="step" data-step="3" aria-labelledby="s3-title">
+      <div class="step-label" data-step-counter>Step 3 of 5</div>
+      <h2 id="s3-title" tabindex="-1">Cook Time</h2>
+      <p class="desc">Enter a single time or a range (e.g. "18–22 minutes"). Fill only the first box for a single time.</p>
+      <div class="field">
+        <label>Time (minutes)</label>
+        <div class="row">
+          <input type="number" id="timeMin" placeholder="Min" inputmode="numeric" min="1" max="180" aria-label="Minimum time">
+          <span class="hyphen">to</span>
+          <input type="number" id="timeMax" placeholder="Max (optional)" inputmode="numeric" min="1" max="180" aria-label="Maximum time">
+        </div>
+        <div class="err" id="timeErr" role="alert"></div>
+        <div class="warn-soft" id="timeWarn"></div>
+      </div>
+    </section>
+
+    <!-- STEP 4 -->
+    <section class="step" data-step="4" aria-labelledby="s4-title">
+      <div class="step-label" data-step-counter>Step 4 of 5</div>
+      <h2 id="s4-title" tabindex="-1">What are you cooking?</h2>
+      <p class="desc">Select the closest match to fine-tune the conversion.</p>
+      <div class="food-grid" role="radiogroup" aria-label="Food type">
+        <button class="opt" type="button" data-pick="food" data-v="thin" role="radio" aria-checked="false">
+          <span class="emo" aria-hidden="true">🧀</span>
+          <span class="lbl">Small &amp; Thin</span>
+          <span class="dsc">Mozzarella sticks, taquitos, fries, onion rings</span>
+        </button>
+        <button class="opt" type="button" data-pick="food" data-v="wrapped" role="radio" aria-checked="false">
+          <span class="emo" aria-hidden="true">🥟</span>
+          <span class="lbl">Wrapped</span>
+          <span class="dsc">Egg rolls, spring rolls, wontons, empanadas</span>
+        </button>
+        <button class="opt" type="button" data-pick="food" data-v="protein" role="radio" aria-checked="false">
+          <span class="emo" aria-hidden="true">🍗</span>
+          <span class="lbl">Protein</span>
+          <span class="dsc">Wings, nuggets, meatballs, corn dogs</span>
+        </button>
+        <button class="opt" type="button" data-pick="food" data-v="pastry" role="radio" aria-checked="false">
+          <span class="emo" aria-hidden="true">🥐</span>
+          <span class="lbl">Pastry</span>
+          <span class="dsc">Puff pastry bites, phyllo, pigs in blanket</span>
+        </button>
+        <button class="opt" type="button" data-pick="food" data-v="stuffed" role="radio" aria-checked="false">
+          <span class="emo" aria-hidden="true">🌶️</span>
+          <span class="lbl">Stuffed</span>
+          <span class="dsc">Stuffed mushrooms, poppers, potato skins</span>
+        </button>
+        <button class="opt" type="button" data-pick="food" data-v="flat" role="radio" aria-checked="false">
+          <span class="emo" aria-hidden="true">🍕</span>
+          <span class="lbl">Flat &amp; Cheesy</span>
+          <span class="dsc">Pizza rolls, mini pizzas, flatbread</span>
+        </button>
+      </div>
+      <div class="field" style="margin-top:18px">
+        <label for="foodName">Custom label (optional)</label>
+        <input type="text" id="foodName" placeholder="e.g. Crispy Chicken Wings" maxlength="60">
+      </div>
+      <div class="field">
+        <label for="thickness">Piece size / thickness</label>
+        <select id="thickness">
+          <option value="small">Small / bite-sized</option>
+          <option value="medium" selected>Medium (standard)</option>
+          <option value="large">Large / thick (e.g. drumsticks, jumbo rolls)</option>
+        </select>
+        <p class="help">💡 Thicker items need slightly more time so the center heats through.</p>
+      </div>
+      <div class="field">
+        <label for="startState">Starting temperature</label>
+        <select id="startState">
+          <option value="frozen" selected>Fully frozen (from freezer)</option>
+          <option value="thawed">Partially thawed / refrigerated</option>
+        </select>
+        <p class="help">💡 Partially thawed food cooks faster. Never thaw raw poultry at room temperature.</p>
+      </div>
+    </section>
+
+    <!-- STEP 5 -->
+    <section class="step" data-step="5" aria-labelledby="s5-title">
+      <div class="step-label" data-step-counter>Step 5 of 5</div>
+      <h2 id="s5-title" tabindex="-1">Batch Size</h2>
+      <p class="desc">Air fryer baskets work best when not overcrowded — air needs to circulate.</p>
+      <div class="opt-grid" style="grid-template-columns:1fr" role="radiogroup" aria-label="Batch size">
+        <button class="opt sel" type="button" data-pick="batch" data-v="single" role="radio" aria-checked="true">
+          <span class="lbl">Single layer (recommended)</span>
+          <span class="dsc">Pieces not touching — optimal airflow</span>
+        </button>
+        <button class="opt" type="button" data-pick="batch" data-v="overlap" role="radio" aria-checked="false">
+          <span class="lbl">Slightly overlapping</span>
+          <span class="dsc">Some contact between pieces</span>
+        </button>
+        <button class="opt" type="button" data-pick="batch" data-v="crowded" role="radio" aria-checked="false">
+          <span class="lbl">Crowded / stacked</span>
+          <span class="dsc">Full basket — add time, shake often</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- RESULTS (not counted in progress) -->
+    <section class="step" data-step="6" aria-labelledby="s6-title" aria-live="polite">
+      <div class="res-head">
+        <div class="icon" aria-hidden="true">🎯</div>
+        <div class="step-label">Your Conversion</div>
+        <h2 id="s6-title" tabindex="-1">Air Fryer Settings</h2>
+        <div class="item-name" id="itemName"></div>
+      </div>
+
+      <div class="summary" aria-label="Your selections">
+        <div class="summary-head">Your selections (tap to edit)</div>
+        <div class="summary-chips" id="summaryChips"></div>
+      </div>
+
+      <div class="cmp">
+        <div class="cmp-col">
+          <div class="k">📦 Package (<span id="srcOven">—</span>)</div>
+          <div class="v" id="origSettings">—</div>
+        </div>
+        <div class="cmp-arr" aria-hidden="true">→</div>
+        <div class="cmp-col">
+          <div class="k">🍟 Air Fryer</div>
+          <div class="v" id="newSettings" style="color:var(--primary-dark)">—</div>
+        </div>
+      </div>
+
+      <div class="note" id="capNote"></div>
+      <div class="note" id="floorNote"></div>
+      <div class="note" id="slowerNote"></div>
+
+      <div class="result-grid">
+        <div class="result-card">
+          <div class="k">Temperature</div>
+          <div class="v" id="rTemp">—</div>
+          <div class="u" id="rTempUnit">°F</div>
+        </div>
+        <div class="result-card">
+          <div class="k">Cook Time</div>
+          <div class="v" id="rTime">—</div>
+          <div class="u">minutes</div>
+        </div>
+      </div>
+
+      <!-- TIMER -->
+      <div class="timer-card" id="timerCard">
+        <div class="k" style="font-size:.72rem;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);font-weight:700">⏱ Built-in Timer</div>
+        <div class="timer-display" id="timerDisplay">--:--</div>
+        <div class="timer-bar"><div class="timer-bar-fill" id="timerBarFill"></div></div>
+        <div class="timer-status" id="timerStatus">Ready. Press Start when food goes in.</div>
+        <div class="timer-controls">
+          <button class="btn btn-primary btn-sm" type="button" id="timerStart">▶ Start Timer</button>
+          <button class="btn btn-secondary btn-sm" type="button" id="timerPause" style="display:none">⏸ Pause</button>
+          <button class="btn btn-ghost btn-sm" type="button" id="timerReset" style="display:none">↻ Reset</button>
+        </div>
+      </div>
+
+      <div class="tips">
+        <h3>💡 Tips for Best Results</h3>
+        <ul id="tipsList"></ul>
+      </div>
+
+      <div class="disclaimer" role="region" aria-label="Safety information">
+        <h4>⚠️ Important Safety Information</h4>
+        <p>These results are <strong>estimates only</strong>. Always verify food is cooked safely before eating.</p>
+        <ul>
+          <li><strong>Verify internal temperature with a food thermometer</strong> (USDA minimums):
+            poultry <strong>165 °F / 74 °C</strong>,
+            ground meats <strong>160 °F / 71 °C</strong>,
+            whole cuts of beef/pork/lamb <strong>145 °F / 63 °C</strong> + 3-min rest,
+            fish/seafood <strong>145 °F / 63 °C</strong>,
+            reheated leftovers <strong>165 °F / 74 °C</strong>.
+            Reference: <a href="https://www.fsis.usda.gov/food-safety/safe-food-handling-and-preparation/food-safety-basics/safe-temperature-chart" target="_blank" rel="noopener">USDA FSIS Safe Temperature Chart</a>.
+          </li>
+          <li><strong>Appliance variation is significant:</strong> air fryer brand, wattage, basket size, fill level and age all affect cook time. Check food <strong>early and often</strong>, especially the first time you cook a product.</li>
+          <li><strong>At high altitude</strong> (above ~3,000 ft / 900 m), cooking times can be longer and temperatures may need small adjustments — monitor carefully.</li>
+          <li><strong>Preheat</strong> the air fryer 2–3 minutes before adding food; the converted time assumes a preheated basket.</li>
+          <li>Do not overcrowd the basket. Cook in batches for best results.</li>
+          <li>This tool does not replace manufacturer instructions. Follow all safety guidance for your specific appliance and food product.</li>
+        </ul>
+      </div>
+    </section>
+  </div>
+
+  <div class="nav">
+    <button class="btn btn-ghost" id="resetBtn" type="button" aria-label="Reset all inputs">↻ Reset</button>
+    <button class="btn btn-secondary" id="backBtn" type="button" disabled>← Back</button>
+    <button class="btn btn-primary" id="nextBtn" type="button">Next →</button>
+    <button class="btn btn-secondary" id="shareBtn" type="button" style="display:none">🔗 Share</button>
+    <button class="btn btn-secondary" id="printBtn" type="button" style="display:none">🖨 Print</button>
+    <button class="btn btn-success" id="copyBtn" type="button" style="display:none">📋 Copy</button>
+  </div>
+</main>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+  'use strict';
+
+  /* ═══════════════════════ CONFIG ═══════════════════════ */
+  const CONFIG = {
+    base: {
+      conventional: {dropF: 25, factor: 0.75},
+      convection:   {dropF: 15, factor: 0.85}
+    },
+    food: {
+      thin:    {dt:0, ft:0.92, emoji:'🧀', label:'Small & Thin'},
+      wrapped: {dt:0, ft:1.00, emoji:'🥟', label:'Wrapped'},
+      protein: {dt:0, ft:1.00, emoji:'🍗', label:'Protein'},
+      pastry:  {dt:5, ft:0.95, emoji:'🥐', label:'Pastry'},
+      stuffed: {dt:0, ft:1.08, emoji:'🌶️', label:'Stuffed'},
+      flat:    {dt:0, ft:0.95, emoji:'🍕', label:'Flat & Cheesy'}
+    },
+    thickness:  {small:0.92, medium:1.00, large:1.10},
+    startState: {frozen:1.00, thawed:0.85},
+    batch: {
+      single:  {factor:0,    dropF:0,  label:'Single layer'},
+      overlap: {factor:0.08, dropF:0,  label:'Overlapping'},
+      crowded: {factor:0.18, dropF:-5, label:'Crowded'}
+    },
+    tempCapF: 400,
+    tempFloorF: 250,
+    foodTips: {
+      thin:   ['Shake the basket halfway through cooking','Arrange in a single layer — avoid stacking','Light oil spray boosts crispness'],
+      wrapped:['Flip halfway through for even browning','Leave space between items for airflow','Light oil spray helps the wrapper crisp'],
+      protein:['Flip items halfway through','Use a meat thermometer to confirm doneness','Cook in batches rather than overcrowding'],
+      pastry: ['Check 2–3 minutes early — pastry browns quickly','Use perforated parchment to prevent sticking','Usually no flipping needed'],
+      stuffed:['Flip gently halfway through','Fillings take longer to heat — check the center is hot',"Cheese-filled items can burst; rest 1–2 minutes before eating"],
+      flat:   ['No flipping usually needed',"Don't stack or overlap pieces",'Use parchment to catch dripping cheese']
+    }
+  };
+
+  const STORAGE_KEY = 'afConverter_state_v2';
+  const RECENT_KEY  = 'afConverter_recent_v2';
+  const THEME_KEY   = 'afConverter_theme_v2';
+  const MAX_RECENT  = 5;
+
+  /* ═══════════════════════ STATE ═══════════════════════ */
+  const S = {
+    step:1, totalInput:5,
+    oven:null, unit:'F', temp:null,
+    tMin:null, tMax:null,
+    food:null, foodName:'', thickness:'medium', startState:'frozen',
+    batch:'single',
+    result:null
+  };
+
+  const $ = id => document.getElementById(id);
+  const steps     = document.querySelectorAll('.step');
+  const progress  = document.querySelectorAll('.progress-step');
+  const backBtn   = $('backBtn');
+  const nextBtn   = $('nextBtn');
+  const resetBtn  = $('resetBtn');
+  const copyBtn   = $('copyBtn');
+  const shareBtn  = $('shareBtn');
+  const printBtn  = $('printBtn');
+
+  /* ═══════════════════════ PERSISTENCE ═══════════════════════ */
+  function saveState(){
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(S)); }catch(_){}
+  }
+  function loadState(){
+    try{ return JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null'); }catch(_){ return null; }
+  }
+  function clearSavedState(){
+    try{ localStorage.removeItem(STORAGE_KEY); }catch(_){}
+  }
+  function getRecent(){
+    try{ return JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); }catch(_){ return []; }
+  }
+  function saveRecent(list){
+    try{ localStorage.setItem(RECENT_KEY, JSON.stringify(list.slice(0, MAX_RECENT))); }catch(_){}
+  }
+  function addRecent(entry){
+    const list = getRecent().filter(e => e.key !== entry.key);
+    list.unshift(entry);
+    saveRecent(list);
+  }
+  function removeRecent(key){
+    saveRecent(getRecent().filter(e => e.key !== key));
+    renderRecent();
+  }
+
+  /* ═══════════════════════ THEME ═══════════════════════ */
+  function applyTheme(theme){
+    if(theme === 'dark'){
+      document.documentElement.setAttribute('data-theme','dark');
+      $('themeBtn').textContent = '☀️';
+      $('themeBtn').setAttribute('aria-label','Switch to light mode');
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+      $('themeBtn').textContent = '🌙';
+      $('themeBtn').setAttribute('aria-label','Switch to dark mode');
+    }
+  }
+  function initTheme(){
+    let theme;
+    try{ theme = localStorage.getItem(THEME_KEY); }catch(_){}
+    if(!theme){
+      theme = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+    applyTheme(theme);
+  }
+  function toggleTheme(){
+    const cur = document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+    const next = cur === 'dark' ? 'light' : 'dark';
+    applyTheme(next);
+    try{ localStorage.setItem(THEME_KEY, next); }catch(_){}
+  }
+
+  /* ═══════════════════════ NAV ═══════════════════════ */
+  function updateStepCounters(){
+    document.querySelectorAll('[data-step-counter]').forEach(el => {
+      const parent = el.closest('.step');
+      const n = parseInt(parent.dataset.step, 10);
+      if(n <= S.totalInput) el.textContent = `Step ${n} of ${S.totalInput}`;
+    });
+  }
+
+  function showStep(n){
+    steps.forEach(s => s.classList.remove('active'));
+    document.querySelector(`.step[data-step="${n}"]`).classList.add('active');
+    // Progress bar tracks input steps only
+    const prog = Math.min(n, S.totalInput);
+    progress.forEach((p,i) => p.classList.toggle('active', i < prog));
+    document.querySelector('.progress').setAttribute('aria-valuenow', prog);
+    backBtn.disabled = (n === 1);
+
+    const onResults = (n === S.totalInput + 1);
+    nextBtn.style.display  = onResults ? 'none' : 'inline-flex';
+    copyBtn.style.display  = onResults ? 'inline-flex' : 'none';
+    shareBtn.style.display = onResults ? 'inline-flex' : 'none';
+    printBtn.style.display = onResults ? 'inline-flex' : 'none';
+    if(!onResults) nextBtn.textContent = (n === S.totalInput) ? 'Convert 🎉' : 'Next →';
+
+    S.step = n;
+    saveState();
+
+    // Focus management for a11y
+    setTimeout(() => {
+      const h = document.querySelector(`.step[data-step="${n}"] h2`);
+      if(h) h.focus({preventScroll:true});
+    }, 50);
+
+    window.scrollTo({top:0, behavior:'smooth'});
+    updateResetEnabled();
+  }
+
+  /* ═══════════════════════ PICKERS (event delegation) ═══════════════════════ */
+  function handlePick(kind, btn){
+    const group = btn.closest('[role="radiogroup"]');
+    if(!group) return;
+    group.querySelectorAll('.opt').forEach(o => {
+      o.classList.remove('sel');
+      o.setAttribute('aria-checked','false');
+    });
+    btn.classList.add('sel');
+    btn.setAttribute('aria-checked','true');
+    S[kind] = btn.dataset.v;
+    saveState();
+    updateNextEnabled();
+    updateResetEnabled();
+  }
+
+  /* ═══════════════════════ UNIT TOGGLE ═══════════════════════ */
+  function setUnit(u, {convertValue = true} = {}){
+    if(u === S.unit){
+      // still refresh UI on init
+      $('uF').classList.toggle('on', u==='F');
+      $('uC').classList.toggle('on', u==='C');
+      $('uF').setAttribute('aria-pressed', u==='F');
+      $('uC').setAttribute('aria-pressed', u==='C');
+      renderPresets();
+      $('tempErr').textContent = u==='F'
+        ? 'Please enter a temperature between 200–550 °F'
+        : 'Please enter a temperature between 90–290 °C';
+      return;
+    }
+
+    // Convert currently entered value to new unit
+    if(convertValue){
+      const raw = $('tempInput').value;
+      const v = parseFloat(raw);
+      if(raw !== '' && !isNaN(v)){
+        const converted = u === 'C'
+          ? Math.round((v - 32) * 5/9)
+          : Math.round(v * 9/5 + 32);
+        $('tempInput').value = converted;
+      }
+    }
+
+    S.unit = u;
+    $('uF').classList.toggle('on', u==='F');
+    $('uC').classList.toggle('on', u==='C');
+    $('uF').setAttribute('aria-pressed', u==='F');
+    $('uC').setAttribute('aria-pressed', u==='C');
+    renderPresets();
+    $('tempErr').textContent = u==='F'
+      ? 'Please enter a temperature between 200–550 °F'
+      : 'Please enter a temperature between 90–290 °C';
+    valTemp();
+    saveState();
+  }
+
+  function renderPresets(){
+    const box = $('presetBox');
+    const vals = S.unit==='F' ? [350,375,400,425,450] : [175,190,200,210,230];
+    box.innerHTML = '<span class="lbl">Common:</span>' +
+      vals.map(v => `<button class="preset" type="button" data-preset="${v}">${v}°${S.unit}</button>`).join('');
+  }
+
+  /* ═══════════════════════ VALIDATION ═══════════════════════ */
+  function valTemp(){
+    const input = $('tempInput');
+    const v = parseFloat(input.value);
+    const err = $('tempErr');
+    if(input.value === ''){
+      err.style.display = 'none';
+      input.setAttribute('aria-invalid','false');
+      S.temp = null;
+      updateNextEnabled(); saveState(); updateResetEnabled();
+      return;
+    }
+    const ok = S.unit==='F' ? (v>=200 && v<=550) : (v>=90 && v<=290);
+    err.style.display = ok ? 'none' : 'block';
+    input.setAttribute('aria-invalid', ok ? 'false' : 'true');
+    S.temp = ok ? v : null;
+    updateNextEnabled(); saveState(); updateResetEnabled();
+  }
+
+  function valTime(){
+    const minIn = $('timeMin'), maxIn = $('timeMax');
+    const mn = parseFloat(minIn.value);
+    const mx = parseFloat(maxIn.value);
+    const err = $('timeErr');
+    const warn = $('timeWarn');
+    err.style.display = 'none'; warn.style.display = 'none';
+    minIn.setAttribute('aria-invalid','false');
+    maxIn.setAttribute('aria-invalid','false');
+
+    if(minIn.value === ''){
+      S.tMin = null; S.tMax = null;
+      updateNextEnabled(); saveState(); updateResetEnabled();
+      return;
+    }
+    if(isNaN(mn) || mn < 1 || mn > 180){
+      if(mn > 180){
+        warn.textContent = '⚠️ That\'s an unusually long cook time — double-check the package.';
+        warn.style.display = 'block';
+      } else {
+        err.textContent = 'Enter a valid time (1–180 min)';
+        err.style.display = 'block';
+        minIn.setAttribute('aria-invalid','true');
+        S.tMin = null;
+        updateNextEnabled(); saveState(); updateResetEnabled();
+        return;
+      }
+    }
+    S.tMin = mn;
+
+    if(maxIn.value !== '' && !isNaN(mx)){
+      if(mx < mn){
+        err.textContent = 'Max must be ≥ min time';
+        err.style.display = 'block';
+        maxIn.setAttribute('aria-invalid','true');
+        S.tMax = null;
+      } else if(mx > 180){
+        warn.textContent = '⚠️ That\'s an unusually long cook time — double-check the package.';
+        warn.style.display = 'block';
+        S.tMax = mx;
+      } else {
+        S.tMax = mx > mn ? mx : null;
+      }
+    } else {
+      S.tMax = null;
+    }
+    updateNextEnabled(); saveState(); updateResetEnabled();
+  }
+
+  function updateNextEnabled(){
+    let ok = true;
+    if(S.step===1 && !S.oven) ok = false;
+    if(S.step===2 && S.temp === null) ok = false;
+    if(S.step===3 && S.tMin === null) ok = false;
+    if(S.step===4 && !S.food) ok = false;
+    nextBtn.disabled = !ok;
+  }
+
+  function isPristine(){
+    return !S.oven && S.temp===null && S.tMin===null && S.tMax===null
+      && !S.food && !S.foodName && S.thickness==='medium'
+      && S.startState==='frozen' && S.batch==='single' && S.step===1;
+  }
+  function updateResetEnabled(){
+    resetBtn.disabled = isPristine();
+  }
+
+  /* ═══════════════════════ CONVERSION (pure) ═══════════════════════ */
+  function convert(input){
+    const tF = input.unit === 'C' ? input.temp * 9/5 + 32 : input.temp;
+    const base = CONFIG.base[input.oven];
+    const food = CONFIG.food[input.food];
+
+    let dropF  = base.dropF + food.dt;
+    let factor = base.factor * food.ft;
+    factor *= CONFIG.thickness[input.thickness];
+    factor *= CONFIG.startState[input.startState];
+
+    const batch = CONFIG.batch[input.batch];
+    factor += batch.factor;
+    dropF  += batch.dropF;
+
+    let calcF = Math.round((tF - dropF) / 5) * 5;
+    let cap = null, floored = null;
+    if(calcF > CONFIG.tempCapF){
+      cap = {calc: calcF, capped: CONFIG.tempCapF};
+      calcF = CONFIG.tempCapF;
+    }
+    if(calcF < CONFIG.tempFloorF){
+      floored = {calc: calcF, floored: CONFIG.tempFloorF};
+      calcF = CONFIG.tempFloorF;
+    }
+
+    const slower = factor > 1.0;
+
+    const minFloor = (input.food === 'protein' && input.startState === 'frozen') ? 8 : 3;
+    const nMin = Math.max(minFloor, Math.round(input.tMin * factor));
+    const nMax = input.tMax ? Math.max(nMin + 1, Math.round(input.tMax * factor)) : null;
+
+    const dispTemp = input.unit === 'F'
+      ? calcF
+      : Math.round(((calcF - 32) * 5/9) / 5) * 5;
+
+    const checkAt = Math.max(2, Math.round((nMax || nMin) * 0.8));
+    return {temp: dispTemp, tempF: calcF, nMin, nMax, cap, floored, checkAt, factor, slower};
+  }
+
+  /* ═══════════════════════ TIPS ═══════════════════════ */
+  function buildTips(){
+    const t = ['Preheat the air fryer for 2–3 minutes before adding food'];
+    t.push(...CONFIG.foodTips[S.food]);
+    if(S.thickness === 'large') t.push('Thick/large items: check the center reaches safe temperature');
+    if(S.startState === 'thawed') t.push('Food is partially thawed — watch closely, it will cook faster');
+    if(S.batch === 'crowded') t.push('Crowded basket: shake or rearrange every few minutes');
+    if(S.result) t.push(`Check food at about ${S.result.checkAt} minutes and adjust from there`);
+    t.push('Never overcrowd the basket — work in batches for best results');
+    return t;
+  }
+
+  /* ═══════════════════════ RESULTS ═══════════════════════ */
+  function buildSummaryChips(){
+    const unitSym = S.unit === 'F' ? '°F' : '°C';
+    const origTime = S.tMax ? `${S.tMin}–${S.tMax}` : S.tMin;
+    const ovenLabel = S.oven.charAt(0).toUpperCase() + S.oven.slice(1);
+    const foodLabel = CONFIG.food[S.food].label;
+    const thickLabel = {small:'Small', medium:'Medium', large:'Large'}[S.thickness];
+    const stateLabel = S.startState === 'frozen' ? 'Frozen' : 'Thawed';
+    const batchLabel = CONFIG.batch[S.batch].label;
+
+    return [
+      {step:1, label:`🔥 ${ovenLabel}`},
+      {step:2, label:`🌡 ${S.temp}${unitSym}`},
+      {step:3, label:`⏱ ${origTime} min`},
+      {step:4, label:`${CONFIG.food[S.food].emoji} ${foodLabel}`},
+      {step:4, label:`📏 ${thickLabel}`},
+      {step:4, label:`❄️ ${stateLabel}`},
+      {step:5, label:`🧺 ${batchLabel}`}
+    ];
+  }
+
+  function renderSummary(){
+    const chips = buildSummaryChips();
+    $('summaryChips').innerHTML = chips.map(c =>
+      `<button class="sum-chip" type="button" data-goto-step="${c.step}" aria-label="Edit: ${c.label}">${c.label} <span class="edit-ico" aria-hidden="true">✎</span></button>`
+    ).join('');
+  }
+
+  function showResults(){
+    const r = convert(S);
+    S.result = r;
+    saveState();
+
+    const unitSym = S.unit==='F' ? '°F' : '°C';
+    const origTime = S.tMax ? `${S.tMin}–${S.tMax}` : S.tMin;
+    const newTime  = r.nMax ? `${r.nMin}–${r.nMax}` : r.nMin;
+
+    $('itemName').textContent = S.foodName ? `"${S.foodName}"` : '';
+    $('srcOven').textContent = S.oven;
+    $('origSettings').textContent = `${S.temp}${unitSym} · ${origTime} min`;
+    $('newSettings').textContent  = `${r.temp}${unitSym} · ${newTime} min`;
+
+    const capNote = $('capNote');
+    if(r.cap){
+      const capDisp = S.unit==='F' ? `${r.cap.calc} °F` : `${Math.round((r.cap.calc-32)*5/9)} °C`;
+      const targetDisp = S.unit==='F' ? '400 °F' : '205 °C';
+      capNote.textContent = `⚡ Calculated temperature was ${capDisp}, but most air fryers max at ${targetDisp}. Capped — add 1–2 extra minutes if needed.`;
+      capNote.classList.add('show');
+    } else capNote.classList.remove('show');
+
+    const floorNote = $('floorNote');
+    if(r.floored){
+      const targetDisp = S.unit==='F' ? '250 °F' : '120 °C';
+      floorNote.textContent = `ℹ️ Minimum recommended air fryer temperature applied (${targetDisp}).`;
+      floorNote.classList.add('show');
+    } else floorNote.classList.remove('show');
+
+    const slowerNote = $('slowerNote');
+    if(r.slower){
+      slowerNote.textContent = '⚠️ With these settings (thick + crowded + frozen), the air fryer may not be faster than the oven. Consider splitting into smaller batches.';
+      slowerNote.classList.add('show');
+    } else slowerNote.classList.remove('show');
+
+    $('rTemp').textContent = r.temp;
+    $('rTempUnit').textContent = unitSym;
+    $('rTime').textContent = newTime;
+
+    $('tipsList').innerHTML = buildTips().map(t => `<li>${escapeHtml(t)}</li>`).join('');
+
+    renderSummary();
+    setupTimer(r);
+
+    // Save to recent conversions
+    const recentEntry = {
+      key: `${S.food}_${S.foodName || ''}_${S.temp}${S.unit}_${S.tMin}`.toLowerCase(),
+      name: S.foodName || CONFIG.food[S.food].label,
+      emoji: CONFIG.food[S.food].emoji,
+      state: JSON.parse(JSON.stringify(S)),
+      ts: Date.now()
+    };
+    addRecent(recentEntry);
+
+    showStep(S.totalInput + 1);
+  }
+
+  function escapeHtml(str){
+    return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  /* ═══════════════════════ RECENT RENDER ═══════════════════════ */
+  function renderRecent(){
+    const list = getRecent();
+    const section = $('recentSection');
+    if(!list.length){ section.style.display = 'none'; return; }
+    section.style.display = 'block';
+    $('recentList').innerHTML = list.map((e,i) =>
+      `<span class="recent-chip"><button type="button" data-recent="${i}" style="background:none;border:none;cursor:pointer;color:inherit;font:inherit;padding:0" aria-label="Use recent: ${escapeHtml(e.name)}">${e.emoji} ${escapeHtml(e.name)}</button><button type="button" class="x" data-recent-remove="${e.key}" aria-label="Remove ${escapeHtml(e.name)}">✕</button></span>`
+    ).join('');
+  }
+
+  function useRecent(idx){
+    const entry = getRecent()[idx];
+    if(!entry) return;
+    Object.assign(S, entry.state);
+    restoreUIFromState();
+    showResults();
+  }
+
+  /* ═══════════════════════ TIMER ═══════════════════════ */
+  const TIMER = {
+    endTime: 0, remaining: 0, duration: 0, checkAt: 0,
+    running: false, tickId: null, checkFired: false, wakeLock: null
+  };
+
+  function fmtTime(seconds){
+    const s = Math.max(0, Math.round(seconds));
+    const m = Math.floor(s / 60), ss = s % 60;
+    return `${String(m).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
+  }
+
+  function beep(pattern = 'single'){
+    try{
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const beepOnce = (freq, start, dur) => {
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.frequency.value = freq;
+        o.type = 'sine';
+        o.connect(g); g.connect(ctx.destination);
+        g.gain.setValueAtTime(0, ctx.currentTime + start);
+        g.gain.linearRampToValueAtTime(0.3, ctx.currentTime + start + 0.02);
+        g.gain.linearRampToValueAtTime(0, ctx.currentTime + start + dur);
+        o.start(ctx.currentTime + start);
+        o.stop(ctx.currentTime + start + dur);
+      };
+      if(pattern === 'single'){ beepOnce(880, 0, 0.25); }
+      else if(pattern === 'double'){ beepOnce(880, 0, 0.2); beepOnce(880, 0.3, 0.2); }
+      else if(pattern === 'done'){ beepOnce(1046, 0, 0.2); beepOnce(1318, 0.25, 0.2); beepOnce(1568, 0.5, 0.4); }
+    }catch(_){}
+    try{
+      if(navigator.vibrate){
+        if(pattern === 'done') navigator.vibrate([300,100,300,100,500]);
+        else if(pattern === 'double') navigator.vibrate([200,100,200]);
+        else navigator.vibrate(200);
+      }
+    }catch(_){}
+  }
+
+  async function acquireWakeLock(){
+    try{
+      if('wakeLock' in navigator){
+        TIMER.wakeLock = await navigator.wakeLock.request('screen');
+      }
+    }catch(_){}
+  }
+  async function releaseWakeLock(){
+    try{ if(TIMER.wakeLock){ await TIMER.wakeLock.release(); TIMER.wakeLock = null; } }catch(_){}
+  }
+
+  function setupTimer(r){
+    const totalMin = r.nMax || r.nMin;
+    TIMER.duration = totalMin * 60;
+    TIMER.remaining = TIMER.duration;
+    TIMER.checkAt = r.checkAt * 60;
+    TIMER.checkFired = false;
+    TIMER.running = false;
+    clearInterval(TIMER.tickId);
+    $('timerDisplay').textContent = fmtTime(TIMER.duration);
+    $('timerDisplay').classList.remove('warn','done');
+    $('timerBarFill').style.width = '0%';
+    $('timerStatus').textContent = `Total: ${totalMin} min · Check at ${r.checkAt} min`;
+    $('timerStart').style.display = 'inline-flex';
+    $('timerStart').textContent = '▶ Start Timer';
+    $('timerPause').style.display = 'none';
+    $('timerReset').style.display = 'none';
+  }
+
+  function startTimer(){
+    if(TIMER.running) return;
+    TIMER.endTime = Date.now() + TIMER.remaining * 1000;
+    TIMER.running = true;
+    acquireWakeLock();
+    $('timerStart').style.display = 'none';
+    $('timerPause').style.display = 'inline-flex';
+    $('timerReset').style.display = 'inline-flex';
+    $('timerStatus').textContent = 'Running…';
+    tickTimer();
+    TIMER.tickId = setInterval(tickTimer, 250);
+  }
+
+  function pauseTimer(){
+    if(!TIMER.running) return;
+    TIMER.running = false;
+    clearInterval(TIMER.tickId);
+    TIMER.remaining = Math.max(0, (TIMER.endTime - Date.now()) / 1000);
+    releaseWakeLock();
+    $('timerStart').style.display = 'inline-flex';
+    $('timerStart').textContent = '▶ Resume';
+    $('timerPause').style.display = 'none';
+    $('timerStatus').textContent = 'Paused';
+  }
+
+  function resetTimer(){
+    TIMER.running = false;
+    clearInterval(TIMER.tickId);
+    releaseWakeLock();
+    if(S.result) setupTimer(S.result);
+  }
+
+  function tickTimer(){
+    const remaining = Math.max(0, (TIMER.endTime - Date.now()) / 1000);
+    TIMER.remaining = remaining;
+    $('timerDisplay').textContent = fmtTime(remaining);
+    const pct = ((TIMER.duration - remaining) / TIMER.duration) * 100;
+    $('timerBarFill').style.width = pct + '%';
+
+    // Check reminder
+    if(!TIMER.checkFired && remaining <= (TIMER.duration - TIMER.checkAt) && remaining > 0){
+      // Actually: fire when elapsed >= checkAt
+    }
+    const elapsed = TIMER.duration - remaining;
+    if(!TIMER.checkFired && elapsed >= TIMER.checkAt && remaining > 0){
+      TIMER.checkFired = true;
+      beep('double');
+      $('timerStatus').textContent = '🔔 Check food now! Shake/flip if needed.';
+      toast('🔔 Time to check your food!');
+    }
+
+    if(remaining <= 30 && remaining > 0){
+      $('timerDisplay').classList.add('warn');
+    }
+
+    if(remaining <= 0){
+      clearInterval(TIMER.tickId);
+      TIMER.running = false;
+      releaseWakeLock();
+      $('timerDisplay').textContent = '00:00';
+      $('timerDisplay').classList.remove('warn');
+      $('timerDisplay').classList.add('done');
+      $('timerStatus').textContent = '✅ Done! Verify internal temperature before serving.';
+      $('timerPause').style.display = 'none';
+      $('timerStart').style.display = 'inline-flex';
+      $('timerStart').textContent = '▶ Start Again';
+      beep('done');
+      toast('🎉 Timer finished!');
+    }
+  }
+
+  /* ═══════════════════════ URL SHARING ═══════════════════════ */
+  function buildShareURL(){
+    const p = new URLSearchParams();
+    p.set('o', S.oven);
+    p.set('u', S.unit);
+    p.set('t', String(S.temp));
+    p.set('tm', String(S.tMin));
+    if(S.tMax) p.set('tx', String(S.tMax));
+    p.set('f', S.food);
+    if(S.foodName) p.set('n', S.foodName);
+    p.set('k', S.thickness);
+    p.set('s', S.startState);
+    p.set('b', S.batch);
+    return location.origin + location.pathname + '?' + p.toString();
+  }
+
+  function loadFromURL(){
+    const p = new URLSearchParams(location.search);
+    if(!p.has('o')) return false;
+    try{
+      const inTempStr = p.get('t'); const tm = p.get('tm');
+      if(!inTempStr || !tm) return false;
+
+      S.oven = p.get('o');
+      S.unit = p.get('u') || 'F';
+      S.temp = parseFloat(inTempStr);
+      S.tMin = parseFloat(tm);
+      S.tMax = p.get('tx') ? parseFloat(p.get('tx')) : null;
+      S.food = p.get('f');
+      S.foodName = p.get('n') || '';
+      S.thickness = p.get('k') || 'medium';
+      S.startState = p.get('s') || 'frozen';
+      S.batch = p.get('b') || 'single';
+
+      if(!CONFIG.base[S.oven] || !CONFIG.food[S.food]) return false;
+      if(isNaN(S.temp) || isNaN(S.tMin)) return false;
+
+      restoreUIFromState();
+      // Clean the URL
+      history.replaceState({}, '', location.pathname);
+      return true;
+    }catch(_){ return false; }
+  }
+
+  /* ═══════════════════════ RESTORE UI FROM STATE ═══════════════════════ */
+  function restoreUIFromState(){
+    // Oven
+    document.querySelectorAll('[data-pick="oven"]').forEach(b => {
+      const sel = b.dataset.v === S.oven;
+      b.classList.toggle('sel', sel);
+      b.setAttribute('aria-checked', sel ? 'true' : 'false');
+    });
+    // Unit + temp
+    setUnit(S.unit, {convertValue:false});
+    $('tempInput').value = S.temp ?? '';
+    // Time
+    $('timeMin').value = S.tMin ?? '';
+    $('timeMax').value = S.tMax ?? '';
+    // Food
+    document.querySelectorAll('[data-pick="food"]').forEach(b => {
+      const sel = b.dataset.v === S.food;
+      b.classList.toggle('sel', sel);
+      b.setAttribute('aria-checked', sel ? 'true' : 'false');
+    });
+    $('foodName').value = S.foodName || '';
+    $('thickness').value = S.thickness;
+    $('startState').value = S.startState;
+    // Batch
+    document.querySelectorAll('[data-pick="batch"]').forEach(b => {
+      const sel = b.dataset.v === S.batch;
+      b.classList.toggle('sel', sel);
+      b.setAttribute('aria-checked', sel ? 'true' : 'false');
+    });
+    valTemp(); valTime(); updateNextEnabled(); updateResetEnabled();
+  }
+
+  /* ═══════════════════════ TOAST (with optional action) ═══════════════════════ */
+  let toastTimer = null;
+  function toast(msg, opts = {}){
+    const t = $('toast');
+    t.innerHTML = '';
+    const span = document.createElement('span');
+    span.textContent = msg;
+    t.appendChild(span);
+    if(opts.actionLabel && opts.onAction){
+      const btn = document.createElement('button');
+      btn.className = 'toast-action';
+      btn.type = 'button';
+      btn.textContent = opts.actionLabel;
+      btn.addEventListener('click', () => {
+        opts.onAction();
+        t.classList.remove('show');
+      });
+      t.appendChild(btn);
+    }
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove('show'), opts.duration || 3500);
+  }
+
+  /* ═══════════════════════ RESET (with undo) ═══════════════════════ */
+  let lastStateBackup = null;
+  function doReset(){
+    Object.assign(S, {
+      step:1, oven:null, unit:'F', temp:null,
+      tMin:null, tMax:null,
+      food:null, foodName:'', thickness:'medium',
+      startState:'frozen', batch:'single', result:null
+    });
+    ['tempInput','timeMin','timeMax','foodName'].forEach(id => $(id).value = '');
+    $('thickness').value = 'medium';
+    $('startState').value = 'frozen';
+    document.querySelectorAll('.opt').forEach(o => {
+      o.classList.remove('sel');
+      o.setAttribute('aria-checked','false');
+    });
+    const defBatch = document.querySelector('[data-step="5"] .opt[data-v="single"]');
+    if(defBatch){ defBatch.classList.add('sel'); defBatch.setAttribute('aria-checked','true'); }
+    setUnit('F', {convertValue:false});
+    document.querySelectorAll('.err,.warn-soft').forEach(e => e.style.display = 'none');
+    document.querySelectorAll('[aria-invalid]').forEach(e => e.setAttribute('aria-invalid','false'));
+    clearSavedState();
+    showStep(1);
+    updateNextEnabled();
+    updateResetEnabled();
+    renderRecent();
+  }
+
+  function handleReset(){
+    if(isPristine()) return;
+    lastStateBackup = JSON.parse(JSON.stringify(S));
+    doReset();
+    toast('Reset complete', {
+      actionLabel: 'Undo',
+      onAction: () => {
+        if(!lastStateBackup) return;
+        Object.assign(S, lastStateBackup);
+        restoreUIFromState();
+        showStep(S.step);
+        saveState();
+        toast('Restored');
+      },
+      duration: 5000
+    });
+  }
+
+  /* ═══════════════════════ COPY / SHARE / PRINT ═══════════════════════ */
+  async function doCopy(){
+    if(!S.result) return;
+    const r = S.result, u = S.unit==='F' ? '°F' : '°C';
+    const origTime = S.tMax ? `${S.tMin}–${S.tMax}` : S.tMin;
+    const newTime  = r.nMax ? `${r.nMin}–${r.nMax}` : r.nMin;
+    const label = S.foodName ? `\nItem: ${S.foodName}` : '';
+    const txt =
+`🍟 AIR FRYER CONVERSION
+━━━━━━━━━━━━━━━━━━━━━━${label}
+📦 Package (${S.oven} oven): ${S.temp}${u} for ${origTime} min
+🍟 Air Fryer: ${r.temp}${u} for ${newTime} min
+⏱ Check food at ~${r.checkAt} min
+
+💡 Tips:
+${buildTips().map(t => '• ' + t).join('\n')}
+
+⚠️ Estimate only. Always verify safe internal temperatures with a food thermometer.
+   Poultry 165°F · Ground meat 160°F · Reheated food 165°F.
+   Appliance performance varies — check early.`;
+    try{
+      await navigator.clipboard.writeText(txt);
+      toast('✓ Copied to clipboard!');
+    }catch(e){
+      const ta = document.createElement('textarea');
+      ta.value = txt; ta.setAttribute('readonly','');
+      ta.style.position='absolute'; ta.style.left='-9999px';
+      document.body.appendChild(ta); ta.select();
+      try{ document.execCommand('copy'); toast('✓ Copied!'); }
+      catch(_){ toast('Copy failed — select text manually'); }
+      document.body.removeChild(ta);
+    }
+  }
+
+  async function doShare(){
+    const url = buildShareURL();
+    const shareData = {
+      title: 'Air Fryer Conversion',
+      text: S.foodName ? `Air fryer settings for ${S.foodName}` : 'Air fryer conversion',
+      url
+    };
+    if(navigator.share){
+      try{ await navigator.share(shareData); return; }catch(_){ /* user cancelled or error */ }
+    }
+    try{
+      await navigator.clipboard.writeText(url);
+      toast('🔗 Share link copied!');
+    }catch(_){
+      prompt('Copy this link:', url);
+    }
+  }
+
+  /* ═══════════════════════ ARROW-KEY RADIO GROUP NAV ═══════════════════════ */
+  function setupArrowNav(){
+    document.querySelectorAll('[role="radiogroup"]').forEach(group => {
+      group.addEventListener('keydown', e => {
+        const opts = Array.from(group.querySelectorAll('[role="radio"]'));
+        const idx = opts.indexOf(document.activeElement);
+        if(idx < 0) return;
+        let next = idx;
+        if(e.key === 'ArrowRight' || e.key === 'ArrowDown') next = (idx + 1) % opts.length;
+        else if(e.key === 'ArrowLeft' || e.key === 'ArrowUp') next = (idx - 1 + opts.length) % opts.length;
+        else if(e.key === 'Home') next = 0;
+        else if(e.key === 'End') next = opts.length - 1;
+        else return;
+        e.preventDefault();
+        opts[next].focus();
+        opts[next].click();
+      });
+    });
+  }
+
+  /* ═══════════════════════ EVENT DELEGATION ═══════════════════════ */
+  function initEvents(){
+    document.body.addEventListener('click', e => {
+      const pickBtn = e.target.closest('[data-pick]');
+      if(pickBtn){ handlePick(pickBtn.dataset.pick, pickBtn); return; }
+
+      const presetBtn = e.target.closest('[data-preset]');
+      if(presetBtn){ $('tempInput').value = presetBtn.dataset.preset; valTemp(); return; }
+
+      const unitBtn = e.target.closest('[data-unit]');
+      if(unitBtn){ setUnit(unitBtn.dataset.unit); return; }
+
+      const gotoBtn = e.target.closest('[data-goto-step]');
+      if(gotoBtn){ showStep(parseInt(gotoBtn.dataset.goto-step, 10) || parseInt(gotoBtn.getAttribute('data-goto-step'),10)); return; }
+
+      const recentBtn = e.target.closest('[data-recent]');
+      if(recentBtn){ useRecent(parseInt(recentBtn.dataset.recent, 10)); return; }
+
+      const removeBtn = e.target.closest('[data-recent-remove]');
+      if(removeBtn){ removeRecent(removeBtn.dataset.recentRemove); return; }
+
+      const actionBtn = e.target.closest('[data-action]');
+      if(actionBtn){
+        const a = actionBtn.dataset.action;
+        if(a === 'resume'){ $('resumeBanner').style.display = 'none'; showStep(S.step); }
+        else if(a === 'dismiss-resume'){ $('resumeBanner').style.display = 'none'; }
+      }
+    });
+
+    // Input listeners
+    $('tempInput').addEventListener('input', valTemp);
+    $('timeMin').addEventListener('input', valTime);
+    $('timeMax').addEventListener('input', valTime);
+    $('foodName').addEventListener('input', () => { S.foodName = $('foodName').value.trim(); saveState(); updateResetEnabled(); });
+    $('thickness').addEventListener('change', () => { S.thickness = $('thickness').value; saveState(); updateResetEnabled(); });
+    $('startState').addEventListener('change', () => { S.startState = $('startState').value; saveState(); updateResetEnabled(); });
+
+    // Nav
+    nextBtn.addEventListener('click', () => {
+      if(S.step === 4){
+        S.foodName = $('foodName').value.trim();
+        S.thickness = $('thickness').value;
+        S.startState = $('startState').value;
+        saveState();
+      }
+      if(S.step === S.totalInput){ showResults(); return; }
+      if(S.step < S.totalInput){ showStep(S.step + 1); updateNextEnabled(); }
+    });
+    backBtn.addEventListener('click', () => {
+      if(S.step > 1){
+        const target = Math.min(S.step - 1, S.totalInput);
+        showStep(target); updateNextEnabled();
+      }
+    });
+    resetBtn.addEventListener('click', handleReset);
+    copyBtn.addEventListener('click', doCopy);
+    shareBtn.addEventListener('click', doShare);
+    printBtn.addEventListener('click', () => window.print());
+    $('themeBtn').addEventListener('click', toggleTheme);
+
+    // Timer controls
+    $('timerStart').addEventListener('click', startTimer);
+    $('timerPause').addEventListener('click', pauseTimer);
+    $('timerReset').addEventListener('click', resetTimer);
+
+    // Summary chip jump
+    document.getElementById('summaryChips').addEventListener('click', e => {
+      const b = e.target.closest('[data-goto-step]');
+      if(b) showStep(parseInt(b.getAttribute('data-goto-step'), 10));
+    });
+
+    // Keyboard: Enter advances on wizard (but not from textareas or text inputs where it would be disruptive)
+    document.addEventListener('keydown', e => {
+      if(e.key !== 'Enter' || e.shiftKey) return;
+      const el = document.activeElement;
+      if(!el) return;
+      const tag = el.tagName;
+      // Skip if in a text input (foodName) or select — let normal behavior happen
+      if(tag === 'TEXTAREA') return;
+      if(tag === 'INPUT' && el.type === 'text') return;
+      if(tag === 'SELECT') return;
+      if(tag === 'BUTTON' && el !== nextBtn) return; // buttons handle Enter themselves
+      if(S.step <= S.totalInput && !nextBtn.disabled){
+        e.preventDefault();
+        nextBtn.click();
+      }
+    });
+
+    // Release wake lock on visibility change / navigate
+    document.addEventListener('visibilitychange', () => {
+      if(document.visibilityState === 'visible' && TIMER.running && !TIMER.wakeLock){
+        acquireWakeLock();
+      }
+    });
+  }
+
+  /* ═══════════════════════ INIT ═══════════════════════ */
+  function init(){
+    initTheme();
+    updateStepCounters();
+    initEvents();
+    setupArrowNav();
+    renderPresets();
+    renderRecent();
+
+    // Priority: URL params → saved state → fresh
+    const fromURL = loadFromURL();
+    if(fromURL){
+      showResults();
+      toast('🔗 Loaded from shared link');
+      return;
+    }
+
+    const saved = loadState();
+    if(saved && (saved.oven || saved.temp !== null || saved.tMin !== null || saved.food)){
+      // Has meaningful data — offer resume
+      Object.assign(S, saved);
+      restoreUIFromState();
+      // If they were on results and still have a result, go there; otherwise go to saved step
+      if(S.result){
+        showResults();
+      } else {
+        $('resumeBanner').style.display = 'flex';
+        showStep(1);
+        updateNextEnabled();
+      }
+    } else {
+      setUnit('F', {convertValue:false});
+      showStep(1);
+      updateNextEnabled();
+    }
+    updateResetEnabled();
+  }
+
+  // Web App Manifest via Blob URL (enables "Install app" on supported browsers when served)
+  try{
+    const manifest = {
+      name: 'Air Fryer Converter',
+      short_name: 'Air Fryer',
+      description: 'Convert oven instructions to air fryer settings',
+      start_url: '.',
+      display: 'standalone',
+      background_color: '#fff9f5',
+      theme_color: '#ff6b35',
+      icons: [{
+        src: "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'%3E%3Crect width='192' height='192' fill='%23ff6b35' rx='24'/%3E%3Ctext x='50%25' y='55%25' text-anchor='middle' dominant-baseline='middle' font-size='120'%3E🍟%3C/text%3E%3C/svg%3E",
+        sizes: '192x192',
+        type: 'image/svg+xml'
+      }]
+    };
+    const blob = new Blob([JSON.stringify(manifest)], {type:'application/manifest+json'});
+    const link = document.createElement('link');
+    link.rel = 'manifest';
+    link.href = URL.createObjectURL(blob);
+    document.head.appendChild(link);
+  }catch(_){}
+
+  init();
+})();
+</script>
+</body>
+</html>

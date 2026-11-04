@@ -1,0 +1,1750 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Balda Solver</title>
+<!-- Set theme before paint to avoid FOUC; respects saved choice then OS preference -->
+<script>
+(function () {
+  try {
+    var s = JSON.parse(localStorage.getItem('balda_state_v2') || 'null');
+    var t = (s && s.theme) ? s.theme
+          : (window.matchMedia && matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    document.documentElement.setAttribute('data-theme', t);
+  } catch (e) {}
+})();
+</script>
+<style>
+  /* ═══════════ THEME TOKENS ═══════════ */
+  :root, [data-theme="dark"] {
+    --bg: #0f172a; --surface: #1e293b; --surface2: #334155;
+    --border: #475569; --text: #e2e8f0; --text2: #94a3b8;
+    --accent: #3b82f6; --accent2: #60a5fa; --green: #22c55e;
+    --orange: #f59e0b; --red: #ef4444; --pink: #ec4899; --purple: #a78bfa;
+    --path-hl: #1a4a2e; --path-new: #4a2e1a; --cell-filled: #1a3a5c;
+    --shadow: 0 4px 12px rgba(0,0,0,0.3);
+  }
+  [data-theme="light"] {
+    --bg: #f1f5f9; --surface: #ffffff; --surface2: #e2e8f0;
+    --border: #cbd5e1; --text: #0f172a; --text2: #475569;
+    --accent: #2563eb; --accent2: #3b82f6; --green: #16a34a;
+    --orange: #d97706; --red: #dc2626; --pink: #db2777; --purple: #7c3aed;
+    --path-hl: #bbf7d0; --path-new: #fed7aa; --cell-filled: #bfdbfe;
+    --shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: var(--bg); color: var(--text); min-height: 100vh;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 16px 12px; line-height: 1.5; transition: background 0.25s, color 0.25s;
+  }
+
+  /* ═══════════ UTILITIES ═══════════ */
+  .hidden { display: none !important; }
+  .flex-1 { flex: 1; }
+  .section-note { font-size: 0.78em; color: var(--text2); margin-bottom: 6px; }
+  .text-muted { font-size: 0.78em; color: var(--text2); }
+  .mt-6 { margin-top: 6px; }
+
+  /* ═══════════ TOP BAR ═══════════ */
+  .top-bar { display: flex; align-items: center; justify-content: space-between; width: 100%; max-width: 1240px; margin-bottom: 8px; }
+  .brand { display: flex; flex-direction: column; }
+  h1 { font-size: 1.8em; background: linear-gradient(135deg, var(--accent2), var(--pink));
+       -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .subtitle { color: var(--text2); font-size: 0.85em; }
+  .top-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+  .icon-btn {
+    width: 36px; height: 36px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); cursor: pointer; font-size: 1em;
+    display: inline-flex; align-items: center; justify-content: center; transition: all 0.15s;
+  }
+  .icon-btn:hover { border-color: var(--accent); color: var(--accent2); }
+  .icon-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* ═══════════ LAYOUT ═══════════ */
+  .app { display: flex; gap: 20px; width: 100%; max-width: 1240px; flex-wrap: wrap; justify-content: center; }
+  .panel { background: var(--surface); border-radius: 14px; padding: 16px; border: 1px solid var(--border); box-shadow: var(--shadow); }
+  .left-panel { flex: 0 0 auto; max-width: 100%; }
+  .right-panel { flex: 1 1 400px; min-width: 300px; max-width: 560px; max-height: 85vh; display: flex; flex-direction: column; }
+
+  /* ═══════════ SCOREBOARD ═══════════ */
+  .scoreboard { display: flex; gap: 8px; margin-bottom: 12px; }
+  .player {
+    flex: 1; padding: 8px 10px; border-radius: 10px; border: 2px solid var(--border);
+    background: var(--surface2); transition: all 0.2s; text-align: center;
+  }
+  .player.active { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
+  .player-name {
+    width: 100%; background: transparent; border: none; text-align: center;
+    font-weight: 600; color: var(--text); font-size: 0.9em; padding: 1px;
+  }
+  .player-name:focus { outline: none; background: var(--surface); border-radius: 4px; }
+  .player-score { font-size: 1.5em; font-weight: 800; color: var(--accent2); line-height: 1; margin-top: 2px; }
+  .player.active .player-score { color: var(--accent); }
+
+  /* ═══════════ BOARD CONTROLS ═══════════ */
+  .size-toggle { display: flex; border-radius: 10px; overflow: hidden; border: 1px solid var(--border); width: fit-content; align-self: center; margin-bottom: 10px; }
+  .size-btn {
+    padding: 6px 12px; border: none; background: var(--surface2); color: var(--text2);
+    font-size: 0.8em; font-weight: 600; cursor: pointer; transition: all 0.15s; border-right: 1px solid var(--border);
+  }
+  .size-btn:last-child { border-right: none; }
+  .size-btn:hover { background: var(--border); color: var(--text); }
+  .size-btn.active { background: var(--accent); color: #fff; }
+
+  .toggle-row { display: flex; align-items: center; gap: 10px; justify-content: center; margin-bottom: 10px; flex-wrap: wrap; }
+  .toggle-label { font-size: 0.82em; color: var(--text2); font-weight: 600; }
+  .toggle-switch { position: relative; width: 44px; height: 24px; cursor: pointer; }
+  .toggle-switch input { opacity: 0; width: 0; height: 0; }
+  .toggle-track { position: absolute; inset: 0; background: var(--surface2); border: 2px solid var(--border); border-radius: 12px; transition: 0.25s; }
+  .toggle-track::after { content: ''; position: absolute; width: 16px; height: 16px; left: 2px; top: 2px; background: var(--text2); border-radius: 50%; transition: 0.25s; }
+  .toggle-switch input:checked + .toggle-track { background: var(--accent); border-color: var(--accent); }
+  .toggle-switch input:checked + .toggle-track::after { transform: translateX(20px); background: #fff; }
+
+  /* ═══════════ GRID ═══════════ */
+  .grid-container { display: flex; flex-direction: column; align-items: center; }
+  .grid { display: grid; gap: 4px; margin: 10px 0; }
+  .cell {
+    position: relative; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; text-transform: uppercase;
+    background: var(--surface2); border: 2px solid var(--border); border-radius: 10px;
+    cursor: pointer; transition: all 0.15s; color: var(--text); user-select: none;
+  }
+  .cell:focus-visible { outline: 2px solid var(--accent2); outline-offset: 2px; }
+  .cell:hover:not(.selected) { border-color: var(--accent); }
+  .cell.selected { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(59,130,246,0.3); }
+  .cell.filled { background: var(--cell-filled); }
+  .cell.path-hl { background: var(--path-hl); border-color: var(--green); }
+  .cell.path-new { background: var(--path-new); border-color: var(--orange); box-shadow: 0 0 12px rgba(245,158,11,0.4); }
+  .path-num {
+    position: absolute; top: 2px; left: 4px; font-size: 0.55em;
+    color: var(--text); font-weight: 800; background: rgba(0,0,0,0.45);
+    border-radius: 6px; padding: 0 5px; line-height: 1.4;
+  }
+
+  /* ═══════════ CONTROLS ═══════════ */
+  .controls { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+  .control-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+  label:not(.toggle-switch):not(.file-label) { font-size: 0.82em; color: var(--text2); white-space: nowrap; }
+  input[type="text"], input[type="number"], textarea, select {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); padding: 7px 10px; font-size: 0.9em; font-family: inherit;
+  }
+  input[type="text"] { text-transform: uppercase; letter-spacing: 0.12em; font-weight: 600; }
+  input[type="number"] { width: 60px; text-align: center; }
+  input:focus, textarea:focus, select:focus { outline: none; border-color: var(--accent); }
+  button {
+    padding: 7px 14px; border-radius: 8px; border: none; font-size: 0.85em;
+    font-weight: 600; cursor: pointer; transition: all 0.15s; font-family: inherit;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-primary:hover:not(:disabled) { background: var(--accent2); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+  .btn-secondary:hover { background: var(--border); }
+  .btn-small { padding: 4px 9px; font-size: 0.78em; }
+  .btn-danger { background: var(--red); color: #fff; }
+
+  /* ═══════════ COLLAPSIBLE SECTIONS ═══════════ */
+  .section { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+  .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; cursor: pointer; user-select: none; }
+  .section-header:focus-visible { outline: 2px solid var(--accent2); outline-offset: 2px; border-radius: 6px; }
+  .section-header h4 { font-size: 0.9em; display: flex; align-items: center; gap: 6px; }
+  .section-header .chevron { color: var(--text2); transition: transform 0.2s; font-size: 0.75em; }
+  .section-header .chevron.open { transform: rotate(180deg); }
+  .section-body { display: none; }
+  .section-body.open { display: block; }
+  .badge { font-size: 0.72em; padding: 2px 7px; border-radius: 10px; font-weight: 700; }
+  .badge-red { background: rgba(239,68,68,0.2); color: var(--red); border: 1px solid rgba(239,68,68,0.3); }
+
+  .scored-textarea {
+    width: 100%; min-height: 55px; max-height: 130px; background: var(--bg); color: var(--text);
+    border: 1px solid var(--border); border-radius: 8px; padding: 8px; font-size: 0.82em;
+    font-family: 'Consolas', 'Monaco', monospace; resize: vertical;
+  }
+  .scored-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; max-height: 90px; overflow-y: auto; }
+  .scored-tag {
+    display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px 2px 9px;
+    background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.25); border-radius: 10px;
+    font-size: 0.72em; font-weight: 600; color: var(--red); text-transform: uppercase;
+  }
+  .scored-tag button { background: none; border: none; color: var(--red); cursor: pointer;
+    opacity: 0.6; padding: 0 0 0 2px; line-height: 1; font-size: 1.1em; }
+  .scored-tag button:hover { opacity: 1; }
+
+  /* ═══════════ DICTIONARY ═══════════ */
+  .dict-info { font-size: 0.82em; color: var(--text2); margin-bottom: 4px; }
+  .dict-info strong { color: var(--green); }
+  .dict-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; align-items: center; }
+  input[type="file"] { display: none; }
+  .file-label {
+    display: inline-flex; align-items: center; gap: 4px; padding: 5px 12px; border-radius: 8px; font-size: 0.78em;
+    font-weight: 600; cursor: pointer; background: var(--surface2); color: var(--text);
+    border: 1px dashed var(--border); transition: all 0.15s;
+  }
+  .file-label:hover { border-color: var(--accent); color: var(--accent2); }
+  .url-row { display: flex; gap: 6px; width: 100%; }
+  .url-row input[type="text"] { flex: 1; min-width: 0; font-size: 0.82em; letter-spacing: normal; text-transform: none; font-weight: 400; }
+  .progress-bar { width: 100%; height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; margin-top: 4px; display: none; }
+  .progress-bar.active { display: block; }
+  .progress-fill { height: 100%; background: var(--accent); transition: width 0.2s; width: 0%; }
+  .progress-fill.indeterminate { width: 30%; animation: indet 1.2s ease-in-out infinite; }
+  @keyframes indet { 0% { transform: translateX(-100%); } 100% { transform: translateX(430%); } }
+  .cached-badge { display: inline-block; font-size: 0.7em; padding: 2px 6px; border-radius: 6px;
+    background: rgba(34,197,94,0.15); color: var(--green); font-weight: 600; border: 1px solid rgba(34,197,94,0.3); }
+
+  /* ═══════════ RESULTS ═══════════ */
+  .results-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; flex-wrap: wrap; gap: 6px; }
+  .results-header h3 { font-size: 1.05em; }
+  .results-header-actions { display: flex; align-items: center; gap: 8px; }
+  .results-toolbar { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+  .results-toolbar input[type="text"] { flex: 1; min-width: 100px; letter-spacing: normal; text-transform: none; font-weight: 400; }
+  .results-stats { font-size: 0.8em; color: var(--text2); }
+  .results-filter { display: flex; gap: 5px; margin-bottom: 8px; flex-wrap: wrap; }
+  .filter-btn { padding: 3px 9px; border-radius: 12px; font-size: 0.75em; background: var(--surface2);
+    color: var(--text2); border: 1px solid transparent; cursor: pointer; }
+  .filter-btn:hover, .filter-btn.active { border-color: var(--accent); color: var(--accent2); }
+  .results-list { flex: 1 1 auto; overflow-y: auto; padding-right: 4px; }
+  .results-list::-webkit-scrollbar { width: 6px; }
+  .results-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .result-group-header {
+    font-size: 0.75em; color: var(--text2); font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; padding: 8px 4px 4px; border-bottom: 1px solid var(--border); margin-bottom: 4px;
+  }
+  .result-item {
+    display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+    border-radius: 8px; cursor: pointer; transition: all 0.1s; border: 1px solid transparent;
+  }
+  .result-item:hover { background: var(--surface2); border-color: var(--border); }
+  .result-item.active { background: rgba(59,130,246,0.15); border-color: var(--accent); }
+  .result-item.used { opacity: 0.4; text-decoration: line-through; }
+  .result-word { font-weight: 700; font-size: 1em; text-transform: uppercase; letter-spacing: 0.04em; flex: 1; }
+  .result-score { background: var(--accent); color: #fff; padding: 2px 8px; border-radius: 10px;
+    font-size: 0.78em; font-weight: 700; min-width: 26px; text-align: center; }
+  .result-letter { background: var(--orange); color: #000; padding: 2px 7px; border-radius: 6px;
+    font-weight: 800; text-transform: uppercase; font-size: 0.85em; }
+  .result-pos { font-size: 0.72em; color: var(--text2); }
+  .result-actions { display: flex; gap: 3px; }
+  .show-more { width: 100%; margin: 8px 0; }
+
+  .no-results { text-align: center; padding: 30px 20px; color: var(--text2); }
+  .no-results .icon { font-size: 2.5em; margin-bottom: 8px; }
+
+  /* ═══════════ MODALS ═══════════ */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    display: none; align-items: center; justify-content: center; z-index: 100; padding: 16px;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--surface); border-radius: 14px; padding: 20px; border: 1px solid var(--border);
+    width: 100%; max-width: 560px; max-height: 85vh; display: flex; flex-direction: column;
+  }
+  .modal h3 { margin-bottom: 6px; }
+  .modal p { font-size: 0.85em; color: var(--text2); margin-bottom: 10px; }
+  .modal textarea { flex: 1; min-height: 160px; background: var(--bg); font-family: 'Consolas', monospace; font-size: 0.85em; }
+  .modal-actions { display: flex; gap: 6px; margin-top: 12px; justify-content: flex-end; }
+
+  .help-grid { display: grid; grid-template-columns: auto 1fr; gap: 8px 16px; font-size: 0.88em; }
+  .help-key { font-family: 'Consolas', monospace; background: var(--surface2); padding: 2px 8px;
+    border-radius: 6px; border: 1px solid var(--border); font-size: 0.85em; white-space: nowrap; }
+
+  /* ═══════════ VIRTUAL KEYBOARD ═══════════ */
+  .vkb { position: fixed; left: 0; right: 0; bottom: 0; background: var(--surface); border-top: 1px solid var(--border);
+    padding: 8px; display: none; flex-direction: column; gap: 4px; z-index: 90; box-shadow: 0 -4px 12px rgba(0,0,0,0.3); }
+  .vkb.open { display: flex; }
+  .vkb-row { display: flex; gap: 3px; justify-content: center; }
+  .vkb-key { flex: 1; max-width: 38px; height: 40px; border-radius: 6px; background: var(--surface2);
+    border: 1px solid var(--border); color: var(--text); font-weight: 700; font-size: 0.95em;
+    text-transform: uppercase; cursor: pointer; }
+  .vkb-key.wide { max-width: 80px; }
+  .vkb-key:active { background: var(--accent); color: #fff; }
+  .vkb-close { align-self: flex-end; }
+
+  /* ═══════════ TOAST ═══════════ */
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: var(--green); color: #000; padding: 10px 18px; border-radius: 10px;
+    font-weight: 600; z-index: 200; animation: fadeInUp 0.25s; pointer-events: none;
+    max-width: 90%; text-align: center; display: flex; align-items: center; gap: 6px; }
+  .toast.error { background: var(--red); color: #fff; }
+  .toast.has-action { pointer-events: auto; }
+  .toast-action { margin-left: 8px; background: rgba(0,0,0,0.2); border: none; color: inherit;
+    font-weight: 700; padding: 2px 10px; border-radius: 6px; cursor: pointer; }
+  @keyframes fadeInUp { from { opacity: 0; transform: translateX(-50%) translateY(10px); } }
+
+  /* ═══════════ SOLVING OVERLAY ═══════════ */
+  .solving-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6);
+    display: none; align-items: center; justify-content: center; z-index: 95; }
+  .solving-overlay.open { display: flex; }
+  .solving-box { background: var(--surface); padding: 24px 32px; border-radius: 14px; text-align: center; border: 1px solid var(--border); }
+  .spinner { width: 36px; height: 36px; border: 4px solid var(--border); border-top-color: var(--accent);
+    border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 10px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ═══════════ RESPONSIVE ═══════════ */
+  @media (max-width: 750px) {
+    .app { flex-direction: column; align-items: center; }
+    .right-panel { max-height: 60vh; width: 100%; }
+    h1 { font-size: 1.5em; }
+  }
+
+  /* ═══════════ REDUCED MOTION ═══════════ */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div class="top-bar">
+  <div class="brand">
+    <h1>⬡ Balda Solver</h1>
+    <p class="subtitle">Add one letter per turn. Find the longest word.</p>
+  </div>
+  <div class="top-actions">
+    <button class="icon-btn" id="undoBtn" title="Undo (Ctrl+Z)" aria-label="Undo">↶</button>
+    <button class="icon-btn" id="redoBtn" title="Redo (Ctrl+Shift+Z)" aria-label="Redo">↷</button>
+    <button class="icon-btn" id="exportBtn" title="Share game" aria-label="Share">🔗</button>
+    <button class="icon-btn" id="themeBtn" title="Toggle theme" aria-label="Toggle theme">🌙</button>
+    <button class="icon-btn" id="helpBtn" title="Help (?)" aria-label="Help">?</button>
+  </div>
+</div>
+
+<div class="app">
+  <!-- ═══════════ LEFT PANEL ═══════════ -->
+  <div class="panel left-panel">
+    <!-- Scoreboard -->
+    <div class="scoreboard" id="scoreboard">
+      <div class="player active" data-player="0">
+        <input type="text" class="player-name" value="Player 1" maxlength="16">
+        <div class="player-score">0</div>
+      </div>
+      <div class="player" data-player="1">
+        <input type="text" class="player-name" value="Player 2" maxlength="16">
+        <div class="player-score">0</div>
+      </div>
+    </div>
+
+    <!-- Board -->
+    <div class="grid-container">
+      <div class="size-toggle" id="sizeToggle" role="tablist"></div>
+      <div class="toggle-row">
+        <span class="toggle-label">Diagonals</span>
+        <label class="toggle-switch" title="Toggle 8-way adjacency">
+          <input type="checkbox" id="diagToggle" aria-label="Allow diagonal moves">
+          <span class="toggle-track"></span>
+        </label>
+        <span class="toggle-label" id="adjLabel">4-way</span>
+      </div>
+      <div class="grid" id="grid" role="grid" aria-label="Game board"></div>
+    </div>
+
+    <div class="controls">
+      <div class="control-row">
+        <label id="startLabel" for="startWord">Start word (5):</label>
+        <input type="text" id="startWord" maxlength="5" placeholder="WORDS" spellcheck="false">
+        <button class="btn-primary btn-small" id="setStartBtn">Set</button>
+        <button class="btn-secondary btn-small" id="resetBtn">Reset</button>
+      </div>
+      <div class="control-row">
+        <label for="minLen">Min:</label>
+        <input type="number" id="minLen" value="2" min="2" max="15">
+        <button class="btn-primary" id="solveBtn">🔍 Solve <span class="badge">⏎</span></button>
+        <button class="btn-secondary btn-small" id="hintBtn" title="Highlight best move">💡</button>
+        <button class="btn-secondary btn-small" id="passBtn" title="Pass turn">🔄 Pass</button>
+        <button class="btn-secondary btn-small" id="clearUsedBtn">Clear Used</button>
+      </div>
+
+      <!-- Scored Words -->
+      <div class="section">
+        <div class="section-header" data-toggle="scoredBody" role="button" tabindex="0" aria-expanded="false">
+          <h4 style="color: var(--red);">🚫 Scored Words <span class="badge badge-red" id="scoredBadge">0</span></h4>
+          <span class="chevron" id="scoredChevron">▼</span>
+        </div>
+        <div class="section-body" id="scoredBody">
+          <p class="section-note">Already-played words are excluded from results.</p>
+          <textarea class="scored-textarea" id="scoredInput" placeholder="cat&#10;dog&#10;house" spellcheck="false"></textarea>
+          <div class="control-row mt-6">
+            <span class="text-muted flex-1">Excluding: <strong id="scoredCount">0</strong></span>
+            <button class="btn-secondary btn-small" id="clearScoredBtn">Clear</button>
+            <button class="btn-secondary btn-small" id="sortScoredBtn">Sort</button>
+          </div>
+          <div class="scored-tags" id="scoredTags"></div>
+        </div>
+      </div>
+
+      <!-- Dictionary -->
+      <div class="section">
+        <div class="section-header" data-toggle="dictBody" role="button" tabindex="0" aria-expanded="false">
+          <h4 style="color: var(--accent2);">📖 Dictionary</h4>
+          <span class="chevron" id="dictChevron">▼</span>
+        </div>
+        <div class="section-body" id="dictBody">
+          <p class="dict-info" id="dictInfo">No dictionary loaded.</p>
+          <span id="dictCacheBadge"></span>
+          <div class="progress-bar" id="dictProgress"><div class="progress-fill" id="dictProgressFill"></div></div>
+          <div class="dict-bar mt-6">
+            <label class="file-label" for="dictFile">📂 File</label>
+            <input type="file" id="dictFile" accept=".txt,.dic,.text,.csv">
+            <button class="btn-secondary btn-small" id="pasteBtn">📋 Paste</button>
+            <button class="btn-secondary btn-small" id="builtinBtn">🔤 Built-in</button>
+          </div>
+          <div class="dict-bar">
+            <div class="url-row">
+              <input type="text" id="dictUrl" placeholder="https://example.com/words.txt" spellcheck="false">
+              <button class="btn-primary btn-small" id="fetchBtn">Fetch</button>
+            </div>
+          </div>
+          <div class="dict-bar hidden" id="cacheActions">
+            <button class="btn-secondary btn-small" id="cacheSaveBtn">💾 Cache</button>
+            <button class="btn-secondary btn-small" id="cacheClearBtn">🗑️ Clear Cache</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════ RIGHT PANEL ═══════════ -->
+  <div class="panel right-panel">
+    <div class="results-header">
+      <h3>📋 Results</h3>
+      <div class="results-header-actions">
+        <span class="results-stats" id="resultsStats"></span>
+        <button class="btn-secondary btn-small" id="exportResultsBtn" title="Copy all results">⬇ Export</button>
+      </div>
+    </div>
+    <div class="results-toolbar">
+      <input type="text" id="resultSearch" placeholder="🔎 Filter substring..." spellcheck="false">
+      <select id="sortMode" aria-label="Sort mode">
+        <option value="length">Longest</option>
+        <option value="alpha">A–Z</option>
+        <option value="letter">By letter</option>
+        <option value="pos">By position</option>
+      </select>
+      <select id="groupMode" aria-label="Group mode">
+        <option value="none">No groups</option>
+        <option value="letter">Group: letter</option>
+        <option value="pos">Group: cell</option>
+      </select>
+    </div>
+    <div class="results-filter" id="filterBar"></div>
+    <div class="results-list" id="resultsList" role="list"></div>
+  </div>
+</div>
+
+<!-- Modals -->
+<div class="modal-overlay" id="pasteModal" role="dialog" aria-modal="true" aria-labelledby="pasteTitle">
+  <div class="modal">
+    <h3 id="pasteTitle">📋 Paste Word List</h3>
+    <p>One per line, or space/comma separated.</p>
+    <textarea id="pasteArea" placeholder="apple&#10;banana&#10;cherry"></textarea>
+    <div class="modal-actions">
+      <button class="btn-secondary" data-close-modal>Cancel</button>
+      <button class="btn-primary" id="pasteLoadBtn">Load</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="helpModal" role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+  <div class="modal">
+    <h3 id="helpTitle">⌨️ Keyboard Shortcuts</h3>
+    <div class="help-grid">
+      <span class="help-key">Enter</span><span>Solve</span>
+      <span class="help-key">Ctrl+Z</span><span>Undo</span>
+      <span class="help-key">Ctrl+Shift+Z</span><span>Redo</span>
+      <span class="help-key">A–Z</span><span>Type letter in selected cell</span>
+      <span class="help-key">Backspace</span><span>Clear selected cell</span>
+      <span class="help-key">Arrows</span><span>Navigate cells</span>
+      <span class="help-key">Esc</span><span>Close modal / clear highlight</span>
+      <span class="help-key">T</span><span>Toggle theme</span>
+      <span class="help-key">H</span><span>Best move hint</span>
+      <span class="help-key">?</span><span>This help</span>
+    </div>
+    <div class="modal-actions"><button class="btn-primary" data-close-modal>Got it</button></div>
+  </div>
+</div>
+
+<!-- Virtual keyboard -->
+<div class="vkb" id="vkb" role="dialog" aria-label="On-screen keyboard">
+  <button class="btn-secondary btn-small vkb-close" id="vkbClose">Close ✕</button>
+  <div id="vkbRows"></div>
+</div>
+
+<!-- Solving overlay -->
+<div class="solving-overlay" id="overlay" role="status" aria-live="polite">
+  <div class="solving-box">
+    <div class="spinner"></div>
+    <div id="overlayText">Solving…</div>
+    <button class="btn-secondary btn-small mt-6" id="cancelSolveBtn">Cancel</button>
+  </div>
+</div>
+
+<script>
+'use strict';
+// ═══════════════════════════════════════════════════════════════════
+//  CONSTANTS & STATE
+// ═══════════════════════════════════════════════════════════════════
+const SIZES = [5, 6, 7, 8, 9];
+const CELL_SIZES = { 5: 62, 6: 54, 7: 48, 8: 42, 9: 38 };
+const FONT_SIZES = { 5: '1.6em', 6: '1.45em', 7: '1.25em', 8: '1.1em', 9: '1em' };
+const DIRS_4 = [[0,1],[0,-1],[1,0],[-1,0]];
+const DIRS_8 = [...DIRS_4, [1,1],[1,-1],[-1,1],[-1,-1]];
+const ALPHABET_EN = 'abcdefghijklmnopqrstuvwxyz';
+const ALPHABET_RU = 'абвгдежзийклмнопрстуфхцчшщъыьэюя';
+const CACHE_KEY = 'balda_dict_cache';
+const CACHE_META_KEY = 'balda_dict_meta';
+const STATE_KEY = 'balda_state_v2';
+const RESULTS_RENDER_STEP = 300;   // how many result rows to render at a time
+
+const state = {
+  boardSize: 5,
+  grid: [],
+  cells: [],            // 2D array of DOM nodes (cached)
+  selectedCell: null,
+  allowDiagonals: false,
+  scoredWords: new Set(),
+  usedWords: new Set(),
+  results: [],
+  activeResult: null,
+  filterLen: 0,
+  searchText: '',
+  sortMode: 'length',
+  groupMode: 'none',
+  renderLimit: RESULTS_RENDER_STEP,
+  players: [{ name: 'Player 1', score: 0 }, { name: 'Player 2', score: 0 }],
+  currentPlayer: 0,
+  theme: 'dark',
+  alphabet: ALPHABET_EN,
+};
+
+let dictCount = 0;
+let dictSource = '';
+let rawWordArray = null;
+let worker = null;
+let workerReady = false;
+let currentSolveId = 0;
+let pendingAutoCache = false;
+let themeExplicit = false;
+const history = [];
+const future = [];
+const HISTORY_LIMIT = 60;
+
+// ═══════════════════════════════════════════════════════════════════
+//  UTILITIES
+// ═══════════════════════════════════════════════════════════════════
+const $ = id => document.getElementById(id);
+function escHtml(s) { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+function cleanWord(w) { return w.trim().toLowerCase().replace(/[-'']/g, ''); }
+function isValidWord(w) { return w.length >= 2 && /^[a-zа-яё]+$/.test(w); }
+function getDirs() { return state.allowDiagonals ? DIRS_8 : DIRS_4; }
+const freshGrid = n => Array.from({ length: n }, () => Array(n).fill(''));
+function gridValid(g, size) {
+  return Array.isArray(g) && g.length === size && g.every(r => Array.isArray(r) && r.length === size);
+}
+
+// UTF-8-safe base64 (replaces deprecated escape/unescape)
+function utf8ToB64(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = '';
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin);
+}
+function b64ToUtf8(b64) {
+  const bin = atob(b64);
+  const bytes = Uint8Array.from(bin, c => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+// Clipboard with graceful fallback for non-secure contexts
+async function copyText(text, successMsg) {
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText && window.isSecureContext) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      document.execCommand('copy');
+      ta.remove();
+    }
+    if (successMsg) showToast(successMsg);
+    return true;
+  } catch {
+    showToast('Copy failed', true);
+    return false;
+  }
+}
+
+function showToast(msg, isError = false, action = null) {
+  document.querySelector('.toast')?.remove();
+  const t = document.createElement('div');
+  t.className = 'toast' + (isError ? ' error' : '') + (action ? ' has-action' : '');
+  t.setAttribute('role', 'status');
+  const span = document.createElement('span');
+  span.textContent = msg;
+  t.appendChild(span);
+  let timer;
+  if (action) {
+    const b = document.createElement('button');
+    b.className = 'toast-action';
+    b.textContent = action.label;
+    b.addEventListener('click', () => { clearTimeout(timer); t.remove(); action.fn(); });
+    t.appendChild(b);
+  }
+  document.body.appendChild(t);
+  timer = setTimeout(() => t.remove(), action ? 6000 : 3000);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  PERSISTENCE
+// ═══════════════════════════════════════════════════════════════════
+const saveState = debounce(() => {
+  try {
+    localStorage.setItem(STATE_KEY, JSON.stringify({
+      boardSize: state.boardSize,
+      grid: state.grid,
+      allowDiagonals: state.allowDiagonals,
+      scored: [...state.scoredWords],
+      used: [...state.usedWords],
+      players: state.players,
+      currentPlayer: state.currentPlayer,
+      theme: state.theme,
+    }));
+  } catch (e) { /* quota — ignore */ }
+}, 250);
+
+function loadState() {
+  try {
+    const s = JSON.parse(localStorage.getItem(STATE_KEY) || 'null');
+    if (!s) return false;
+    state.boardSize = s.boardSize || 5;
+    state.grid = gridValid(s.grid, state.boardSize) ? s.grid : freshGrid(state.boardSize);
+    state.allowDiagonals = !!s.allowDiagonals;
+    state.scoredWords = new Set(s.scored || []);
+    state.usedWords = new Set(s.used || []);
+    state.players = Array.isArray(s.players) && s.players.length === 2 ? s.players : state.players;
+    state.currentPlayer = s.currentPlayer ?? 0;
+    if (s.theme) { state.theme = s.theme; themeExplicit = true; }
+    return true;
+  } catch { return false; }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  UNDO / REDO
+// ═══════════════════════════════════════════════════════════════════
+function serializeSnapshot() {
+  return JSON.stringify({
+    grid: state.grid,
+    scored: [...state.scoredWords],
+    used: [...state.usedWords],
+    players: state.players,
+    currentPlayer: state.currentPlayer,
+    boardSize: state.boardSize,
+  });
+}
+function snapshot() {
+  history.push(serializeSnapshot());
+  if (history.length > HISTORY_LIMIT) history.shift();
+  future.length = 0;
+  updateUndoUI();
+}
+function applySnapshot(snap) {
+  const s = JSON.parse(snap);
+  if (s.boardSize !== state.boardSize) {
+    state.boardSize = s.boardSize;
+    buildSizeToggle(); buildGrid(); updateStartWordUI();
+  }
+  state.grid = gridValid(s.grid, state.boardSize) ? s.grid : freshGrid(state.boardSize);
+  state.scoredWords = new Set(s.scored);
+  state.usedWords = new Set(s.used);
+  state.players = s.players;
+  state.currentPlayer = s.currentPlayer ?? 0;
+  renderGrid(); renderScored(); renderPlayers(); clearResults();
+  saveState(); updateUndoUI();
+}
+function undo() {
+  if (!history.length) return;
+  future.push(serializeSnapshot());
+  applySnapshot(history.pop());
+}
+function redo() {
+  if (!future.length) return;
+  history.push(serializeSnapshot());
+  applySnapshot(future.pop());
+}
+function updateUndoUI() {
+  $('undoBtn').disabled = history.length === 0;
+  $('redoBtn').disabled = future.length === 0;
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  THEME
+// ═══════════════════════════════════════════════════════════════════
+function setTheme(t) {
+  state.theme = t;
+  themeExplicit = true;
+  document.documentElement.setAttribute('data-theme', t);
+  $('themeBtn').textContent = t === 'dark' ? '🌙' : '☀️';
+  saveState();
+}
+function toggleTheme() { setTheme(state.theme === 'dark' ? 'light' : 'dark'); }
+
+// ═══════════════════════════════════════════════════════════════════
+//  WORKER (SOLVER)
+// ═══════════════════════════════════════════════════════════════════
+const WORKER_SRC = `
+'use strict';
+class N { constructor() { this.c = Object.create(null); this.w = false; } }
+let root = new N(), trieCount = 0;
+function buildTrie(words) {
+  root = new N(); trieCount = 0;
+  const seen = new Set();
+  for (const w of words) {
+    const c = w.trim().toLowerCase().replace(/[-'\u2018\u2019]/g, '');
+    if (c.length < 2 || !/^[a-z\u0430-\u044f\u0451]+$/.test(c) || seen.has(c)) continue;
+    seen.add(c);
+    let n = root;
+    for (const ch of c) { if (!n.c[ch]) n.c[ch] = new N(); n = n.c[ch]; }
+    n.w = true; trieCount++;
+  }
+  return trieCount;
+}
+function solve(grid, rows, cols, dirs, minLen) {
+  const results = [], found = new Set();
+  for (let er = 0; er < rows; er++) {
+    for (let ec = 0; ec < cols; ec++) {
+      if (grid[er][ec] !== '') continue;
+      let hasN = false;
+      for (const [dr,dc] of dirs) {
+        const nr = er+dr, nc = ec+dc;
+        if (nr>=0 && nr<rows && nc>=0 && nc<cols && grid[nr][nc] !== '') { hasN = true; break; }
+      }
+      if (!hasN) continue;
+      for (let sr = 0; sr < rows; sr++) {
+        for (let sc = 0; sc < cols; sc++) {
+          // A word may START on the newly-placed (empty target) cell, so do NOT skip it.
+          if (grid[sr][sc] === '' && !(sr === er && sc === ec)) continue;
+          const visited = Array.from({length: rows}, () => new Uint8Array(cols));
+          dfs(sr, sc, visited, root, '', [], false, er, ec, '', grid, rows, cols, dirs, minLen, results, found);
+        }
+      }
+    }
+  }
+  return results;
+}
+function dfs(r, c, visited, node, word, path, usedNew, er, ec, newLetter, grid, rows, cols, dirs, minLen, results, found) {
+  const isEmpty = (r === er && c === ec);
+  const letters = isEmpty ? Object.keys(node.c) : [grid[r][c]];
+  for (const ch of letters) {
+    const next = node.c[ch];
+    if (!next) continue;
+    visited[r][c] = 1;
+    const nowWord = word + ch;
+    const nowUsed = usedNew || isEmpty;
+    const nowLet = isEmpty ? ch : newLetter;
+    const nowPath = path.concat([[r, c]]);
+    if (next.w && nowUsed && nowWord.length >= minLen) {
+      const key = nowWord + '|' + er + ',' + ec + ',' + nowLet;
+      if (!found.has(key)) {
+        found.add(key);
+        results.push({ word: nowWord, letter: nowLet, pos: [er, ec], path: nowPath });
+      }
+    }
+    for (const [dr, dc] of dirs) {
+      const nr = r+dr, nc = c+dc;
+      if (nr < 0 || nr >= rows || nc < 0 || nc >= cols || visited[nr][nc]) continue;
+      if (grid[nr][nc] === '') {
+        if (!(nr === er && nc === ec) || nowUsed) continue;
+      }
+      dfs(nr, nc, visited, next, nowWord, nowPath, nowUsed, er, ec, nowLet, grid, rows, cols, dirs, minLen, results, found);
+    }
+    visited[r][c] = 0;
+  }
+}
+self.onmessage = (e) => {
+  const m = e.data;
+  if (m.type === 'init') {
+    const count = buildTrie(m.words);
+    self.postMessage({ type: 'init-done', count });
+  } else if (m.type === 'solve') {
+    const t0 = Date.now();
+    const r = solve(m.grid, m.rows, m.cols, m.dirs, m.minLen);
+    self.postMessage({ type: 'solve-done', results: r, ms: Date.now() - t0, solveId: m.solveId });
+  }
+};
+`;
+
+// Single persistent dispatcher avoids onmessage races between load & solve.
+function onWorkerMessage(e) {
+  const m = e.data;
+  if (m.type === 'init-done') {
+    dictCount = m.count;
+    workerReady = true;
+    updateDictUI();
+    hideProgress();
+    showToast(`Loaded ${dictCount.toLocaleString()} words from ${dictSource}`);
+    if (pendingAutoCache) { pendingAutoCache = false; saveDictToCache(true); }
+  } else if (m.type === 'solve-done') {
+    if (m.solveId !== currentSolveId) return; // stale / cancelled
+    $('overlay').classList.remove('open');
+    $('solveBtn').disabled = false;
+    state.results = m.results;
+    state.results.sort((a, b) => b.word.length - a.word.length || a.word.localeCompare(b.word));
+    state.renderLimit = RESULTS_RENDER_STEP;
+    renderResults();
+    const shown = state.results.filter(r => !state.scoredWords.has(r.word)).length;
+    let msg = `Found ${shown} move${shown !== 1 ? 's' : ''} in ${m.ms}ms`;
+    if (state.scoredWords.size) msg += ` · ${state.scoredWords.size} excluded`;
+    showToast(msg);
+  }
+}
+
+function initWorker() {
+  if (worker) worker.terminate();
+  const blob = new Blob([WORKER_SRC], { type: 'application/javascript' });
+  worker = new Worker(URL.createObjectURL(blob));
+  worker.onmessage = onWorkerMessage;
+  workerReady = false;
+}
+
+function loadDictIntoWorker(words, source, autoCache = false) {
+  if (!worker) initWorker();
+  rawWordArray = [...new Set(words.map(cleanWord).filter(isValidWord))];
+  dictSource = source;
+  pendingAutoCache = autoCache;
+  showProgress(true);
+  worker.postMessage({ type: 'init', words: rawWordArray });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  DICTIONARY UI
+// ═══════════════════════════════════════════════════════════════════
+function updateDictUI() {
+  const info = $('dictInfo');
+  if (dictCount === 0) info.innerHTML = 'No dictionary loaded.';
+  else {
+    let src = dictSource; if (src.length > 36) src = '…' + src.slice(-33);
+    info.innerHTML = `<strong>${dictCount.toLocaleString()}</strong> words · <em>${escHtml(src)}</em>`;
+  }
+  $('cacheActions').classList.toggle('hidden', dictCount === 0);
+  updateCacheBadge();
+}
+
+function showProgress(indet, pct) {
+  $('dictProgress').classList.add('active');
+  const fill = $('dictProgressFill');
+  fill.classList.toggle('indeterminate', !!indet);
+  if (!indet && typeof pct === 'number') fill.style.width = pct + '%';
+}
+function hideProgress() {
+  $('dictProgress').classList.remove('active');
+  $('dictProgressFill').classList.remove('indeterminate');
+  $('dictProgressFill').style.width = '0%';
+}
+
+function loadDictFile(event) {
+  const file = event.target.files[0]; if (!file) return;
+  showProgress(true);
+  const reader = new FileReader();
+  reader.onload = e => loadDictIntoWorker(e.target.result.split(/[\r\n]+/), file.name, true);
+  reader.onerror = () => { hideProgress(); showToast('Error reading file', true); };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+async function loadDictUrl() {
+  const url = $('dictUrl').value.trim();
+  if (!url) { showToast('Enter a URL', true); return; }
+  showProgress(false, 0);
+  try {
+    const resp = await fetch(url);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const total = +resp.headers.get('content-length') || 0;
+    const reader = resp.body.getReader();
+    const chunks = []; let received = 0;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value); received += value.length;
+      if (total) showProgress(false, (received / total) * 100);
+      else showProgress(true);
+    }
+    const blob = new Blob(chunks);
+    const text = await blob.text();
+    loadDictIntoWorker(text.split(/[\r\n]+/), url, true);
+  } catch (err) {
+    hideProgress();
+    showToast(`Fetch failed: ${err.message}`, true);
+  }
+}
+
+function loadFromPaste() {
+  const text = $('pasteArea').value;
+  if (!text.trim()) { showToast('Paste words first', true); return; }
+  loadDictIntoWorker(text.split(/[\r\n,;|\s]+/), 'pasted', true);
+  closeModal('pasteModal');
+  $('pasteArea').value = '';
+}
+function useBuiltIn() { loadDictIntoWorker(BUILTIN_WORDS, 'built-in (~4K)'); }
+
+function saveDictToCache(silent = false) {
+  if (!rawWordArray?.length) { if (!silent) showToast('No dictionary to cache', true); return; }
+  try {
+    const data = rawWordArray.join('\n');
+    const sizeMB = (data.length / 1048576).toFixed(1);
+    localStorage.setItem(CACHE_KEY, data);
+    localStorage.setItem(CACHE_META_KEY, JSON.stringify({
+      count: rawWordArray.length, source: dictSource,
+      date: new Date().toISOString(), sizeMB: parseFloat(sizeMB)
+    }));
+    updateCacheBadge();
+    if (!silent) showToast(`Cached ${rawWordArray.length.toLocaleString()} words (${sizeMB} MB)`);
+  } catch (e) {
+    if (!silent) showToast(e.name === 'QuotaExceededError' ? 'Too large for browser cache' : `Cache error: ${e.message}`, true);
+  }
+}
+function loadDictFromCache() {
+  const data = localStorage.getItem(CACHE_KEY);
+  if (!data) return false;
+  const meta = localStorage.getItem(CACHE_META_KEY);
+  const parsed = meta ? JSON.parse(meta) : {};
+  loadDictIntoWorker(data.split('\n'), `cache (${parsed.source || 'unknown'})`);
+  return true;
+}
+function clearDictCache() {
+  localStorage.removeItem(CACHE_KEY); localStorage.removeItem(CACHE_META_KEY);
+  updateCacheBadge(); showToast('Cache cleared');
+}
+function updateCacheBadge() {
+  const badge = $('dictCacheBadge');
+  const meta = localStorage.getItem(CACHE_META_KEY);
+  if (!meta) { badge.innerHTML = ''; return; }
+  try {
+    const p = JSON.parse(meta);
+    badge.innerHTML = `<span class="cached-badge">💾 ${(p.count || 0).toLocaleString()} · ${new Date(p.date).toLocaleDateString()}</span>`;
+  } catch { badge.innerHTML = ''; }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  GRID
+// ═══════════════════════════════════════════════════════════════════
+function buildSizeToggle() {
+  const bar = $('sizeToggle'); bar.innerHTML = '';
+  for (const s of SIZES) {
+    const btn = document.createElement('button');
+    btn.className = 'size-btn' + (s === state.boardSize ? ' active' : '');
+    btn.textContent = `${s}×${s}`;
+    btn.setAttribute('role', 'tab');
+    btn.setAttribute('aria-selected', s === state.boardSize);
+    btn.addEventListener('click', () => changeSize(s));
+    bar.appendChild(btn);
+  }
+}
+function changeSize(n) {
+  if (n === state.boardSize) return;
+  snapshot();
+  state.boardSize = n;
+  state.grid = freshGrid(n);
+  state.selectedCell = null; state.usedWords.clear();
+  buildSizeToggle(); buildGrid(); renderGrid(); updateStartWordUI();
+  clearResults(); saveState();
+}
+function updateStartWordUI() {
+  const inp = $('startWord');
+  inp.maxLength = state.boardSize;
+  inp.placeholder = 'A'.repeat(state.boardSize);
+  inp.value = '';
+  $('startLabel').textContent = `Start word (${state.boardSize}):`;
+  $('minLen').max = state.boardSize * state.boardSize;
+}
+
+function buildGrid() {
+  const g = $('grid'); g.innerHTML = '';
+  const N = state.boardSize;
+  const base = CELL_SIZES[N] || 40;
+  const maxW = Math.min(base, Math.floor((window.innerWidth - 60) / N));
+  const cellPx = Math.max(32, maxW);
+  const fs = FONT_SIZES[N] || '1em';
+  g.style.gridTemplateColumns = `repeat(${N}, ${cellPx}px)`;
+  g.style.gridTemplateRows = `repeat(${N}, ${cellPx}px)`;
+  state.cells = Array.from({ length: N }, () => new Array(N));
+  for (let r = 0; r < N; r++) {
+    for (let c = 0; c < N; c++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+      cell.dataset.r = r; cell.dataset.c = c;
+      cell.setAttribute('role', 'gridcell');
+      cell.tabIndex = -1; // roving tabindex; renderGrid sets the active one to 0
+      cell.style.width = cellPx + 'px';
+      cell.style.height = cellPx + 'px';
+      cell.style.fontSize = fs;
+      g.appendChild(cell);
+      state.cells[r][c] = cell;
+    }
+  }
+}
+
+function getCell(r, c) { return state.cells[r]?.[c]; }
+
+function renderGrid() {
+  const N = state.boardSize;
+  const [activeR, activeC] = state.selectedCell || [0, 0];
+  for (let r = 0; r < N; r++) {
+    for (let c = 0; c < N; c++) {
+      const el = getCell(r, c); if (!el) continue;
+      const v = state.grid[r][c];
+      el.textContent = v;
+      el.setAttribute('aria-label', `Row ${r+1}, Column ${c+1}, ${v || 'empty'}`);
+      el.classList.toggle('filled', v !== '');
+      el.classList.remove('path-hl', 'path-new', 'selected');
+      el.tabIndex = (r === activeR && c === activeC) ? 0 : -1; // roving tabindex
+    }
+  }
+  if (state.selectedCell) {
+    const el = getCell(activeR, activeC);
+    if (el) el.classList.add('selected');
+  }
+  detectAlphabet();
+}
+
+function detectAlphabet() {
+  for (const row of state.grid) for (const ch of row) {
+    if (/[а-яё]/.test(ch)) { state.alphabet = ALPHABET_RU; return; }
+  }
+  state.alphabet = ALPHABET_EN;
+}
+
+function selectCell(r, c) {
+  state.selectedCell = [r, c];
+  renderGrid();
+  const el = getCell(r, c);
+  if (el && window.matchMedia('(hover: hover)').matches) el.focus();
+  if ('ontouchstart' in window && !window.matchMedia('(hover: hover)').matches) {
+    showVirtualKeyboard();
+  }
+}
+
+function setStartWord() {
+  const w = $('startWord').value.trim().toLowerCase();
+  if (w.length !== state.boardSize) { showToast(`Enter a ${state.boardSize}-letter word`, true); return; }
+  if (!/^[a-zа-яё]+$/i.test(w)) { showToast('Letters only', true); return; }
+  snapshot();
+  const mid = Math.floor(state.boardSize / 2);
+  for (let c = 0; c < state.boardSize; c++) state.grid[mid][c] = w[c].toLowerCase();
+  renderGrid(); clearResults(); saveState();
+}
+
+function resetBoard() {
+  snapshot();
+  state.grid = freshGrid(state.boardSize);
+  state.selectedCell = null;
+  state.usedWords.clear();
+  state.players.forEach(p => p.score = 0);
+  state.currentPlayer = 0;
+  renderGrid(); renderPlayers(); clearResults(); saveState();
+  showToast('Board & scores reset', false, { label: 'Undo', fn: undo });
+}
+
+function clearUsed() { state.usedWords.clear(); renderResults(); saveState(); }
+
+function typeCellLetter(ch) {
+  if (!state.selectedCell) return;
+  const [r, c] = state.selectedCell;
+  snapshot();
+  state.grid[r][c] = ch.toLowerCase();
+  renderGrid(); clearResults(); saveState();
+  const N = state.boardSize;
+  for (let i = r*N+c+1; i < N*N; i++) {
+    const nr = Math.floor(i/N), nc = i%N;
+    if (state.grid[nr][nc] === '') { selectCell(nr, nc); return; }
+  }
+}
+
+function clearCellLetter() {
+  if (!state.selectedCell) return;
+  const [r, c] = state.selectedCell;
+  if (state.grid[r][c] === '') return;
+  snapshot();
+  state.grid[r][c] = '';
+  renderGrid(); clearResults(); saveState();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  SCORED WORDS
+// ═══════════════════════════════════════════════════════════════════
+const parseScoredDebounced = debounce(() => {
+  const raw = $('scoredInput').value;
+  state.scoredWords = new Set();
+  for (const p of raw.split(/[\r\n,;|\s]+/)) {
+    const c = cleanWord(p);
+    if (isValidWord(c)) state.scoredWords.add(c);
+  }
+  renderScoredMeta(); renderResults(); saveState();
+}, 200);
+
+function renderScoredMeta() {
+  const n = state.scoredWords.size;
+  $('scoredBadge').textContent = n;
+  $('scoredCount').textContent = n;
+  renderScoredTags();
+}
+
+function renderScoredTags() {
+  const c = $('scoredTags');
+  c.innerHTML = '';
+  if (!state.scoredWords.size) return;
+  const frag = document.createDocumentFragment();
+  for (const w of [...state.scoredWords].sort()) {
+    const tag = document.createElement('span');
+    tag.className = 'scored-tag';
+    tag.textContent = w;
+    const btn = document.createElement('button');
+    btn.textContent = '×';
+    btn.title = 'Remove';
+    btn.setAttribute('aria-label', `Remove ${w}`);
+    btn.addEventListener('click', () => removeScoredWord(w));
+    tag.appendChild(btn);
+    frag.appendChild(tag);
+  }
+  c.appendChild(frag);
+}
+
+function removeScoredWord(w) {
+  state.scoredWords.delete(w);
+  $('scoredInput').value = [...state.scoredWords].sort().join('\n');
+  renderScoredMeta(); renderResults(); saveState();
+}
+
+function clearScored() {
+  state.scoredWords.clear();
+  $('scoredInput').value = '';
+  renderScoredMeta(); renderResults(); saveState();
+}
+
+function sortScored() {
+  if (!state.scoredWords.size) return;
+  $('scoredInput').value = [...state.scoredWords].sort().join('\n');
+  renderScoredTags();
+}
+
+function addWordToScored(w) {
+  const c = cleanWord(w);
+  if (!isValidWord(c)) return;
+  state.scoredWords.add(c);
+  const ta = $('scoredInput');
+  ta.value = ta.value.trim() ? ta.value.trim() + '\n' + c : c;
+  renderScoredMeta(); saveState();
+}
+
+function renderScored() {
+  $('scoredInput').value = [...state.scoredWords].sort().join('\n');
+  renderScoredMeta();
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  PLAYERS
+// ═══════════════════════════════════════════════════════════════════
+function renderPlayers() {
+  document.querySelectorAll('.player').forEach((el, i) => {
+    el.classList.toggle('active', i === state.currentPlayer);
+    el.querySelector('.player-name').value = state.players[i].name;
+    el.querySelector('.player-score').textContent = state.players[i].score;
+  });
+}
+function switchPlayer() { state.currentPlayer = 1 - state.currentPlayer; renderPlayers(); saveState(); }
+function passTurn() {
+  switchPlayer();
+  showToast(`Turn → ${state.players[state.currentPlayer].name}`);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  SOLVE
+// ═══════════════════════════════════════════════════════════════════
+function solve() {
+  if (!workerReady) { showToast('Dictionary still loading…', true); return; }
+  if (dictCount === 0) { showToast('Load a dictionary first', true); return; }
+
+  let minLen = parseInt($('minLen').value, 10) || 2;
+  minLen = Math.max(2, Math.min(minLen, state.boardSize * state.boardSize));
+  $('minLen').value = minLen;
+
+  $('overlay').classList.add('open');
+  $('overlayText').textContent = 'Solving…';
+  $('solveBtn').disabled = true;
+
+  currentSolveId++;
+  worker.postMessage({
+    type: 'solve',
+    grid: state.grid,
+    rows: state.boardSize,
+    cols: state.boardSize,
+    dirs: getDirs(),
+    minLen,
+    solveId: currentSolveId,
+  });
+}
+
+function cancelSolve() {
+  currentSolveId++;              // any in-flight result becomes stale
+  initWorker();                  // terminate the busy worker
+  $('overlay').classList.remove('open');
+  $('solveBtn').disabled = false;
+  showToast('Solve cancelled', true);
+  if (rawWordArray) {            // rebuild the trie in the fresh worker
+    showProgress(true);
+    pendingAutoCache = false;
+    worker.postMessage({ type: 'init', words: rawWordArray });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  RESULTS
+// ═══════════════════════════════════════════════════════════════════
+function clearResults() {
+  state.results = [];
+  state.activeResult = null;
+  state.filterLen = 0;
+  state.renderLimit = RESULTS_RENDER_STEP;
+  const msg = dictCount === 0
+    ? 'Load a dictionary, then click <strong>Solve</strong>.'
+    : 'Set up the board and click <strong>Solve</strong>.';
+  $('resultsList').innerHTML = `<div class="no-results"><div class="icon">🎯</div><p>${msg}</p></div>`;
+  $('resultsStats').textContent = '';
+  $('filterBar').innerHTML = '';
+}
+
+function getFilteredResults() {
+  // Client side is the single source of truth for the scored-word exclusion,
+  // so adding/removing scored words updates results without re-solving.
+  let r = state.results.filter(x => !state.scoredWords.has(x.word));
+  if (state.filterLen) r = r.filter(x => x.word.length === state.filterLen);
+  if (state.searchText) {
+    const q = state.searchText.toLowerCase();
+    r = r.filter(x => x.word.includes(q));
+  }
+  switch (state.sortMode) {
+    case 'alpha': r.sort((a,b) => a.word.localeCompare(b.word)); break;
+    case 'letter': r.sort((a,b) => a.letter.localeCompare(b.letter) || b.word.length - a.word.length); break;
+    case 'pos': r.sort((a,b) => a.pos[0]-b.pos[0] || a.pos[1]-b.pos[1] || b.word.length - a.word.length); break;
+    default: r.sort((a,b) => b.word.length - a.word.length || a.word.localeCompare(b.word));
+  }
+  return r;
+}
+
+function renderResults() {
+  if (!state.results.length) {
+    if ($('resultsList').querySelector('.no-results')) return;
+    clearResults(); return;
+  }
+  const stats = $('resultsStats');
+  const fb = $('filterBar');
+  const list = $('resultsList');
+
+  const lengths = [...new Set(state.results.map(r => r.word.length))].sort((a,b) => b - a);
+  const visible = getFilteredResults();
+  stats.textContent = `${visible.length} / ${state.results.length}`;
+
+  fb.innerHTML = '';
+  const mkBtn = (l, text) => {
+    const b = document.createElement('button');
+    b.className = 'filter-btn' + (state.filterLen === l ? ' active' : '');
+    b.textContent = text;
+    b.addEventListener('click', () => { state.filterLen = l; state.renderLimit = RESULTS_RENDER_STEP; renderResults(); });
+    return b;
+  };
+  fb.appendChild(mkBtn(0, 'All'));
+  for (const l of lengths) {
+    const n = state.results.filter(r => r.word.length === l && !state.scoredWords.has(r.word)).length;
+    fb.appendChild(mkBtn(l, `${l} (${n})`));
+  }
+
+  list.innerHTML = '';
+  if (!visible.length) {
+    list.innerHTML = '<div class="no-results"><div class="icon">😔</div><p>No matching moves.</p></div>';
+    return;
+  }
+
+  // Cap rendered rows for performance; "show more" reveals the rest.
+  const capped = visible.slice(0, state.renderLimit);
+
+  // Grouping
+  const groups = {};
+  if (state.groupMode === 'letter') {
+    for (const r of capped) (groups[r.letter.toUpperCase()] ||= []).push(r);
+  } else if (state.groupMode === 'pos') {
+    for (const r of capped) (groups[`(${r.pos[0]+1},${r.pos[1]+1}) → ${r.letter.toUpperCase()}`] ||= []).push(r);
+  } else {
+    groups[''] = capped;
+  }
+
+  const frag = document.createDocumentFragment();
+  for (const [key, items] of Object.entries(groups)) {
+    if (key) {
+      const h = document.createElement('div');
+      h.className = 'result-group-header';
+      h.textContent = `${key} · ${items.length}`;
+      frag.appendChild(h);
+    }
+    for (const res of items) frag.appendChild(buildResultItem(res));
+  }
+  list.appendChild(frag);
+
+  if (visible.length > state.renderLimit) {
+    const more = document.createElement('button');
+    more.className = 'btn-secondary btn-small show-more';
+    more.textContent = `Show ${Math.min(RESULTS_RENDER_STEP, visible.length - state.renderLimit)} more (${visible.length - state.renderLimit} hidden)`;
+    more.addEventListener('click', () => { state.renderLimit += RESULTS_RENDER_STEP; renderResults(); });
+    list.appendChild(more);
+  }
+}
+
+function buildResultItem(res) {
+  const isUsed = state.usedWords.has(res.word);
+  const div = document.createElement('div');
+  div.className = 'result-item' + (isUsed ? ' used' : '') + (state.activeResult === res ? ' active' : '');
+  div.setAttribute('role', 'listitem');
+
+  const letterEl = document.createElement('span');
+  letterEl.className = 'result-letter';
+  letterEl.textContent = res.letter;
+
+  const wordEl = document.createElement('span');
+  wordEl.className = 'result-word';
+  wordEl.textContent = res.word;
+
+  const posEl = document.createElement('span');
+  posEl.className = 'result-pos';
+  posEl.textContent = `(${res.pos[0]+1},${res.pos[1]+1})`;
+
+  const scoreEl = document.createElement('span');
+  scoreEl.className = 'result-score';
+  scoreEl.textContent = res.word.length;
+
+  const actions = document.createElement('span');
+  actions.className = 'result-actions';
+
+  const copyBtn = document.createElement('button');
+  copyBtn.className = 'btn-secondary btn-small';
+  copyBtn.textContent = '📋';
+  copyBtn.title = 'Copy word';
+  copyBtn.setAttribute('aria-label', `Copy ${res.word}`);
+  copyBtn.addEventListener('click', e => { e.stopPropagation(); copyText(res.word, `Copied "${res.word}"`); });
+
+  const isCyr = /[а-яё]/i.test(res.word);
+  const defBtn = document.createElement('a');
+  defBtn.className = 'btn-secondary btn-small';
+  defBtn.textContent = '📖';
+  defBtn.title = 'Definition';
+  defBtn.setAttribute('aria-label', `Definition of ${res.word}`);
+  defBtn.href = `https://${isCyr ? 'ru' : 'en'}.wiktionary.org/wiki/${encodeURIComponent(res.word)}`;
+  defBtn.target = '_blank'; defBtn.rel = 'noopener';
+  defBtn.style.textDecoration = 'none';
+  defBtn.addEventListener('click', e => e.stopPropagation());
+
+  const usedBtn = document.createElement('button');
+  usedBtn.className = 'btn-secondary btn-small';
+  usedBtn.textContent = isUsed ? '↩' : '✓';
+  usedBtn.title = 'Mark used';
+  usedBtn.setAttribute('aria-label', isUsed ? `Unmark ${res.word} as used` : `Mark ${res.word} as used`);
+  usedBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    if (state.usedWords.has(res.word)) state.usedWords.delete(res.word);
+    else state.usedWords.add(res.word);
+    renderResults(); saveState();
+  });
+
+  const placeBtn = document.createElement('button');
+  placeBtn.className = 'btn-primary btn-small';
+  placeBtn.textContent = '📌';
+  placeBtn.title = 'Place & score';
+  placeBtn.setAttribute('aria-label', `Place and score ${res.word}`);
+  placeBtn.addEventListener('click', e => { e.stopPropagation(); placeAndScore(res); });
+
+  actions.append(copyBtn, defBtn, usedBtn, placeBtn);
+  div.append(letterEl, wordEl, posEl, scoreEl, actions);
+  div.addEventListener('click', () => highlightResult(res));
+  return div;
+}
+
+function highlightResult(res) {
+  state.activeResult = state.activeResult === res ? null : res;
+  renderGrid();
+  if (state.activeResult) {
+    res.path.forEach(([pr, pc], i) => {
+      const el = getCell(pr, pc);
+      if (!el) return;
+      const isNew = pr === res.pos[0] && pc === res.pos[1];
+      el.classList.add(isNew ? 'path-new' : 'path-hl');
+      if (isNew && state.grid[pr][pc] === '') el.textContent = res.letter;
+      const num = document.createElement('span');
+      num.className = 'path-num';
+      num.textContent = i + 1;
+      el.appendChild(num);
+    });
+  }
+  renderResults();
+}
+
+function placeAndScore(res) {
+  snapshot();
+  state.grid[res.pos[0]][res.pos[1]] = res.letter;
+  addWordToScored(res.word);
+  state.usedWords.add(res.word);
+  state.players[state.currentPlayer].score += res.word.length;
+  switchPlayer();
+  state.activeResult = null;
+  clearResults(); renderGrid(); saveState();
+  showToast(`+${res.word.length} pts → "${res.word.toUpperCase()}"`);
+}
+
+function hintBestMove() {
+  if (!state.results.length) { solve(); return; }
+  const best = getFilteredResults()[0];
+  if (best) { highlightResult(best); showToast(`Best: ${best.word.toUpperCase()} (+${best.word.length})`); }
+}
+
+function exportResults() {
+  const r = getFilteredResults();
+  if (!r.length) { showToast('No results to export', true); return; }
+  const text = r.map(x =>
+    `${x.word.toUpperCase()}\t${x.word.length}\t(${x.pos[0]+1},${x.pos[1]+1})\t+${x.letter.toUpperCase()}`
+  ).join('\n');
+  copyText(text, `Copied ${r.length} results`);
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  EXPORT / IMPORT
+// ═══════════════════════════════════════════════════════════════════
+function exportGame() {
+  try {
+    const data = {
+      b: state.boardSize,
+      g: state.grid.map(r => r.join('|')).join(';'),
+      s: [...state.scoredWords].join(','),
+      d: state.allowDiagonals ? 1 : 0,
+    };
+    const payload = utf8ToB64(JSON.stringify(data));
+    const url = location.origin + location.pathname + '#g=' + payload;
+    copyText(url, 'Link copied to clipboard!');
+    location.hash = 'g=' + payload;
+  } catch { showToast('Export failed', true); }
+}
+
+function importGameFromHash() {
+  const h = location.hash;
+  if (!h.startsWith('#g=')) return false;
+  try {
+    const data = JSON.parse(b64ToUtf8(h.slice(3)));
+    const size = data.b;
+    if (!SIZES.includes(size)) return false;
+    const grid = data.g.split(';').map(r => r.split('|'));
+    if (!gridValid(grid, size)) return false;
+    state.boardSize = size;
+    state.grid = grid;
+    state.scoredWords = new Set(data.s ? data.s.split(',').filter(Boolean) : []);
+    state.allowDiagonals = !!data.d;
+    return true;
+  } catch { return false; }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  VIRTUAL KEYBOARD
+// ═══════════════════════════════════════════════════════════════════
+function buildVKB() {
+  const rows = state.alphabet === ALPHABET_RU
+    ? ['йцукенгшщзхъ', 'фывапролджэ', 'ячсмитьбюё']
+    : ['qwertyuiop', 'asdfghjkl', 'zxcvbnm'];
+  const container = $('vkbRows');
+  container.innerHTML = '';
+  for (const row of rows) {
+    const rd = document.createElement('div');
+    rd.className = 'vkb-row';
+    for (const ch of row) {
+      const b = document.createElement('button');
+      b.className = 'vkb-key';
+      b.textContent = ch;
+      b.addEventListener('click', () => typeCellLetter(ch));
+      rd.appendChild(b);
+    }
+    container.appendChild(rd);
+  }
+  const extra = document.createElement('div');
+  extra.className = 'vkb-row';
+  const bksp = document.createElement('button');
+  bksp.className = 'vkb-key wide';
+  bksp.textContent = '⌫';
+  bksp.setAttribute('aria-label', 'Backspace');
+  bksp.addEventListener('click', clearCellLetter);
+  extra.appendChild(bksp);
+  container.appendChild(extra);
+}
+function showVirtualKeyboard() { buildVKB(); $('vkb').classList.add('open'); }
+function hideVirtualKeyboard() { $('vkb').classList.remove('open'); }
+
+// ═══════════════════════════════════════════════════════════════════
+//  MODALS (with focus trapping)
+// ═══════════════════════════════════════════════════════════════════
+let lastFocusedBeforeModal = null;
+function openModal(id) {
+  const m = $(id);
+  lastFocusedBeforeModal = document.activeElement;
+  m.classList.add('open');
+  const focusable = m.querySelector('textarea, input, button');
+  focusable?.focus();
+}
+function closeModal(id) {
+  $(id).classList.remove('open');
+  if (lastFocusedBeforeModal && document.contains(lastFocusedBeforeModal)) lastFocusedBeforeModal.focus();
+  lastFocusedBeforeModal = null;
+}
+function trapFocus(modal, e) {
+  const list = [...modal.querySelectorAll('button, [href], input, textarea, select, [tabindex]:not([tabindex="-1"])')]
+    .filter(el => !el.disabled && el.offsetParent !== null);
+  if (!list.length) return;
+  const first = list[0], last = list[list.length - 1];
+  if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
+  else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  KEYBOARD SHORTCUTS
+// ═══════════════════════════════════════════════════════════════════
+document.addEventListener('keydown', e => {
+  // Focus trap for any open modal
+  if (e.key === 'Tab') {
+    const openModalEl = document.querySelector('.modal-overlay.open .modal');
+    if (openModalEl) { trapFocus(openModalEl, e); return; }
+  }
+
+  const tag = document.activeElement?.tagName;
+  const inInput = ['INPUT','TEXTAREA','SELECT'].includes(tag);
+
+  if (e.key === 'Escape') {
+    document.querySelectorAll('.modal-overlay.open').forEach(m => m.classList.remove('open'));
+    hideVirtualKeyboard();
+    if (state.activeResult) { state.activeResult = null; renderGrid(); renderResults(); }
+    if (inInput) document.activeElement.blur();
+    else if (state.selectedCell) { state.selectedCell = null; renderGrid(); }
+    return;
+  }
+
+  if (inInput) return;
+
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z') {
+    e.preventDefault();
+    e.shiftKey ? redo() : undo();
+    return;
+  }
+
+  if (e.key === 'Enter') { e.preventDefault(); solve(); return; }
+  if (e.key === '?') { e.preventDefault(); openModal('helpModal'); return; }
+
+  if (state.selectedCell) {
+    const [r, c] = state.selectedCell;
+    const N = state.boardSize;
+
+    if (e.key === 'Backspace' || e.key === 'Delete') {
+      clearCellLetter(); e.preventDefault(); return;
+    }
+    if (/^[a-zA-Zа-яА-ЯёЁ]$/.test(e.key)) {
+      typeCellLetter(e.key); return;
+    }
+    const arrows = { ArrowUp:[-1,0], ArrowDown:[1,0], ArrowLeft:[0,-1], ArrowRight:[0,1] };
+    if (arrows[e.key]) {
+      const [dr, dc] = arrows[e.key];
+      selectCell(Math.max(0, Math.min(N-1, r+dr)), Math.max(0, Math.min(N-1, c+dc)));
+      e.preventDefault(); return;
+    }
+  }
+
+  if (e.key.toLowerCase() === 't' && !e.ctrlKey && !e.metaKey) { toggleTheme(); return; }
+  if (e.key.toLowerCase() === 'h' && !e.ctrlKey && !e.metaKey) { hintBestMove(); return; }
+});
+
+// ═══════════════════════════════════════════════════════════════════
+//  EVENT DELEGATION
+// ═══════════════════════════════════════════════════════════════════
+function toggleSection(headerEl) {
+  const id = headerEl.dataset.toggle;
+  const body = $(id);
+  const open = body.classList.toggle('open');
+  headerEl.querySelector('.chevron')?.classList.toggle('open', open);
+  headerEl.setAttribute('aria-expanded', open);
+}
+
+function wireUI() {
+  // Board cells
+  $('grid').addEventListener('click', e => {
+    const cell = e.target.closest('.cell');
+    if (!cell) return;
+    selectCell(+cell.dataset.r, +cell.dataset.c);
+  });
+  $('grid').addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      const cell = e.target.closest('.cell');
+      if (cell) { e.preventDefault(); selectCell(+cell.dataset.r, +cell.dataset.c); }
+    }
+  });
+
+  // Collapsible sections (click + keyboard)
+  document.querySelectorAll('[data-toggle]').forEach(h => {
+    h.addEventListener('click', () => toggleSection(h));
+    h.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleSection(h); }
+    });
+  });
+
+  // Buttons
+  $('setStartBtn').addEventListener('click', setStartWord);
+  $('resetBtn').addEventListener('click', resetBoard);
+  $('solveBtn').addEventListener('click', solve);
+  $('cancelSolveBtn').addEventListener('click', cancelSolve);
+  $('hintBtn').addEventListener('click', hintBestMove);
+  $('passBtn').addEventListener('click', passTurn);
+  $('clearUsedBtn').addEventListener('click', clearUsed);
+  $('clearScoredBtn').addEventListener('click', clearScored);
+  $('sortScoredBtn').addEventListener('click', sortScored);
+  $('scoredInput').addEventListener('input', parseScoredDebounced);
+  $('exportResultsBtn').addEventListener('click', exportResults);
+
+  $('dictFile').addEventListener('change', loadDictFile);
+  $('pasteBtn').addEventListener('click', () => openModal('pasteModal'));
+  $('builtinBtn').addEventListener('click', useBuiltIn);
+  $('fetchBtn').addEventListener('click', loadDictUrl);
+  $('cacheSaveBtn').addEventListener('click', () => saveDictToCache(false));
+  $('cacheClearBtn').addEventListener('click', clearDictCache);
+  $('pasteLoadBtn').addEventListener('click', loadFromPaste);
+  $('dictUrl').addEventListener('keydown', e => { if (e.key === 'Enter') loadDictUrl(); });
+
+  document.querySelectorAll('[data-close-modal]').forEach(b =>
+    b.addEventListener('click', () => closeModal(b.closest('.modal-overlay').id))
+  );
+  document.querySelectorAll('.modal-overlay').forEach(o =>
+    o.addEventListener('click', e => { if (e.target === o) closeModal(o.id); })
+  );
+
+  $('diagToggle').addEventListener('change', () => {
+    state.allowDiagonals = $('diagToggle').checked;
+    $('adjLabel').textContent = state.allowDiagonals ? '8-way' : '4-way';
+    clearResults(); saveState();
+  });
+
+  // Top actions
+  $('undoBtn').addEventListener('click', undo);
+  $('redoBtn').addEventListener('click', redo);
+  $('themeBtn').addEventListener('click', toggleTheme);
+  $('helpBtn').addEventListener('click', () => openModal('helpModal'));
+  $('exportBtn').addEventListener('click', exportGame);
+
+  // Players
+  document.querySelectorAll('.player').forEach(p => {
+    p.addEventListener('click', e => {
+      if (e.target.classList.contains('player-name')) return;
+      state.currentPlayer = +p.dataset.player;
+      renderPlayers(); saveState();
+    });
+    p.querySelector('.player-name').addEventListener('input', e => {
+      state.players[+p.dataset.player].name = e.target.value;
+      saveState();
+    });
+  });
+
+  // Results search/sort/group
+  $('resultSearch').addEventListener('input', debounce(() => {
+    state.searchText = $('resultSearch').value.trim();
+    state.renderLimit = RESULTS_RENDER_STEP;
+    renderResults();
+  }, 150));
+  $('sortMode').addEventListener('change', () => { state.sortMode = $('sortMode').value; state.renderLimit = RESULTS_RENDER_STEP; renderResults(); });
+  $('groupMode').addEventListener('change', () => { state.groupMode = $('groupMode').value; state.renderLimit = RESULTS_RENDER_STEP; renderResults(); });
+
+  // Start-word / minLen enter to act
+  $('startWord').addEventListener('keydown', e => { if (e.key === 'Enter') setStartWord(); });
+  $('minLen').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); solve(); } });
+
+  // VKB
+  $('vkbClose').addEventListener('click', hideVirtualKeyboard);
+
+  // Resize
+  window.addEventListener('resize', debounce(() => { buildGrid(); renderGrid(); }, 150));
+
+  // React to OS theme changes only when the user hasn't chosen explicitly
+  if (window.matchMedia) {
+    matchMedia('(prefers-color-scheme: light)').addEventListener?.('change', e => {
+      if (!themeExplicit) {
+        state.theme = e.matches ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', state.theme);
+        $('themeBtn').textContent = state.theme === 'dark' ? '🌙' : '☀️';
+      }
+    });
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════════
+function init() {
+  const loadedFromHash = importGameFromHash();
+  if (!loadedFromHash) loadState();
+
+  // Theme: explicit saved choice wins, else follow OS preference.
+  if (!themeExplicit && window.matchMedia) {
+    state.theme = matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  }
+  document.documentElement.setAttribute('data-theme', state.theme);
+  $('themeBtn').textContent = state.theme === 'dark' ? '🌙' : '☀️';
+  $('diagToggle').checked = state.allowDiagonals;
+  $('adjLabel').textContent = state.allowDiagonals ? '8-way' : '4-way';
+
+  if (!gridValid(state.grid, state.boardSize)) state.grid = freshGrid(state.boardSize);
+
+  buildSizeToggle();
+  buildGrid();
+  renderGrid();
+  updateStartWordUI();
+  renderScored();
+  renderPlayers();
+  updateUndoUI();
+  wireUI();
+
+  initWorker();
+  if (!loadDictFromCache()) loadDictIntoWorker(BUILTIN_WORDS, 'built-in (~4K)');
+
+  // Demo word if empty board
+  if (!loadedFromHash && state.grid.every(r => r.every(c => !c))) {
+    const demo = 'words'.slice(0, state.boardSize).padEnd(state.boardSize, 'a');
+    $('startWord').value = demo;
+    const mid = Math.floor(state.boardSize / 2);
+    for (let c = 0; c < state.boardSize; c++) state.grid[mid][c] = demo[c];
+    renderGrid();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+//  BUILT-IN DICTIONARY
+// ═══════════════════════════════════════════════════════════════════
+const BUILTIN_WORDS = `
+aa ab ad ae ag ah ai al am an ar as at aw ax ay ba be bi bo by da de do ed ef eh el em en er es et ex fa fe go ha he hi hm ho id if in is it jo ka ki la li lo ma me mi mm mo mu my na ne no nu od oe of oh oi om on oo op or os ow ox oy pa pe pi po qi re sh si so ta ti to uh um un up us ut we wo xi xu ya ye yo za
+ace act add ado ads age ago aid aim air ale all and ant any ape apt arc are ark arm art ash ask ate awe awl axe bad bag ban bar bat bay bed bee beg ben bet bid big bin bit bog bon bop bot bow box boy bra bud bug bum bun bur bus but buy cab cam can cap car cat cob cod cog con cop cor cot cow coy cry cub cud cue cup cur cut dab dad dam dap day den dew did dig dim din dip doe dog don dot dow dry dub dud due dug dun duo dye each ear eat eel egg ego elm emu end era eve ewe eye fab fad fan far fat fax fay fed fee fen few fig fin fir fit fix fly fob foe fog fop for fox fry fug fun fur gab gag gal gap gar gas gay gee gel gem get gig gin gnu gob god got gum gun gut guy gym had hag ham hap has hat hay hem hen her hew hid him hip his hit hob hod hoe hog hop hot how hub hue hug hum hut ice icy ilk ill imp ink inn ion ire irk its ivy jab jag jam jar jaw jay jet jib jig job jog jot joy jug jut keg ken key kid kin kit lab lad lag lap law lax lay lea led leg let lid lie lip lit log lop lot low lug lux lye mad man map mar mat maw may men met mid mix mob mod mom mop mow mud mug mum nab nag nap nay net new nil nip nit nod nor not now nun nut oak oaf oar oat odd ode off oft oil old one opt orb ore our out ova owe owl own pad pal pan pap par pat paw pay pea peg pen pep per pet pew pie pig pin pit ply pod pop pot pow pox pro pry pub pug pun pup pus put rag ram ran rap rat raw ray red ref rep rib rid rig rim rip rob rod roe rot row rub rug rum run rut rye sac sad sag sap sat saw say sea set sew she shy sin sip sir sis sit six ski sky sly sob sod son sop sot sow soy spa spy sty sub sue sum sun sup tab tad tag tan tap tar tat tax tea ten the thy tic tie tin tip toe ton too top tot tow toy try tub tug tun two ugh ump urn use van vat vet vex via vie vim vow wad wag war was wax way web wed wet who why wig win wit woe wok won woo wow yak yam yap yaw yea yes yet yew you yow zap zed zen zip zit zoo
+able ache acid acme acre aged aide airy ajar akin ally also amok amps ante anti arch area army arts atom aunt auto avid awry axle babe back bail bait bake bald bale ball balm band bane bang bank barb bare bark barn base bash bass bath bawl bead beak beam bean bear beat beck beef been beer bell belt bend bent berg best bias bike bill bind bird bite blow blue blur boar boat body bold bolt bomb bond bone book boom boot bore born boss both bout bowl bran brew brim buck burn bush bust buzz byte cage cake calf call calm came camp cane cape card care carp cart case cash cast cave cell char chat chef chin chip chop cite city clad clam clan clap claw clay clip clod clog clot club clue coal coat cock code coil coin cold colt coma comb come cone cook cool cope copy cord core cork corn cost cosy coup cove cowl cozy crab crew crop crow cube cult curb cure curl curt cute dale dame damp dare dark darn dart dash data date dawn dead deaf deal dean dear debt deck deed deem deep deer demo dent deny desk dial dice diet dime dine dire dirt disc dish dock does dome done doom door dose down doze drab drag draw drip drop drum dual duck dude duke dull dumb dump dune dung dunk dupe dusk dust duty dyed earl earn ease east easy echo edge edit else emit envy epic euro even ever evil exam exit eyed eyes face fact fade fail fair fake fall fame fang fare farm fast fate fawn faze fear feat feed feel fell felt fend fern fest feud file fill film find fine fire firm fish fist five flag flak flan flap flat flaw flea fled flew flex flip flit flog flop flow flue flux foam foci foil fold folk fond font food fool foot ford fore fork form fort foul four fowl fray free fret frog from fuel full fume fund furl fury fuse fuss fuzz gain gait gale gall game gang gape garb gash gasp gate gave gaze gear gene germ gift gild gilt give glad glee glen glib glob glow glue glum glut gnat gnaw goad goal goat goes gold golf gone good gore gory gown grab gram gray grew grid grim grin grip grit grow grub gulf gull gulp guru gush gust guts hack hail hair hale half hall halt hand hang hard hare harm harp hash hate haul have hawk haze hazy head heal heap hear heat heed heel held helm help herb herd here hero hide high hike hill hilt hind hint hire hiss hive hoar hock hold hole holy home hone hood hook hoop hope horn hose host hour howl hubs hued huge hull hump hung hunt hurl hurt hush icon idea idle idol iffy ills inch info into iron isle item jack jade jail java jazz jean jeer jerk jest jilt jive jobs jock join joke jolt josh jowl jump junk jury just jute keen keep kelp kept keys kick kill kind king kiss kite knee knew knit knob knot know lace lack lacy laid lair lake lamb lame lamp land lane lard lark lash lass last late lawn lazy lead leaf leak lean leap left lend lens less liar lice lick lied lieu life lift like limb lime limp line link lint lion lisp list live load loaf loam loan lock lode loft logo lone long look loom loop lord lore lose loss lost loud love luck lull lump lung lure lurk lush lust lute lynx mace made maid mail main make male mall malt mane many mare mark mash mask mass mast mate math maul maze mead meal mean meat meek meet meld melt memo mend menu mere mesh mess mice mild mile milk mill mime mind mine mint mire miss mist mite mitt moan moat mock mode mold mole molt monk mood moon moor moot more morn moss most moth move much muck muff mule mull muse mush musk must mute myth nail name nape navy near neat neck need nest nets next nice nick nine node none noon norm nose note noun nude null numb nuts oaks oath obey odds odor ogle oils oink okay omen omit once ones only onto onus ooze opal open opts oral orca ores oust oval oven over owed owes owns pace pack pact page paid pail pain pair pale palm pane pang pant pare park part pass past path pave pawn peak peal pear peas peat peck peek peel peep peer pelt pend pent perk perm pert pest pick pier pike pile pill pine pink pins pint pipe pith pity plan play plea plod plot plow ploy plug plum plus pock poem poet poke pole poll polo pomp pond pool poor pope pore pork port pose posh post pour pout pray prep prey prim prod prof prom prop prow puce puck pull pulp pump punk pure push putt quad quay quit quiz race rack raft rage raid rail rain rake ramp rang rank rant rare rash rasp rate rave rays raze read real ream reap rear reed reef reel rein rely rend rent rest rice rich ride rife rift rile rill rims rind ring rink riot rise risk rite road roam roar robe rock rode role roll romp roof rook room root rope rose rosy rote rove rude ruin rule rump rung ruse rush rust sack safe sage said sail sake sale salt same sand sane sang sank sash save says scab scan scar seal seam sear seat sect seed seek seem seen self sell send sent sham shed shim shin ship shod shoe shoo shop shot show shut sick side sift sigh sign silk sill silt sing sink sire site sits size skit slab slag slam slap slat slaw slay sled slew slid slim slit slob slop slot slow slug slum slur smog snap snag snip snob snot snow snub snug soak soap soar sock soda sofa soft soil sold sole some song soon soot sore sort soul soup sour span spar spat spec sped spin spit spot spry spur stab stag star stay stem step stew stir stop stub stud stun such suck suit sulk sump sung sunk sure surf swan swap sway swim swum sync tack tact tail take tale talk tall tame tang tank tape taps tarn tart task taxi teak teal team tear tell temp tend tens tent term test text than that them then they thin this thou thud thus tick tide tidy tied tier tile till tilt time tine tiny tire toad toil told toll tomb tome tone took tool tops tore torn tort toss tour town toys trap tray tree trek trim trio trip trod trot true tube tuck tuft tuna tune turf turn tusk twin type ugly undo unit unto upon urge used user vain vale vane vary vase vast veil vein vent verb very vest veto vice view vile vine visa void volt vote wade wage wail wait wake walk wall wand wane want ward warm warn warp wart wary wash wasp wave wavy waxy weak wean wear weed week weep weld well went wept were west what when whet whim whip whom wick wide wife wild will wilt wily wimp wind wine wing wink wipe wire wise wish wisp with wits woke wolf womb wood wool word wore work worm worn wove wrap wren writ yank yard yarn yawn year yell yoga yoke your zany zeal zero zest zinc zone zoom
+abort about above abuse acids acres acted actor acute added admit adopt adult after again agent aging agree ahead aided aimed alarm album alert algae alien align alike alive allay alley allot allow alloy along aloof alpha altar alter amino among ample angel anger angle angry annex antic anvil apart apply arena argue arise armor aroma arose array arrow arson aside asset atlas atone attic audio audit avian avoid awake award aware awful axial axiom bacon badge badly baggy baker baron based basic basin basis batch beach beard beast began begin being below bench berry bible birth black blade blame bland blank blast blaze bleed blend bless blind blink bliss blitz block blood bloom blown bluff blunt board boast bonus boost booth bound boxer brace braid brain brake brand brass brave bread break breed brick bride brief bring brink brisk broad broke brood brook broth brown brush brute buddy budge build built bulge bulky bunch burst cabin cable cadet camel candy cargo carry carve catch cater cause cease chain chair chalk champ chant chaos charm chart chase cheap cheat check cheek cheer chess chest chick chief child chill china choir chord chose chunk cigar civil claim clamp clash clasp class clean clear clerk click cliff climb cling clock clone close cloth cloud clown clubs clump clung coach coast color comet comic coral could count couch cough court cover crack craft crane crash crawl craze crazy cream creek crest crime crisp cross crowd crown crude crush curve cycle daily dairy dance dealt death debug decay decoy decry delay delta dense depot depth derby devil diary dirty dizzy dodge doubt dough draft drain drake drama drank drape drawn dream dress dried drift drill drink drive drone drool droop drove drown drums drunk dryer dwarf dwell dying eager eagle early earth eased easel eaten edict eight elbow elder elect elite ember emery empty ended enemy enjoy ensue enter entry equal equip erase erode error essay ethic evade event every exact exalt exert exile exist extra exude fable facet faint fairy faith false famed fancy fatal fatty fault fauna feast fiber field fiend fifth fifty fight final first fixed flame flank flare flash flask fleet flesh flick fling flint float flock flood floor flour flown fluid fluke flung flush flute focal focus force forge forth forum found frame frank fraud fresh front frost froze fruit fully funds fungi funny furry gauge genre ghost giant given gland glare glass gleam glide globe gloom glory gloss glove gnash goose gorge grace grade grain grand grant grape grasp grass grate grave gravy graze great greed green greet grief grill grind gripe groan groin groom grope gross group grove growl grown guard guess guest guide guild guilt guise gummy habit handy happy harsh haste hasty hatch haunt haven heart heavy hedge heist hence herbs hiker hinge hobby homer honey honor horse hotel hound house human humor hurry ideal image imply inane incur index inert infer ingot inner input inter irate ivory jewel joint joker jolly judge juice jumbo jumpy juror kayak knack knead kneel knife knock knoll known label lance large laser latch later laugh layer learn lease least leave legal lemon level lever light liked liken lilac limit linen liner lingo liver local lodge logic login lonely loose lorry lotus lousy lover lower loyal lucid lucky lunar lunch lunge lusty lyric magic major maker manor maple march marsh mason match mayor meant media medal mercy merge merit merry metal meter midst might mimic minor minus mirth misty model modem money month moral motor mound mount mourn mouse mouth moved movie mucus muddy multi mural music musty naive nasty naval nerve never night noble noise north notch noted novel nudge nurse nylon oasis occur ocean offer often olive onset opera opted orbit order organ other ought outer oxide ozone paint panel panic paper parts party paste patch pause peace peach pearl pedal penny perch peril petty phase phone photo piano piece pilot pinch pitch pixel pizza place plaid plain plane plant plate plaza plead pluck plumb plume plump plunk point poise polar pooch pouch pound power prank press price pride prime print prior prize probe prone proof proud prove prowl prune psalm pulse punch pupil purge quota quote radar radio rainy raise rally ranch range rapid ratio reach react ready realm rebel reign relax relay renew repay repel reply resin retry rider ridge rigor rinse rival river roast robin robot rocky rouge round route royal rugby ruled ruler rural sadly saint salad salon sandy sauce scale scare scary scene scent scope score scorn scout scrap screw seize sense serve setup seven shade shaft shake shall shame shape share shark sharp shave shear sheer sheet shelf shell shift shine shirt shock shore short shout shove shown shrug sided siege sight sigma since sixth sixty sized skill skull slant slate slave sleep slice slide slope small smart smell smile smoke snack snake snare sneak solid solve sorry sound south space spare spark spawn speak spear speed spell spend spent spice spike spill spine split spoke spoon sport spray squad stack staff stage stain stake stalk stall stamp stand stare stark start state stave stays steam steel steep steer stern stick stiff still sting stint stock stole stone stood stool store storm story stout stove strap stray strip stuck study stuff stump stung stunk style sugar suite super surge swamp swear sweat sweep sweet swept swift swing swirl sword swore sworn swung tackle talent target tender tennis tenure terror thanks thread threat thrive throne ticket timber tissue toward tribal tricky triple trophy tunnel twelve undone unfair unfold united unlike unrest untold update uphold useful utmost utter vacant valley vendor versus victim virtue vision visual volume wallet wander warmth wealth weekly wholly wicked widely window winter wisdom within wonder worker worthy writer yellow
+abandon ability abolish absence abstain abstract academy account achieve acquire address advance adverse advised advisor against algebra alleged already analyst ancient angular another anxiety anybody applied arrange arrival article assault attempt attract auction average awesome balance banking bargain barrier bearing because becomes bedroom believe benefit besides billion blocked bonding booking borders borough bracket branch breath briefly broader brought browser budget builder burning cabinet calcium calling capable capital capture careful carrier catalog causing caution central century certain chronic citizen clarity classic cleaner climate closest closing cluster coastal coating collect college combine comfort command company compare compete complex concern conduct confirm connect consent consist contact contain content context control convert correct council counter country coupled courage covered current customs damaged dealing decided declare decline default defence deficit defined deliver density deposit derived despite destroy develop digital diploma disable display dispute diverse divided drawing driving dynasty eastern economy edition elderly element embrace emotion emperor enabled enforce engaged enhance enormous equally erosion essence evening evident exactly examine example exclude execute exhibit existed expense explain explore express factory faculty farming fashion feature federal fiction fifteen finally finance finding fishing fixture focused foreign forever formula forward founded founder freight fulfill funding further gallery gateway general genetic genuine gesture getting glasses gradual grocery growing habitat halfway harmful heading healthy heavily helpful highway himself holiday horizon hostile housing however hundred illegal illness imagine imposed improve include indexed inflate inquiry insight install instead interim invalid invoice involve journal justify kingdom kitchen knowing landing largely lateral leading learned legally leisure lending liberal library license listing literal locally logical longest loyalty machine manager married massive meaning measure medium meeting mention million mineral minimum miracle mission mistake mixture mobile monitor monthly musical mystery natural nearest neither nervous network notable nothing nuclear nursing obesity obvious offense officer opening operate opinion organic overall painful parking partial partner passage passing patient pattern payment penalty perfect persist picture pioneer plastic pointed popular poverty premier premium prepare prevent primary printer privacy proceed product profile program promise promote protect protest provide publish purpose pursuit qualify quarter quickly readily reality rebuild receipt receive recover reflect regular related release remains removal replace require reserve resolve respect respond restore results revenue reverse routine running sacred safety sailor salute sample scared secure seldom senior serial series severe shadow shaped shield should shrimp signal silent silver simple singer slight smooth soccer social socket solely sought source speech sphere spiral spoken stable stance status steady strain strand stream street stress strict strike string stripe stroke strong studio submit sudden suffer summit supply surely survey switch symbol system teacher therapy thereby totally tourism trading typical uniform utility victory violent virtual warfare wealthy weather welcome western yourself
+`.split(/\s+/).filter(Boolean);
+
+init();
+</script>
+</body>
+</html>

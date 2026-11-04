@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EDH Arena — Commander Simulator</title>
+<style>
+:root{
+  --bg:#0d1017; --panel:#141926; --panel2:#1b2233; --line:#2a3550;
+  --gold:#d4af37; --red:#e5534b; --green:#57ab5a; --blue:#539bf5; --txt:#d7dde8; --dim:#8b96ab;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:var(--bg);color:var(--txt);font:14px/1.45 "Segoe UI",system-ui,sans-serif;overflow:hidden}
+header{height:46px;display:flex;align-items:center;gap:14px;padding:0 14px;background:var(--panel);border-bottom:1px solid var(--line)}
+header h1{font-size:16px;color:var(--gold);letter-spacing:.5px}
+header .spacer{flex:1}
+.badge{font-size:11px;padding:3px 8px;border-radius:10px;background:var(--panel2);border:1px solid var(--line);color:var(--dim)}
+.badge.llm-on{color:var(--green);border-color:var(--green)}
+button{background:var(--panel2);color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:6px 14px;cursor:pointer;font-size:13px}
+button:hover:not(:disabled){border-color:var(--gold);color:var(--gold)}
+button:disabled{opacity:.4;cursor:default}
+button.primary{background:#2b3b63;border-color:#4a6cb3}
+button.primary.pulse{animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(83,155,245,.55)}50%{box-shadow:0 0 0 8px rgba(83,155,245,0)}}
+main{display:flex;height:calc(100% - 46px)}
+/* ---- left: board ---- */
+#boardWrap{flex:1.35;position:relative;min-width:0;background:radial-gradient(ellipse at 50% 45%,#151d30 0%,#0d1017 75%)}
+#board{position:absolute;inset:0;width:100%;height:100%}
+#overlay{position:absolute;inset:0;pointer-events:none}
+.lifeBadge{position:absolute;left:10px;min-width:118px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 10px;pointer-events:auto;transition:box-shadow .3s}
+.lifeBadge .life{font-size:22px;font-weight:700}
+.lifeBadge .sub{font-size:10px;color:var(--dim)}
+.lifeBadge.hit{animation:shake .4s}
+#lifeOpp{top:10px}#lifeYou{bottom:10px}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+#phaseBanner{position:absolute;top:8px;left:50%;transform:translateX(-50%);background:var(--panel);border:1px solid var(--gold);color:var(--gold);
+  padding:5px 22px;border-radius:16px;font-size:13px;font-weight:600;opacity:0;letter-spacing:.5px}
+#phaseBanner.show{animation:bannerPop 1.6s ease forwards}
+@keyframes bannerPop{0%{opacity:0;transform:translateX(-50%) translateY(-14px) scale(.9)}12%{opacity:1;transform:translateX(-50%) translateY(0) scale(1.04)}
+  20%{transform:translateX(-50%) scale(1)}85%{opacity:1}100%{opacity:.85}}
+#statusBar{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:10px;align-items:center;pointer-events:auto}
+#statusMsg{background:rgba(20,25,38,.92);border:1px solid var(--line);padding:6px 14px;border-radius:8px;font-size:13px;max-width:520px;text-align:center}
+#thinking{position:absolute;top:52px;left:50%;transform:translateX(-50%);font-size:12px;color:var(--blue);display:none;background:rgba(20,25,38,.9);
+  border:1px solid var(--blue);border-radius:12px;padding:3px 14px}
+#thinking.on{display:block;animation:pulse 1.2s infinite}
+.float{position:absolute;font-size:22px;font-weight:800;pointer-events:none;animation:fadeUp 1.4s ease forwards;text-shadow:0 2px 4px #000;z-index:5}
+@keyframes fadeUp{0%{opacity:0;transform:translateY(6px)}15%{opacity:1}100%{opacity:0;transform:translateY(-44px)}}
+#preview{position:absolute;top:52px;right:10px;width:230px;background:rgba(15,19,29,.96);border:1px solid var(--line);border-radius:10px;
+  padding:10px;font-size:12px;display:none;z-index:4}
+#preview.on{display:block;animation:fadeIn .15s ease}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+#preview .pname{font-weight:700;color:var(--gold)}#preview .ptype{color:var(--dim);font-size:11px;margin:2px 0 6px}
+#preview .ptext{white-space:pre-wrap;color:var(--txt);font-size:11.5px}
+/* ---- right: log ---- */
+#logPane{flex:1;display:flex;flex-direction:column;background:var(--panel);border-left:1px solid var(--line);min-width:320px;max-width:46%}
+#logTabs{display:flex;gap:4px;padding:8px 10px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+#logTabs button{padding:3px 10px;font-size:11px;border-radius:12px}
+#logTabs button.active{background:var(--gold);color:#111;border-color:var(--gold)}
+#log{flex:1;overflow-y:auto;padding:10px 12px;font-size:12.5px}
+.le{padding:3px 8px;margin-bottom:2px;border-left:3px solid transparent;border-radius:3px;animation:slideIn .3s ease}
+@keyframes slideIn{from{opacity:0;transform:translateX(14px)}to{opacity:1;transform:translateX(0)}}
+.le.phase{color:var(--dim);border-color:#3a466b}
+.le.turnhead{background:var(--panel2);color:var(--gold);font-weight:700;margin:10px 0 4px;border-color:var(--gold);padding:6px 8px}
+.le.spell{color:#bcd3f5;border-color:var(--blue)}
+.le.combat{color:#f0b8b4;border-color:var(--red)}
+.le.life{color:#b9e6bb;border-color:var(--green)}
+.le.trigger{color:#e8d28a;border-color:var(--gold)}
+.le.sys{color:var(--dim);font-style:italic}
+.le.llm{color:#a99bd8;border-color:#7f6fd0;font-style:italic}
+.le b{color:#fff}.le .ms{font-family:monospace;font-size:11px;background:#0a0d14;padding:0 4px;border-radius:3px}
+.hid{display:none!important}
+/* ---- modals ---- */
+.modal{position:fixed;inset:0;background:rgba(5,8,14,.75);display:flex;align-items:center;justify-content:center;z-index:50;animation:fadeIn .2s}
+.modal .box{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:22px;width:min(680px,92vw);max-height:88vh;overflow-y:auto}
+.modal h2{color:var(--gold);margin-bottom:12px;font-size:17px}
+.modal label{display:block;font-size:12px;color:var(--dim);margin:10px 0 3px}
+.modal input,.modal textarea{width:100%;background:#0b0e15;color:var(--txt);border:1px solid var(--line);border-radius:6px;padding:7px;font-size:12.5px}
+.modal textarea{height:170px;font-family:monospace;resize:vertical}
+.deckcols{display:flex;gap:14px}.deckcols>div{flex:1}
+.mrow{display:flex;gap:10px;margin-top:16px;justify-content:flex-end}
+.respCard{display:block;width:100%;text-align:left;margin-bottom:6px;padding:8px 10px}
+.note{font-size:11px;color:var(--dim);margin-top:8px}
+#gameOverBanner{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(5,8,14,.7);z-index:20;flex-direction:column;gap:14px}
+#gameOverBanner.on{display:flex;animation:fadeIn .6s}
+#gameOverBanner h1{font-size:40px;color:var(--gold);text-shadow:0 4px 20px #000}
+</style>
+</head>
+<body>
+<header>
+  <h1>⚔ EDH Arena</h1>
+  <span class="badge" id="turnBadge">—</span>
+  <span class="badge" id="llmBadge">LLM: heuristic fallback</span>
+  <span class="spacer"></span>
+  <button id="btnSettings">⚙ LLM Settings</button>
+  <button id="btnRestart">↻ New Game</button>
+</header>
+<main>
+  <section id="boardWrap">
+    <canvas id="board"></canvas>
+    <div id="overlay">
+      <div class="lifeBadge" id="lifeOpp"><div class="sub">OPPONENT (AI)</div><div class="life" id="lifeOppV">40</div><div class="sub" id="cmdOpp">cmd dmg taken: 0</div></div>
+      <div class="lifeBadge" id="lifeYou"><div class="sub">YOU</div><div class="life" id="lifeYouV">40</div><div class="sub" id="cmdYou">cmd dmg taken: 0</div></div>
+      <div id="phaseBanner"></div>
+      <div id="thinking">🧠 LLM deliberating…</div>
+      <div id="preview"><div class="pname"></div><div class="ptype"></div><div class="ptext"></div></div>
+      <div id="statusBar"><div id="statusMsg">Loading…</div><button id="btnDone" class="primary" disabled>…</button></div>
+      <div id="gameOverBanner"><h1 id="goText"></h1><button class="primary" onclick="location.reload()">Play Again</button></div>
+    </div>
+  </section>
+  <aside id="logPane">
+    <div id="logTabs">
+      <button class="active" data-f="all">All</button><button data-f="phase">Phases</button><button data-f="spell">Spells</button>
+      <button data-f="combat">Combat</button><button data-f="life">Life</button><button data-f="trigger">Triggers</button><button data-f="llm">AI Reasoning</button>
+    </div>
+    <div id="log"></div>
+  </aside>
+</main>
+
+<!-- Setup -->
+<div class="modal" id="setupModal">
+  <div class="box">
+    <h2>Commander (EDH) — Game Setup</h2>
+    <div class="deckcols">
+      <div>
+        <label>Your decklist (first line: <span class="ms">Commander: Name</span>)</label>
+        <textarea id="deckYou"></textarea>
+      </div>
+      <div>
+        <label>AI opponent decklist</label>
+        <textarea id="deckAI"></textarea>
+      </div>
+    </div>
+    <div class="note">Formats accepted: <span class="ms">1 Sol Ring</span>, <span class="ms">1x Sol Ring</span>, Arena exports. Card data (mana costs, keywords, oracle text) is fetched from Scryfall in batches and cached locally. Demo-scale lists load fastest; full 100-card lists work too.</div>
+    <div class="note">Optional: configure an LLM key (⚙) for genuine AI strategy + complex rules resolution (replacement effects, layers, stack interaction). Without a key, a labeled heuristic AI plays instead.</div>
+    <div class="mrow">
+      <button id="btnSamples">Load Sample Decks</button>
+      <button id="btnStart" class="primary">Fetch Cards & Start Game</button>
+    </div>
+    <div class="note" id="setupStatus"></div>
+  </div>
+</div>
+
+<!-- Settings -->
+<div class="modal hid" id="settingsModal">
+  <div class="box" style="width:min(480px,92vw)">
+    <h2>LLM Configuration</h2>
+    <label>API Base URL (OpenAI-compatible, CORS-enabled — e.g. OpenRouter / Groq / local Ollama)</label>
+    <input id="cfgBase" placeholder="https://openrouter.ai/api/v1">
+    <label>API Key</label>
+    <input id="cfgKey" type="password" placeholder="sk-or-...">
+    <label>Model</label>
+    <input id="cfgModel" placeholder="openai/gpt-4o-mini">
+    <div class="note">⚠ Key is stored in localStorage and sent only to the endpoint above, directly from your browser (visible in DevTools — demo posture). Leave the key blank to use the built-in heuristic AI.</div>
+    <div class="mrow"><button onclick="document.getElementById('settingsModal').classList.add('hid')">Cancel</button>
+    <button class="primary" id="cfgSave">Save</button></div>
+  </div>
+</div>
+
+<!-- Response / choice modal -->
+<div class="modal hid" id="respModal">
+  <div class="box" style="width:min(430px,92vw)">
+    <h2 id="respTitle">Respond?</h2>
+    <div id="respBody"></div>
+    <div class="mrow"><button class="primary" id="respPass">Pass Priority</button></div>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* =====================================================================
+   EDH ARENA — single-file Commander simulator
+   Architecture: deterministic engine owns ALL state; LLM proposes
+   decisions/resolutions as JSON ops that are validated before applying.
+   ===================================================================== */
+
+/* ---------------- utilities ---------------- */
+const $=s=>document.querySelector(s);
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const NUMW={a:1,an:1,one:1,two:2,three:3,four:4,five:5,six:6,seven:7,x:1};
+const num=w=>{ if(!w)return 1; w=(''+w).toLowerCase(); return /^\d+$/.test(w)?+w:(NUMW[w]||1); };
+let UIDC=0; const uid=()=> 'c'+(++UIDC);
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function esc(s){return (''+s).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));}
+
+/* ---------------- config / LLM settings ---------------- */
+const CFG_KEY='edh_llm_cfg_v1';
+let CFG=Object.assign({base:'https://openrouter.ai/api/v1',key:'',model:'openai/gpt-4o-mini'},
+  JSON.parse(localStorage.getItem(CFG_KEY)||'{}'));
+function refreshLLMBadge(){ const b=$('#llmBadge');
+  if(CFG.key){b.textContent='LLM: '+CFG.model;b.classList.add('llm-on');}
+  else {b.textContent='LLM: heuristic fallback';b.classList.remove('llm-on');} }
+$('#btnSettings').onclick=()=>{ $('#cfgBase').value=CFG.base;$('#cfgKey').value=CFG.key;$('#cfgModel').value=CFG.model;
+  $('#settingsModal').classList.remove('hid'); };
+$('#cfgSave').onclick=()=>{ CFG={base:$('#cfgBase').value.trim()||'https://openrouter.ai/api/v1',
+  key:$('#cfgKey').value.trim(),model:$('#cfgModel').value.trim()||'openai/gpt-4o-mini'};
+  localStorage.setItem(CFG_KEY,JSON.stringify(CFG)); $('#settingsModal').classList.add('hid'); refreshLLMBadge(); };
+refreshLLMBadge();
+
+/* ---------------- game log (structured events -> DOM) ---------------- */
+let logFilter='all';
+function log(cat,html){
+  const d=document.createElement('div'); d.className='le '+cat; d.innerHTML=html;
+  if(logFilter!=='all'&&cat!==logFilter&&cat!=='turnhead') d.classList.add('hid');
+  const l=$('#log'); l.appendChild(d); l.scrollTop=l.scrollHeight;
+}
+document.querySelectorAll('#logTabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('#logTabs button').forEach(x=>x.classList.remove('active')); b.classList.add('active');
+  logFilter=b.dataset.f;
+  document.querySelectorAll('#log .le').forEach(e=>{
+    const keep=logFilter==='all'||e.classList.contains(logFilter)||e.classList.contains('turnhead');
+    e.classList.toggle('hid',!keep); });
+});
+
+/* =====================================================================
+   SCRYFALL MODULE — batched /cards/collection with cache + stubs
+   ===================================================================== */
+const SF_CACHE_KEY='edh_scry_v1';
+let sfCache=JSON.parse(localStorage.getItem(SF_CACHE_KEY)||'{}');
+function slimCard(c){
+  const f=(c.card_faces&&c.card_faces[0]&&!c.mana_cost)?c.card_faces[0]:c;
+  return { name:c.name.split(' // ')[0], mana_cost:f.mana_cost||c.mana_cost||'', cmc:c.cmc||0,
+    type_line:f.type_line||c.type_line||'', oracle_text:f.oracle_text||c.oracle_text||'',
+    power:f.power, toughness:f.toughness, keywords:c.keywords||[], colors:f.colors||c.colors||[],
+    color_identity:c.color_identity||[], produced_mana:c.produced_mana||[] };
+}
+async function scryfallFetch(names,onStatus){
+  const need=[...new Set(names.map(n=>n.toLowerCase()))].filter(n=>!sfCache[n]);
+  for(let i=0;i<need.length;i+=75){
+    const chunk=need.slice(i,i+75);
+    onStatus(`Fetching ${chunk.length} cards from Scryfall…`);
+    try{
+      const res=await fetch('https://api.scryfall.com/cards/collection',{method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({identifiers:chunk.map(n=>({name:n}))})});
+      if(res.status===429){ onStatus('Scryfall throttling — waiting…'); await sleep(3000); i-=75; continue; }
+      const j=await res.json();
+      (j.data||[]).forEach(c=>{ const s=slimCard(c);
+        sfCache[c.name.toLowerCase()]=s; sfCache[s.name.toLowerCase()]=s;
+        (c.card_faces||[]).forEach(fc=>sfCache[fc.name.toLowerCase()]=s); });
+      (j.not_found||[]).forEach(nf=>log('sys','Scryfall: could not find <b>'+esc(nf.name||'?')+'</b> — using placeholder.'));
+    }catch(e){ log('sys','Scryfall unreachable — using built-in fallback data where available.'); }
+    if(i+75<need.length) await sleep(600); // respect 2 req/s hard limit on /collection
+  }
+  try{ localStorage.setItem(SF_CACHE_KEY,JSON.stringify(sfCache)); }catch(e){}
+  return names.map(n=>sfCache[n.toLowerCase()]||BUILTIN[n.toLowerCase()]||
+    {name:n,mana_cost:'{1}',cmc:1,type_line:'Unknown',oracle_text:'',keywords:[],colors:[],produced_mana:[]});
+}
+
+/* ---------------- built-in fallback DB (offline demo safety) -------- */
+const BUILTIN={}; [
+ ['Plains','','Basic Land — Plains','({T}: Add {W}.)',,, [],['W']],
+ ['Mountain','','Basic Land — Mountain','({T}: Add {R}.)',,, [],['R']],
+ ['Sol Ring','{1}','Artifact','{T}: Add {C}{C}.',,, [],['C']],
+ ['Mind Stone','{2}','Artifact','{T}: Add {C}.',,, [],['C']],
+ ['Marble Diamond','{2}','Artifact','Marble Diamond enters the battlefield tapped.\n{T}: Add {W}.',,, [],['W']],
+ ['Fire Diamond','{2}','Artifact','Fire Diamond enters the battlefield tapped.\n{T}: Add {R}.',,, [],['R']],
+ ['Isamaru, Hound of Konda','{W}','Legendary Creature — Dog','', '2','2',[],[]],
+ ['Savannah Lions','{W}','Creature — Cat','', '2','1',[],[]],
+ ['Healer\'s Hawk','{W}','Creature — Bird','Flying, lifelink','1','1',['Flying','Lifelink'],[]],
+ ['Soul Warden','{W}','Creature — Human Cleric','Whenever another creature enters the battlefield, you gain 1 life.','1','1',[],[]],
+ ['Impassioned Orator','{1}{W}','Creature — Human Cleric','Whenever another creature enters the battlefield, you gain 1 life.','2','2',[],[]],
+ ['Ajani\'s Pridemate','{1}{W}','Creature — Cat Soldier','Whenever you gain life, put a +1/+1 counter on Ajani\'s Pridemate.','2','2',[],[]],
+ ['Inspiring Overseer','{2}{W}','Creature — Angel Cleric','Flying\nWhen Inspiring Overseer enters the battlefield, you gain 1 life and draw a card.','2','1',['Flying'],[]],
+ ['Benalish Marshal','{W}{W}{W}','Creature — Human Knight','Other creatures you control get +1/+1.','3','3',[],[]],
+ ['Serra Angel','{3}{W}{W}','Creature — Angel','Flying, vigilance','4','4',['Flying','Vigilance'],[]],
+ ['Honor of the Pure','{1}{W}','Enchantment','White creatures you control get +1/+1.',,,[],[]],
+ ['Swords to Plowshares','{W}','Instant','Exile target creature. Its controller gains life equal to its power.',,,[],[]],
+ ['Raise the Alarm','{1}{W}','Instant','Create two 1/1 white Soldier creature tokens.',,,[],[]],
+ ['Gather the Townsfolk','{1}{W}','Sorcery','Create two 1/1 white Human creature tokens.',,,[],[]],
+ ['Zurgo Bellstriker','{1}{R}','Legendary Creature — Orc Warrior','Zurgo Bellstriker can\'t block creatures with power 2 or greater.','2','2',[],[]],
+ ['Fanatical Firebrand','{R}','Creature — Goblin Pirate','Haste','1','1',['Haste'],[]],
+ ['Monastery Swiftspear','{R}','Creature — Human Monk','Haste\nProwess','1','2',['Haste','Prowess'],[]],
+ ['Goblin Instigator','{1}{R}','Creature — Goblin Rogue','When Goblin Instigator enters the battlefield, create a 1/1 red Goblin creature token.','1','1',[],[]],
+ ['Young Pyromancer','{1}{R}','Creature — Human Shaman','Whenever you cast an instant or sorcery spell, create a 1/1 red Elemental creature token.','2','1',[],[]],
+ ['Guttersnipe','{2}{R}','Creature — Goblin Shaman','Whenever you cast an instant or sorcery spell, Guttersnipe deals 2 damage to each opponent.','2','2',[],[]],
+ ['Beetleback Chief','{2}{R}{R}','Creature — Goblin Warrior','When Beetleback Chief enters the battlefield, create two 1/1 red Goblin creature tokens.','2','2',[],[]],
+ ['Siege-Gang Commander','{3}{R}{R}','Creature — Goblin Warrior','When Siege-Gang Commander enters the battlefield, create three 1/1 red Goblin creature tokens.','2','2',[],[]],
+ ['Shock','{R}','Instant','Shock deals 2 damage to any target.',,,[],[]],
+ ['Lightning Strike','{1}{R}','Instant','Lightning Strike deals 3 damage to any target.',,,[],[]],
+ ['Flame Rift','{1}{R}','Sorcery','Flame Rift deals 4 damage to each player.',,,[],[]],
+ ['Dragon Fodder','{1}{R}','Sorcery','Create two 1/1 red Goblin creature tokens.',,,[],[]],
+ ['Krenko\'s Command','{1}{R}','Sorcery','Create two 1/1 red Goblin creature tokens.',,,[],[]],
+].forEach(([n,mc,t,o,p,tou,kw,pm])=>BUILTIN[n.toLowerCase()]={name:n,mana_cost:mc,type_line:t,oracle_text:o,
+  power:p,toughness:tou,keywords:kw,colors:(mc.match(/[WUBRG]/g)||[]).filter((v,i,a)=>a.indexOf(v)===i),produced_mana:pm,
+  cmc:(mc.match(/\{(\d+)\}/)?+mc.match(/\{(\d+)\}/)[1]:0)+(mc.match(/\{[WUBRG]\}/g)||[]).length});
+
+const SAMPLE_YOU=`Commander: Isamaru, Hound of Konda
+1 Sol Ring
+1 Mind Stone
+1 Marble Diamond
+1 Soul Warden
+1 Savannah Lions
+1 Healer's Hawk
+1 Impassioned Orator
+1 Ajani's Pridemate
+1 Inspiring Overseer
+1 Benalish Marshal
+1 Serra Angel
+1 Honor of the Pure
+1 Swords to Plowshares
+1 Raise the Alarm
+1 Gather the Townsfolk
+11 Plains`;
+const SAMPLE_AI=`Commander: Zurgo Bellstriker
+1 Sol Ring
+1 Fire Diamond
+1 Fanatical Firebrand
+1 Monastery Swiftspear
+1 Goblin Instigator
+1 Young Pyromancer
+1 Guttersnipe
+1 Beetleback Chief
+1 Siege-Gang Commander
+1 Shock
+1 Lightning Strike
+1 Flame Rift
+1 Dragon Fodder
+1 Krenko's Command
+12 Mountain`;
+
+/* =====================================================================
+   CARD COMPILER — costs, keywords, trigger shapes, effect mini-language
+   ===================================================================== */
+function parseManaCost(mc){
+  const c={generic:0,pips:[]};
+  for(const m of (mc||'').matchAll(/\{([^}]+)\}/g)){ const s=m[1];
+    if(/^\d+$/.test(s)) c.generic+=+s;
+    else if('WUBRG'.includes(s)) c.pips.push(s);
+    else if(s.includes('/')){ const col=[...s].find(x=>'WUBRG'.includes(x)); col?c.pips.push(col):c.generic++; }
+    else if(s!=='X') c.generic++; }
+  c.total=c.generic+c.pips.length; return c;
+}
+function parseEffects(text){ // returns {ops,unparsed[]} — the local effect mini-language
+  const ops=[],unparsed=[];
+  const sentences=text.split(/(?<=\.)\s+|\n/).map(s=>s.trim()).filter(Boolean);
+  for(const s of sentences){
+    const l=s.toLowerCase(); let hit=false; let m;
+    if(m=l.match(/counter target spell/)){ops.push({op:'counter_spell'});hit=true;}
+    if(m=l.match(/destroy target creature/)){ops.push({op:'destroy',needsTarget:'creature'});hit=true;}
+    if(m=l.match(/exile target creature/)){ops.push({op:'exile',needsTarget:'creature'});hit=true;}
+    if(m=l.match(/deals? (\w+) damage to (any target|each opponent|each player|target creature|target player)/)){
+      ops.push({op:'damage',n:num(m[1]),mode:m[2]});hit=true;}
+    if(m=l.match(/(?:you )?gain (\w+) life/)){ops.push({op:'gain_life',n:num(m[1])});hit=true;}
+    if(m=l.match(/each opponent loses (\w+) life/)){ops.push({op:'opp_lose_life',n:num(m[1])});hit=true;}
+    if(m=l.match(/draws? (\w+) cards?/)){ops.push({op:'draw',n:num(m[1])});hit=true;}
+    if(m=l.match(/create (\w+)?\s*(\d+)\/(\d+) ([a-z]+ )?([a-z ]+?) creature tokens?/)){
+      ops.push({op:'token',n:num(m[1]),p:+m[2],t:+m[3],color:(m[4]||'').trim(),name:m[5].trim()});hit=true;}
+    if(m=l.match(/create (\w+) treasure tokens?/)){ops.push({op:'token',n:num(m[1]),p:0,t:0,name:'Treasure',treasure:true});hit=true;}
+    if(m=l.match(/put (\w+) \+1\/\+1 counters? on (it|this creature|[a-z' ,-]+)/)){
+      const tgt=m[2]; ops.push({op:'counters',n:num(m[1]),onSelf:!/target/.test(tgt),needsTarget:/target/.test(tgt)?'creature':null});hit=true;}
+    if(m=l.match(/its controller gains life equal to its power/)){ops.push({op:'life_eq_power'});hit=true;}
+    if(m=l.match(/scry (\d+)/)){ops.push({op:'scry',n:+m[1]});hit=true;}
+    if(!hit && !/^\(/.test(s) && s.length>2) unparsed.push(s);
+  }
+  return {ops,unparsed};
+}
+function compileCard(raw){
+  const c=Object.assign({},raw);
+  c.uid=uid(); c.cost=parseManaCost(c.mana_cost);
+  const tl=(c.type_line||'').toLowerCase();
+  c.is={land:tl.includes('land'),creature:tl.includes('creature'),instant:tl.includes('instant'),
+        sorcery:tl.includes('sorcery'),artifact:tl.includes('artifact'),enchantment:tl.includes('enchantment'),
+        legendary:tl.includes('legendary')};
+  c.kw=(c.keywords||[]).map(k=>k.toLowerCase());
+  const o=(c.oracle_text||'').replace(new RegExp(c.name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'g'),'CARDNAME');
+  // mana source detection
+  c.manaSource=false;
+  if(c.is.land){ c.manaSource=true;
+    c.produced=c.produced_mana&&c.produced_mana.length?c.produced_mana:
+      (tl.includes('plains')?['W']:tl.includes('island')?['U']:tl.includes('swamp')?['B']:
+       tl.includes('mountain')?['R']:tl.includes('forest')?['G']:['C']);
+    c.manaAmt=1;
+  } else if((c.is.artifact)&&/\{T\}: Add/.test(c.oracle_text||'')){
+    c.manaSource=true; const add=(c.oracle_text.match(/\{T\}: Add ([^.\n]+)/)||[])[1]||'{C}';
+    const syms=add.match(/\{([WUBRGC])\}/g)||['{C}'];
+    c.produced=[...new Set(syms.map(s=>s[1]==='C'?'C':s[1]))]; c.manaAmt=syms.length;
+  }
+  c.entersTapped=/CARDNAME enters (the battlefield )?tapped/i.test(o); // simple replacement effect
+  // trigger shapes (regex table — meaning resolved later, locally or by LLM)
+  c.triggers=[];
+  const lines=o.split('\n');
+  for(const ln of lines){
+    const low=ln.toLowerCase(); let ev=null,m;
+    if(/^when(ever)? cardname enters/.test(low)) ev='etb_self';
+    else if(/^whenever another creature enters/.test(low)) ev='etb_other';
+    else if(/^whenever cardname attacks/.test(low)) ev='attack';
+    else if(/^when(ever)? cardname dies/.test(low)) ev='dies_self';
+    else if(/^at the beginning of (your|each) upkeep/.test(low)) ev='upkeep';
+    else if(m=low.match(/^whenever you cast an? (instant or sorcery|noncreature|instant|sorcery) spell/)) ev='spellcast';
+    else if(/^whenever you gain life/.test(low)) ev='lifegain';
+    if(ev){
+      const effTxt=ln.replace(/^[^,]+,\s*/,'');
+      const parsed=parseEffects(effTxt);
+      c.triggers.push({event:ev,spellFilter:(m&&m[1])||null,text:effTxt,ops:parsed.ops,unparsed:parsed.unparsed,
+        optional:/you may/.test(low)});
+    }
+  }
+  if(c.kw.includes('prowess')) c.triggers.push({event:'spellcast',spellFilter:'noncreature',text:'Prowess: +1/+1 until end of turn.',
+    ops:[{op:'pump_self',p:1,t:1}],unparsed:[]});
+  // static continuous effects (simplified layer 7c anthem handling)
+  c.statics=[];
+  for(const ln of lines){
+    const m=ln.toLowerCase().match(/^(other )?([a-z]+ )?creatures you control get \+(\d+)\/\+(\d+)/);
+    if(m) c.statics.push({other:!!m[1],filter:(m[2]||'').trim()||null,p:+m[3],t:+m[4]});
+  }
+  // spell effects (instant/sorcery)
+  if(c.is.instant||c.is.sorcery){ const pe=parseEffects(c.oracle_text||''); c.spellOps=pe.ops; c.spellUnparsed=pe.unparsed;
+    c.needsTarget=pe.ops.find(op=>op.needsTarget)?.needsTarget||(pe.ops.find(op=>op.mode==='any target'||op.mode==='target creature'||op.mode==='target player')?'any':
+      pe.ops.find(op=>op.op==='counter_spell')?'spell':null);
+  }
+  // runtime state
+  c.tapped=false;c.sick=false;c.damage=0;c.counters={};c.tempP=0;c.tempT=0;c.attacking=false;c.isToken=false;
+  return c;
+}
+
+/* =====================================================================
+   GAME STATE + ENGINE
+   ===================================================================== */
+const G={players:[],active:0,turn:1,phase:'',stack:[],over:false,llmCalls:0};
+const HUMAN=0, AI=1;
+function P(i){return G.players[i];}
+function opp(i){return 1-i;}
+function makePlayer(name,isAI){ return {name,isAI,life:40,library:[],hand:[],battlefield:[],graveyard:[],exile:[],
+  commander:null,commanderInCZ:true,commanderTax:0,cmdDmgTaken:{},landPlayed:false}; }
+
+function parseDecklist(text){
+  let commander=null; const cards=[];
+  for(let ln of text.split('\n')){
+    ln=ln.trim(); if(!ln||/^(\/\/|#)/.test(ln)) continue;
+    const cm=ln.match(/^commander:\s*(.+)$/i); if(cm){commander=cm[1].trim();continue;}
+    if(/^(deck|sideboard|commander)$/i.test(ln)) continue;
+    const m=ln.match(/^(\d+)x?\s+(.+?)(\s+\([A-Z0-9]{2,6}\)\s*[\d\w-]*)?$/);
+    if(m){ for(let i=0;i<+m[1];i++) cards.push(m[2].trim()); }
+    else cards.push(ln);
+  }
+  if(!commander&&cards.length) commander=cards.shift();
+  return {commander,cards};
+}
+
+/* ------- mana: greedy auto-tap payment planning ------- */
+function manaSources(p){ return p.battlefield.filter(c=>c.manaSource&&!c.tapped); }
+function planPayment(p,cost,tax){
+  const totalNeed=cost.total+(tax||0);
+  const srcs=manaSources(p); const used=new Set(); const plan=[];
+  for(const pip of cost.pips){
+    const cands=srcs.filter(s=>!used.has(s.uid)&&s.produced.includes(pip))
+      .sort((a,b)=>a.produced.length-b.produced.length||a.manaAmt-b.manaAmt);
+    if(!cands.length) return null;
+    used.add(cands[0].uid); plan.push(cands[0]);
+  }
+  let gen=cost.generic+(tax||0);
+  const rest=srcs.filter(s=>!used.has(s.uid))
+    .sort((a,b)=>(b.manaAmt-a.manaAmt)||(a.produced.includes('C')?-1:1)-(b.produced.includes('C')?-1:1));
+  for(const s of rest){ if(gen<=0)break; used.add(s.uid); plan.push(s); gen-=s.manaAmt; }
+  if(gen>0) return null;
+  return plan;
+}
+function payWithPlan(p,plan){
+  plan.forEach(s=>s.tapped=true);
+  if(plan.length) log('phase',`${p.name} taps ${plan.map(s=>'<b>'+esc(s.name)+'</b>').join(', ')} for mana.`);
+}
+
+/* ------- continuous effects (simplified layers: counters -> statics -> temp) ------- */
+function matchesFilter(c,f){
+  if(!f) return true;
+  const colors={white:'W',blue:'U',black:'B',red:'R',green:'G'};
+  if(colors[f]) return (c.colors||[]).includes(colors[f]);
+  return (c.type_line||'').toLowerCase().includes(f);
+}
+function getPT(c){
+  let p=parseInt(c.power)||0, t=parseInt(c.toughness)||0;
+  const k=c.counters['+1/+1']||0; p+=k; t+=k;
+  const owner=P(c.controller);
+  for(const b of owner.battlefield) for(const st of (b.statics||[])){
+    if(st.other&&b.uid===c.uid) continue;
+    if(!c.is.creature) continue;
+    if(!matchesFilter(c,st.filter)) continue;
+    p+=st.p; t+=st.t;
+  }
+  p+=c.tempP; t+=c.tempT;
+  return {p,t};
+}
+
+/* ------- life / damage ------- */
+function gainLife(pi,n,src){ if(n<=0)return; P(pi).life+=n;
+  log('life',`<b>${P(pi).name}</b> gains ${n} life (${esc(src||'')}) → <b>${P(pi).life}</b>.`);
+  lifeFloat(pi,'+'+n,'var(--green)'); updateHUD(); emitSync('lifegain',{player:pi,n});
+}
+function loseLife(pi,n,src,isCombat,sourceCard){
+  if(n<=0)return; P(pi).life-=n;
+  log('life',`<b>${P(pi).name}</b> loses ${n} life (${esc(src||'damage')}) → <b>${P(pi).life}</b>.`);
+  lifeFloat(pi,'-'+n,'var(--red)');
+  const badge=pi===HUMAN?$('#lifeYou'):$('#lifeOpp'); badge.classList.remove('hit'); void badge.offsetWidth; badge.classList.add('hit');
+  if(isCombat&&sourceCard&&sourceCard.isCommander){
+    P(pi).cmdDmgTaken[sourceCard.name]=(P(pi).cmdDmgTaken[sourceCard.name]||0)+n;
+    log('combat',`Commander damage from <b>${esc(sourceCard.name)}</b>: ${P(pi).cmdDmgTaken[sourceCard.name]}/21.`);
+  }
+  updateHUD();
+}
+function damageCreature(c,n,source){
+  if(n<=0)return; c.damage+=n;
+  if(source&&source.kw&&source.kw.includes('deathtouch')) c.deathtouched=true;
+  log('combat',`<b>${esc(source?source.name:'Effect')}</b> deals ${n} damage to <b>${esc(c.name)}</b>.`);
+  if(source&&source.kw&&source.kw.includes('lifelink')) gainLife(source.controller,n,'lifelink');
+}
+
+/* ------- zones ------- */
+async function moveToGraveyard(c){
+  const p=P(c.controller);
+  p.battlefield=p.battlefield.filter(x=>x.uid!==c.uid);
+  if(c.isToken){ log('sys',`Token <b>${esc(c.name)}</b> ceases to exist.`); return; }
+  if(c.isCommander){ // replacement effect: command zone instead
+    p.commanderInCZ=true; c.tapped=false;c.damage=0;c.counters={};c.attacking=false;
+    log('trigger',`Replacement effect: <b>${esc(c.name)}</b> would go to the graveyard — moved to the <b>command zone</b> instead. (Tax now {${(p.commanderTax+1)*2}} extra)`);
+    return;
+  }
+  p.graveyard.push(c); c.tapped=false;
+}
+async function destroyCreature(c,why){
+  log('combat',`<b>${esc(c.name)}</b> ${why||'dies'}.`);
+  await moveToGraveyard(c);
+  await emit('dies_self',{died:c});
+}
+async function checkSBA(){
+  for(const pi of [0,1]){
+    for(const c of [...P(pi).battlefield]){
+      if(!c.is.creature) continue;
+      const pt=getPT(c);
+      if(pt.t<=0){ await destroyCreature(c,'is put into the graveyard (0 toughness)'); continue; }
+      if(c.damage>=pt.t||c.deathtouched&&c.damage>0) await destroyCreature(c,'dies (lethal damage)');
+    }
+  }
+  for(const pi of [0,1]){
+    const p=P(pi);
+    if(p.life<=0) return gameOver(opp(pi),`${p.name} is reduced to ${p.life} life`);
+    for(const k in p.cmdDmgTaken) if(p.cmdDmgTaken[k]>=21)
+      return gameOver(opp(pi),`${p.name} has taken 21+ commander damage from ${k}`);
+  }
+}
+function gameOver(winner,why){
+  if(G.over)return; G.over=true;
+  log('turnhead',`🏆 GAME OVER — <b>${P(winner).name}</b> wins! (${esc(why)})`);
+  $('#goText').textContent=(winner===HUMAN?'VICTORY!':'DEFEAT');
+  $('#gameOverBanner').classList.add('on');
+}
+
+/* ------- triggered abilities ------- */
+const trigQueue=[];
+function emitSync(event,ctx){ collectTriggers(event,ctx); } // queued, drained by drainTriggers
+function collectTriggers(event,ctx){
+  const order=[G.active,opp(G.active)];
+  for(const pi of order) for(const c of P(pi).battlefield) for(const tr of c.triggers){
+    let match=false;
+    if(tr.event===event){
+      if(event==='etb_self') match=ctx.entered.uid===c.uid;
+      else if(event==='etb_other') match=ctx.entered.uid!==c.uid&&ctx.entered.is.creature;
+      else if(event==='attack') match=ctx.attacker.uid===c.uid;
+      else if(event==='dies_self') match=ctx.died.uid===c.uid;
+      else if(event==='upkeep') match=ctx.player===c.controller;
+      else if(event==='lifegain') match=ctx.player===c.controller;
+      else if(event==='spellcast'){
+        if(ctx.caster!==c.controller) break;
+        const sp=ctx.spell, f=tr.spellFilter;
+        match= f==='noncreature'?!sp.is.creature :
+               f==='instant or sorcery'?(sp.is.instant||sp.is.sorcery):
+               f==='instant'?sp.is.instant : f==='sorcery'?sp.is.sorcery : (sp.is.instant||sp.is.sorcery);
+      }
+    }
+    if(match) trigQueue.push({card:c,tr,ctx});
+  }
+}
+async function emit(event,ctx){ collectTriggers(event,ctx); await drainTriggers(); }
+async function drainTriggers(){
+  while(trigQueue.length){
+    const {card,tr,ctx}=trigQueue.shift();
+    if(!P(card.controller).battlefield.includes(card)&&tr.event!=='dies_self') continue;
+    log('trigger',`⚡ Triggered ability — <b>${esc(card.name)}</b>: “${esc(tr.text.slice(0,110))}”`);
+    if(tr.ops.length) await applyOps(tr.ops,card.controller,card,{selfCard:card});
+    if(tr.unparsed.length){
+      const res=await llmResolveEffect(card,tr.unparsed.join(' '),card.controller);
+      if(res) await applyOps(res,card.controller,card,{selfCard:card});
+      else if(!tr.ops.length) log('sys',`(effect “${esc(tr.unparsed[0].slice(0,60))}…” resolved approximately: no local handler, no LLM)`);
+    }
+    await checkSBA(); if(G.over)return;
+  }
+}
+
+/* ------- effect ops interpreter (also validates LLM resolver output) ------- */
+async function applyOps(ops,controller,source,ctx={}){
+  for(const op of ops){
+    const n=Math.max(0,Math.min(20,op.n||1));
+    switch(op.op){
+      case 'draw': for(let i=0;i<n;i++) drawCard(controller); break;
+      case 'gain_life': gainLife(controller,n,source&&source.name); await drainTriggers(); break;
+      case 'opp_lose_life': loseLife(opp(controller),n,source&&source.name); break;
+      case 'lose_life': loseLife(op.player==='opp'?opp(controller):controller,n,source&&source.name); break;
+      case 'damage': {
+        const mode=op.mode||op.target;
+        if(mode==='each opponent'||mode==='each_opponent') loseLife(opp(controller),n,source.name);
+        else if(mode==='each player'){ loseLife(0,n,source.name); loseLife(1,n,source.name); }
+        else if(ctx.target){ if(ctx.target.player!==undefined) loseLife(ctx.target.player,n,source.name);
+          else damageCreature(ctx.target,n,source); }
+        else if(op.targetUid){ const t=findCard(op.targetUid); if(t) damageCreature(t,n,source); }
+        else if(mode==='opponent'||mode==='target player') loseLife(opp(controller),n,source.name);
+        break; }
+      case 'token': {
+        for(let i=0;i<n;i++){
+          const tok=compileCard({name:op.name?op.name.replace(/\b\w/g,m=>m.toUpperCase()):'Token',mana_cost:'',
+            type_line:op.treasure?'Artifact — Treasure':'Creature — '+(op.name||'Token'),
+            oracle_text:op.treasure?'{T}, Sacrifice: Add one mana of any color.':'',
+            power:op.p,toughness:op.t,keywords:op.keywords||[],colors:[],produced_mana:op.treasure?['W','U','B','R','G']:[]});
+          tok.isToken=true; tok.controller=controller; tok.sick=true;
+          if(op.treasure){tok.manaSource=true;tok.produced=['W','U','B','R','G'];tok.manaAmt=1;}
+          P(controller).battlefield.push(tok);
+          log('spell',`<b>${P(controller).name}</b> creates a ${op.treasure?'Treasure':op.p+'/'+op.t+' '+esc(op.name)} token.`);
+          await emit('etb_self',{entered:tok}); await emit('etb_other',{entered:tok});
+        } break; }
+      case 'counters': case 'put_counters': {
+        const t=op.onSelf?ctx.selfCard:(ctx.target&&ctx.target.uid?ctx.target:(op.targetUid?findCard(op.targetUid):ctx.selfCard));
+        if(t){ t.counters['+1/+1']=(t.counters['+1/+1']||0)+n;
+          log('trigger',`<b>${esc(t.name)}</b> gets ${n} +1/+1 counter${n>1?'s':''} (now ${t.counters['+1/+1']}).`); }
+        break; }
+      case 'pump_self': if(ctx.selfCard){ctx.selfCard.tempP+=op.p;ctx.selfCard.tempT+=op.t;
+        log('trigger',`<b>${esc(ctx.selfCard.name)}</b> gets +${op.p}/+${op.t} until end of turn.`);} break;
+      case 'destroy': { const t=ctx.target||findCard(op.targetUid); if(t&&t.uid) await destroyCreature(t,'is destroyed'); break; }
+      case 'exile': { const t=ctx.target||findCard(op.targetUid);
+        if(t&&t.uid){ const p=P(t.controller);
+          if(t.isCommander){ p.commanderInCZ=true; p.battlefield=p.battlefield.filter(x=>x.uid!==t.uid);
+            log('trigger',`Replacement: commander <b>${esc(t.name)}</b> goes to the command zone instead of exile.`); }
+          else { p.battlefield=p.battlefield.filter(x=>x.uid!==t.uid); if(!t.isToken)p.exile.push(t);
+            log('spell',`<b>${esc(t.name)}</b> is exiled.`); }
+          ctx.exiledPT=getPT(t); ctx.exiledController=t.controller; }
+        break; }
+      case 'life_eq_power': if(ctx.exiledPT!==undefined) gainLife(ctx.exiledController,ctx.exiledPT.p,'Swords to Plowshares'); break;
+      case 'counter_spell': { if(ctx.target&&ctx.target.stackItem){ ctx.target.stackItem.countered=true;
+          log('spell',`<b>${esc(ctx.target.stackItem.card.name)}</b> is countered!`);} break; }
+      case 'scry': log('sys',`(Scry ${n} — simplified: keeping top of library.)`); break;
+      case 'none': break;
+      default: log('sys',`(unknown op “${esc(op.op||'?')}” from resolver — dropped by validator)`);
+    }
+    if(G.over)return;
+  }
+  updateHUD();
+}
+function findCard(uidv){ for(const pi of[0,1]) for(const c of P(pi).battlefield) if(c.uid===uidv) return c; return null; }
+function drawCard(pi){
+  const p=P(pi);
+  if(!p.library.length){ gameOver(opp(pi),`${p.name} draws from an empty library`); return; }
+  const c=p.library.pop(); p.hand.push(c);
+  log('phase',`<b>${p.name}</b> draws a card${pi===HUMAN?' (<b>'+esc(c.name)+'</b>)':''}. (${p.hand.length} in hand)`);
+}
+
+/* ------- casting & the stack ------- */
+function computeCastCost(p,card,fromCZ){ return {cost:card.cost,tax:fromCZ?p.commanderTax*2:0}; }
+function canCast(pi,card,fromCZ){
+  const p=P(pi);
+  if(card.is.land) return !p.landPlayed&&isMainPhase()&&G.active===pi;
+  const {cost,tax}=computeCastCost(p,card,fromCZ);
+  if(!planPayment(p,cost,tax)) return false;
+  if(card.is.instant) return true;
+  return isMainPhase()&&G.active===pi&&!G.stack.length;
+}
+function isMainPhase(){ return G.phase==='Main 1'||G.phase==='Main 2'; }
+
+async function castSpell(pi,card,{fromCZ=false,target=null,depth=0}={}){
+  const p=P(pi);
+  if(card.is.land){
+    p.hand=p.hand.filter(c=>c.uid!==card.uid); p.landPlayed=true;
+    card.controller=pi; if(card.entersTapped){card.tapped=true;
+      log('trigger',`Replacement effect: <b>${esc(card.name)}</b> enters the battlefield tapped.`);}
+    p.battlefield.push(card);
+    log('spell',`<b>${p.name}</b> plays a land: <b>${esc(card.name)}</b>.`);
+    return true;
+  }
+  const {cost,tax}=computeCastCost(p,card,fromCZ);
+  const plan=planPayment(p,cost,tax);
+  if(!plan){ log('sys','Cannot pay for '+esc(card.name)+'.'); return false; }
+  // acquire target before paying
+  let tgt=target;
+  if(card.needsTarget&&!tgt){
+    tgt=await acquireTarget(pi,card);
+    if(tgt===undefined){ log('sys','Cast cancelled.'); return false; }
+  }
+  payWithPlan(p,plan);
+  if(fromCZ){ p.commanderInCZ=false; p.commanderTax++;
+    log('spell',`<b>${p.name}</b> casts commander <b>${esc(card.name)}</b> from the <b>command zone</b> `+
+      `<span class="ms">${esc(card.mana_cost)}</span>${tax?` + commander tax <span class="ms">{${tax}}</span>`:''}.`);
+  } else {
+    p.hand=p.hand.filter(c=>c.uid!==card.uid);
+    log('spell',`<b>${p.name}</b> casts <b>${esc(card.name)}</b> <span class="ms">${esc(card.mana_cost)||'{0}'}</span>`+
+      `${tgt&&tgt.name?` targeting <b>${esc(tgt.name)}</b>`:tgt&&tgt.player!==undefined?` targeting <b>${P(tgt.player).name}</b>`:''}.`);
+  }
+  const item={card,caster:pi,target:tgt,countered:false};
+  G.stack.push(item);
+  emitSync('spellcast',{caster:pi,spell:card});
+  // priority window — opponent may respond with instants (stack interaction)
+  if(depth<4) await responseWindow(opp(pi),depth+1);
+  // resolve (LIFO happens naturally through recursion; this item resolves last)
+  await resolveStackItem(item);
+  await drainTriggers();
+  await checkSBA();
+  updateHUD();
+  return true;
+}
+async function resolveStackItem(item){
+  const idx=G.stack.indexOf(item); if(idx>=0)G.stack.splice(idx,1);
+  const c=item.card,pi=item.caster,p=P(pi);
+  if(item.countered){
+    if(c.isCommander){p.commanderInCZ=true;
+      log('trigger',`Countered commander <b>${esc(c.name)}</b> returns to the command zone (replacement).`);}
+    else p.graveyard.push(c);
+    return;
+  }
+  if(c.is.creature||(c.is.artifact&&!c.is.creature)||c.is.enchantment){
+    c.controller=pi; c.sick=c.is.creature&&!c.kw.includes('haste');
+    if(c.entersTapped){c.tapped=true;log('trigger',`Replacement effect: <b>${esc(c.name)}</b> enters tapped.`);}
+    p.battlefield.push(c);
+    log('spell',`<b>${esc(c.name)}</b> resolves and enters the battlefield${c.sick?' (summoning sickness)':''}.`);
+    await emit('etb_self',{entered:c}); await emit('etb_other',{entered:c});
+  } else { // instant / sorcery
+    log('spell',`<b>${esc(c.name)}</b> resolves.`);
+    const ctx={target:item.target};
+    await applyOps(c.spellOps||[],pi,c,ctx);
+    if(c.spellUnparsed&&c.spellUnparsed.length){
+      const res=await llmResolveEffect(c,c.spellUnparsed.join(' '),pi);
+      if(res) await applyOps(res,pi,c,ctx);
+      else log('sys',`(part of ${esc(c.name)} resolved approximately — unrecognized text, no LLM available)`);
+    }
+    p.graveyard.push(c);
+  }
+}
+
+/* ------- priority / response windows ------- */
+function castableInstants(pi){ return P(pi).hand.filter(c=>c.is.instant&&planPayment(P(pi),c.cost,0)); }
+async function responseWindow(pi,depth){
+  if(G.over)return;
+  const insts=castableInstants(pi); if(!insts.length)return;
+  if(P(pi).isAI){
+    const pick=await llmRespond(pi,insts);
+    if(pick){ log('llm',`AI holds priority and responds…`); await castSpell(pi,pick.card,{target:pick.target,depth}); }
+  } else {
+    const pick=await humanRespondModal(insts);
+    if(pick) await castSpell(pi,pick,{depth});
+  }
+}
+function humanRespondModal(insts){
+  return new Promise(res=>{
+    const m=$('#respModal'),body=$('#respBody');
+    $('#respTitle').textContent='Stack: '+(G.stack.length?G.stack.map(s=>s.card.name).join(' ← '):'(resolving)')+' — respond with an instant?';
+    body.innerHTML='';
+    insts.forEach(c=>{ const b=document.createElement('button'); b.className='respCard';
+      b.innerHTML=`<b>${esc(c.name)}</b> <span class="ms">${esc(c.mana_cost)}</span><br><span style="font-size:11px;color:var(--dim)">${esc(c.oracle_text||'')}</span>`;
+      b.onclick=()=>{m.classList.add('hid');res(c);}; body.appendChild(b); });
+    $('#respPass').onclick=()=>{m.classList.add('hid');res(null);};
+    m.classList.remove('hid');
+  });
+}
+
+/* ------- targeting ------- */
+const UI={targeting:null,mode:null,selBlocker:null,blocks:{},hover:null,busy:false};
+function legalTargets(pi,card){
+  const t=[];
+  if(card.needsTarget==='spell'){ G.stack.filter(s=>s.card.uid!==card.uid).forEach(s=>t.push({stackItem:s,name:s.card.name})); return t;}
+  for(const qi of [0,1]) for(const c of P(qi).battlefield) if(c.is.creature) t.push(c);
+  if(card.needsTarget==='any'){ t.push({player:0,name:P(0).name}); t.push({player:1,name:P(1).name}); }
+  return t;
+}
+function acquireTarget(pi,card){
+  const opts=legalTargets(pi,card);
+  if(!opts.length) return Promise.resolve(undefined);
+  if(P(pi).isAI){ // heuristic target pick (LLM chooses among enumerated options during main)
+    const enemyCr=opts.filter(o=>o.uid&&o.controller===opp(pi));
+    if(card.spellOps&&card.spellOps.some(o=>o.op==='destroy'||o.op==='exile')&&enemyCr.length)
+      return Promise.resolve(enemyCr.sort((a,b)=>getPT(b).p-getPT(a).p)[0]);
+    if(card.needsTarget==='any'){ const big=enemyCr.sort((a,b)=>getPT(b).p-getPT(a).p)[0];
+      const dmg=(card.spellOps.find(o=>o.op==='damage')||{}).n||0;
+      if(big&&getPT(big).t<=dmg) return Promise.resolve(big);
+      return Promise.resolve({player:opp(pi),name:P(opp(pi)).name}); }
+    if(opts[0].stackItem) return Promise.resolve(opts[0]);
+    return Promise.resolve(enemyCr[0]||opts[0]);
+  }
+  // human: click a target on the canvas (or a life badge for 'any')
+  setStatus(`Choose a target for ${card.name}${card.needsTarget==='any'?' (click a creature or a life total)':''} — Esc to cancel`);
+  return new Promise(res=>{ UI.targeting={card,opts,res}; });
+}
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&UI.targeting){UI.targeting.res(undefined);UI.targeting=null;setStatus('');} });
+[['#lifeOpp',AI],['#lifeYou',HUMAN]].forEach(([sel,pi])=>$(sel).onclick=()=>{
+  if(UI.targeting&&UI.targeting.card.needsTarget==='any'){ const r=UI.targeting.res; UI.targeting=null; r({player:pi,name:P(pi).name}); }
+});
+
+/* =====================================================================
+   LLM MODULE — structured JSON decisions, validated; heuristic fallback
+   ===================================================================== */
+const SYS_PROMPT=`You are the opponent pilot AND rules resolver for a simplified 1v1 Commander (EDH) Magic: The Gathering game. Reply with a SINGLE JSON object only — no prose, no code fences. Follow the response schema given in each request exactly. When resolving card text, prioritize correct handling of: replacement effects ("would...instead"), continuous effects using the layer system, tokens and counters, commander tax and command-zone casting, and stack interactions with instants (LIFO). Include a short "why" string (one sentence) in every response.`;
+async function askLLM(payload,temp){
+  if(!CFG.key)return null;
+  if(G.llmCalls>=10){log('sys','(LLM per-turn call budget reached — heuristic used)');return null;}
+  G.llmCalls++;
+  $('#thinking').classList.add('on');
+  try{
+    for(let attempt=0;attempt<2;attempt++){
+      const ctl=new AbortController(); const to=setTimeout(()=>ctl.abort(),20000);
+      try{
+        const res=await fetch(CFG.base.replace(/\/$/,'')+'/chat/completions',{
+          method:'POST',signal:ctl.signal,
+          headers:{'Content-Type':'application/json','Authorization':'Bearer '+CFG.key},
+          body:JSON.stringify({model:CFG.model,temperature:temp,response_format:{type:'json_object'},
+            messages:[{role:'system',content:SYS_PROMPT},{role:'user',content:JSON.stringify(payload)}]})});
+        clearTimeout(to);
+        const j=await res.json();
+        let txt=j.choices?.[0]?.message?.content||'';
+        txt=txt.replace(/```json|```/g,'');
+        const a=txt.indexOf('{'),b=txt.lastIndexOf('}');
+        if(a>=0&&b>a){ const obj=JSON.parse(txt.slice(a,b+1));
+          if(obj.why) log('llm','🧠 '+esc(obj.why));
+          return obj; }
+      }catch(e){ clearTimeout(to); }
+    }
+  } finally { $('#thinking').classList.remove('on'); }
+  log('sys','(LLM call failed — heuristic fallback used)');
+  return null;
+}
+function snapshot(forAI){ // compact state; NEVER leak human's hand contents to the AI
+  const bf=pi=>P(pi).battlefield.map(c=>({uid:c.uid,name:c.name,type:c.type_line,
+    pt:c.is.creature?getPT(c):undefined,tapped:c.tapped,sick:c.sick,keywords:c.kw,counters:c.counters['+1/+1']||0}));
+  return { turn:Math.ceil(G.turn/2), phase:G.phase, activePlayer:G.active===AI?'you':'human_opponent',
+    you:{life:P(AI).life,hand:forAI?P(AI).hand.map(c=>({uid:c.uid,name:c.name,cost:c.mana_cost,type:c.type_line,text:(c.oracle_text||'').slice(0,140)})):undefined,
+      battlefield:bf(AI),commanderInCZ:P(AI).commanderInCZ,commanderTax:P(AI).commanderTax*2,
+      untappedManaSources:manaSources(P(AI)).length,graveyard:P(AI).graveyard.length},
+    human_opponent:{life:P(HUMAN).life,handCount:P(HUMAN).hand.length,battlefield:bf(HUMAN),
+      commanderDamageTakenByYou:P(AI).cmdDmgTaken},
+    stack:G.stack.map(s=>({name:s.card.name,caster:P(s.caster).name})) };
+}
+async function llmChooseOption(options,instructions){
+  const r=await askLLM({kind:'choose_action',instructions,
+    schema:'{"choice":"<option id>","why":"..."}',options:options.map(o=>({id:o.id,desc:o.desc})),state:snapshot(true)},0.4);
+  if(r&&options.some(o=>o.id===r.choice)) return r.choice;
+  if(r) log('sys','(LLM chose an illegal option — dropped by validator)');
+  return null;
+}
+async function llmResolveEffect(card,text,controller){
+  const r=await askLLM({kind:'resolve_effect',
+    instructions:'Resolve this card text into ops. Whitelisted ops: draw{n}, gain_life{n}, lose_life{player:"opp"|"self",n}, damage{n, targetUid | target:"opponent"|"each_opponent"}, token{n,p,t,name}, put_counters{targetUid,n}, destroy{targetUid}, exile{targetUid}, none{}. Controller of the effect: '+(controller===AI?'you (the AI)':'the human opponent')+'. Handle replacement effects and layers correctly; if the text is a static/replacement ability with no one-shot effect, return {"ops":[{"op":"none"}]}.',
+    schema:'{"ops":[...],"why":"..."}',card:{name:card.name,text},state:snapshot(true)},0);
+  if(r&&Array.isArray(r.ops)){
+    const WL=['draw','gain_life','lose_life','damage','token','put_counters','counters','destroy','exile','none'];
+    const ops=r.ops.filter(o=>o&&WL.includes(o.op));
+    if(ops.length!==r.ops.length) log('sys','(some resolver ops failed validation — dropped)');
+    return ops.length?ops:null;
+  }
+  return null;
+}
+async function llmRespond(pi,insts){
+  const r=await askLLM({kind:'respond_to_stack',
+    instructions:'A spell is on the stack. You may cast one of your instants in response (it will resolve first, LIFO) or pass. Reply {"cast":"<uid>"|null,"targetUid":"<uid of creature>"|"opponent"|null,"why":"..."}',
+    instants:insts.map(c=>({uid:c.uid,name:c.name,cost:c.mana_cost,text:c.oracle_text})),state:snapshot(true)},0.3);
+  if(r&&r.cast){ const card=insts.find(c=>c.uid===r.cast);
+    if(card){ let target=null;
+      if(card.needsTarget){ if(r.targetUid==='opponent')target={player:HUMAN,name:P(HUMAN).name};
+        else if(r.targetUid){const t=findCard(r.targetUid);if(t)target=t;}
+        if(!target)target=await acquireTarget(pi,card); }
+      return {card,target}; } }
+  return null; // heuristic: AI holds instants for its own turn
+}
+
+/* =====================================================================
+   AI TURN CONTROLLER (LLM-driven with heuristic fallback)
+   ===================================================================== */
+function enumerateMainOptions(pi){
+  const p=P(pi),opts=[];
+  if(!p.landPlayed){ const land=p.hand.find(c=>c.is.land);
+    if(land)opts.push({id:'land',desc:'Play a land ('+land.name+')',card:land}); }
+  if(p.commanderInCZ&&p.commander&&canCast(pi,p.commander,true))
+    opts.push({id:'cmd',desc:`Cast commander ${p.commander.name} from command zone (tax {${p.commanderTax*2}})`,card:p.commander,fromCZ:true});
+  p.hand.filter(c=>!c.is.land&&canCast(pi,c,false)).forEach(c=>
+    opts.push({id:c.uid,desc:`Cast ${c.name} ${c.mana_cost} — ${(c.oracle_text||'').slice(0,80)}`,card:c,fromCZ:false}));
+  opts.push({id:'pass',desc:'Pass (end this main phase)'});
+  return opts;
+}
+async function aiMainPhase(pi){
+  for(let i=0;i<8&&!G.over;i++){
+    const opts=enumerateMainOptions(pi);
+    if(opts.length===1)break;
+    let choice=await llmChooseOption(opts,'It is your '+G.phase+'. Pick ONE action (you will be asked again after it resolves). Consider commander tax, holding instants, and board development.');
+    if(!choice){ // heuristic: land > commander > biggest castable
+      const land=opts.find(o=>o.id==='land'); const cmd=opts.find(o=>o.id==='cmd');
+      const spells=opts.filter(o=>o.card&&!o.card.is.land&&o.id!=='cmd').sort((a,b)=>b.card.cost.total-a.card.cost.total);
+      choice=(land||cmd||spells[0]||{id:'pass'}).id;
+    }
+    const opt=opts.find(o=>o.id===choice);
+    if(!opt||choice==='pass')break;
+    UI.busy=true;
+    await castSpell(pi,opt.card,{fromCZ:!!opt.fromCZ});
+    UI.busy=false;
+    await sleep(700);
+  }
+}
+async function aiDeclareAttackers(pi){
+  const legal=P(pi).battlefield.filter(c=>c.is.creature&&!c.tapped&&(!c.sick||c.kw.includes('haste')));
+  if(!legal.length)return[];
+  const r=await askLLM({kind:'declare_attackers',
+    instructions:'Choose which creatures attack the human opponent. Reply {"attackers":["uid",...],"why":"..."} — empty array to hold back.',
+    candidates:legal.map(c=>({uid:c.uid,name:c.name,pt:getPT(c),keywords:c.kw,isCommander:!!c.isCommander})),
+    state:snapshot(true)},0.4);
+  let picks;
+  if(r&&Array.isArray(r.attackers)) picks=legal.filter(c=>r.attackers.includes(c.uid));
+  if(!picks){ // heuristic: attack if power advantage or unblockable-ish
+    const defUntapped=P(HUMAN).battlefield.filter(c=>c.is.creature&&!c.tapped);
+    picks=legal.filter(a=>{ const apt=getPT(a);
+      const canBeBlocked=defUntapped.some(b=>canBlock(b,a));
+      return !canBeBlocked||apt.p>=3||defUntapped.length===0; });
+  }
+  return picks;
+}
+function canBlock(b,a){
+  if(b.tapped)return false;
+  if(a.kw.includes('flying')&&!(b.kw.includes('flying')||b.kw.includes('reach')))return false;
+  return true;
+}
+async function aiDeclareBlockers(attackers){
+  const pool=P(AI).battlefield.filter(c=>c.is.creature&&!c.tapped);
+  if(!pool.length)return{};
+  const r=await askLLM({kind:'declare_blockers',
+    instructions:'Human creatures are attacking you. Assign blockers. Reply {"blocks":[{"blocker":"uid","attacker":"uid"}],"why":"..."} — respect flying/reach; menace needs 2+ blockers.',
+    attackers:attackers.map(c=>({uid:c.uid,name:c.name,pt:getPT(c),keywords:c.kw,isCommander:!!c.isCommander})),
+    potentialBlockers:pool.map(c=>({uid:c.uid,name:c.name,pt:getPT(c),keywords:c.kw})),state:snapshot(true)},0.3);
+  const blocks={};
+  const assign=(b,a)=>{ if(!canBlock(b,a))return; (blocks[a.uid]=blocks[a.uid]||[]).push(b); };
+  if(r&&Array.isArray(r.blocks)){
+    const used=new Set();
+    for(const bl of r.blocks){ const b=pool.find(c=>c.uid===bl.blocker&&!used.has(c.uid)); const a=attackers.find(c=>c.uid===bl.attacker);
+      if(b&&a){assign(b,a);used.add(b.uid);} }
+  } else { // heuristic: block biggest threats with favorable trades / chumps when lethal incoming
+    const sorted=[...attackers].sort((a,b)=>getPT(b).p-getPT(a).p); const used=new Set();
+    let incoming=attackers.reduce((s,a)=>s+getPT(a).p,0);
+    for(const a of sorted){ const apt=getPT(a);
+      const cand=pool.filter(b=>!used.has(b.uid)&&canBlock(b,a))
+        .sort((x,y)=>(getPT(y).t>apt.p)-(getPT(x).t>apt.p)||getPT(y).p-getPT(x).p)[0];
+      if(cand&&(getPT(cand).p>=apt.t||getPT(cand).t>apt.p||incoming>=P(AI).life)){assign(cand,a);used.add(cand.uid);} }
+  }
+  // menace validation
+  for(const a of attackers) if(a.kw.includes('menace')&&blocks[a.uid]&&blocks[a.uid].length===1){
+    log('sys',`(illegal single block on menace attacker ${esc(a.name)} — removed by validator)`); delete blocks[a.uid]; }
+  return blocks;
+}
+
+/* =====================================================================
+   COMBAT
+   ===================================================================== */
+async function combatPhase(att){
+  const def=opp(att);
+  await setPhase('Combat — Declare Attackers');
+  let attackers=[];
+  if(P(att).isAI) attackers=await aiDeclareAttackers(att);
+  else {
+    UI.mode='attack';
+    setStatus('Declare attackers: click your creatures to toggle. Then press the button.');
+    await waitDone('Confirm Attackers');
+    UI.mode=null;
+    attackers=P(att).battlefield.filter(c=>c.attacking);
+  }
+  attackers.forEach(c=>c.attacking=true);
+  if(!attackers.length){ log('combat',`${P(att).name} declares no attackers.`); return; }
+  log('combat',`<b>${P(att).name}</b> attacks with ${attackers.map(c=>{const pt=getPT(c);return `<b>${esc(c.name)}</b> (${pt.p}/${pt.t})`;}).join(', ')}.`);
+  for(const a of attackers){ if(!a.kw.includes('vigilance'))a.tapped=true; await emit('attack',{attacker:a}); }
+  if(G.over)return;
+  // priority window for defender (instants) — stack interaction during combat
+  await setPhase('Combat — Declare Blockers');
+  await responseWindow(def,1); if(G.over)return;
+  attackers=attackers.filter(a=>P(att).battlefield.includes(a)); // may have been removed
+  let blocks={};
+  if(attackers.length){
+    if(P(def).isAI) blocks=await aiDeclareBlockers(attackers);
+    else {
+      UI.mode='block'; UI.blocks={}; UI.selBlocker=null;
+      setStatus('Assign blockers: click your untapped creature, then the attacker it blocks. Repeat as needed, then confirm.');
+      await waitDone('Confirm Blocks');
+      UI.mode=null; blocks=UI.blocks;
+      for(const a of attackers) if(a.kw.includes('menace')&&blocks[a.uid]&&blocks[a.uid].length===1){
+        log('sys',`Menace: ${esc(a.name)} can't be blocked by exactly one creature — block removed.`); delete blocks[a.uid]; }
+    }
+  }
+  const blockDesc=Object.entries(blocks).flatMap(([auid,bs])=>bs.map(b=>`<b>${esc(b.name)}</b> blocks <b>${esc(attackers.find(a=>a.uid===auid)?.name||'?')}</b>`));
+  log('combat',blockDesc.length?blockDesc.join('; ')+'.':`${P(def).name} declares no blockers.`);
+  await setPhase('Combat — Damage');
+  for(const a of attackers){
+    if(!P(att).battlefield.includes(a))continue;
+    const apt=getPT(a); let dmg=apt.p; const bs=(blocks[a.uid]||[]).filter(b=>P(def).battlefield.includes(b));
+    if(bs.length){
+      for(const b of bs){ if(dmg<=0)break;
+        const need=a.kw.includes('deathtouch')?1:Math.max(1,getPT(b).t-b.damage);
+        const assign=Math.min(dmg,a.kw.includes('trample')?need:dmg);
+        damageCreature(b,assign,a); dmg-=assign; }
+      if(dmg>0&&a.kw.includes('trample')){
+        log('combat',`<b>${esc(a.name)}</b> tramples over for ${dmg}!`);
+        loseLife(def,dmg,'combat (trample)',true,a);
+      }
+      for(const b of bs) damageCreature(a,getPT(b).p,b); // blockers hit back
+    } else {
+      loseLife(def,dmg,'combat damage from '+a.name,true,a);
+    }
+    if(a.kw.includes('lifelink')&&!bs.length&&apt.p>0){} // lifelink handled in loseLife? no: handle here for player dmg
+  }
+  // lifelink for unblocked handled: add explicitly
+  for(const a of attackers){ const bs=(blocks[a.uid]||[]);
+    if(!bs.length&&a.kw.includes('lifelink')&&P(att).battlefield.includes(a)) gainLife(att,getPT(a).p,'lifelink'); }
+  await drainTriggers();
+  await checkSBA();
+  attackers.forEach(a=>a.attacking=false);
+}
+
+/* =====================================================================
+   TURN LOOP
+   ===================================================================== */
+const PHASES_BANNER=p=>{ const b=$('#phaseBanner'); b.textContent=p; b.classList.remove('show'); void b.offsetWidth; b.classList.add('show'); };
+async function setPhase(ph){
+  G.phase=ph; PHASES_BANNER(ph);
+  log('phase',`— ${ph} —`);
+  $('#turnBadge').textContent=`Turn ${Math.ceil(G.turn/2)} · ${P(G.active).name} · ${ph}`;
+  await sleep(P(G.active).isAI?550:250);
+}
+let doneResolver=null;
+function waitDone(label){
+  const b=$('#btnDone'); b.textContent=label; b.disabled=false; b.classList.add('pulse');
+  return new Promise(r=>doneResolver=r);
+}
+$('#btnDone').onclick=()=>{ if(UI.busy)return;
+  if(doneResolver){const r=doneResolver;doneResolver=null;
+    const b=$('#btnDone');b.disabled=true;b.classList.remove('pulse');setStatus('');r();} };
+function setStatus(s){ $('#statusMsg').textContent=s||(G.over?'Game over.':'…'); }
+
+async function runTurn(pi){
+  const p=P(pi); G.llmCalls=0;
+  log('turnhead',`▶ Turn ${Math.ceil(G.turn/2)} — ${p.name}${p.isAI?' (AI'+(CFG.key?' · LLM':' · heuristic')+')':''}`);
+  // Untap
+  await setPhase('Untap');
+  p.battlefield.forEach(c=>{c.tapped=false;c.sick=false;});
+  p.landPlayed=false;
+  log('phase',`${p.name} untaps all permanents.`);
+  // Upkeep
+  await setPhase('Upkeep');
+  await emit('upkeep',{player:pi}); if(G.over)return;
+  // Draw
+  await setPhase('Draw');
+  if(!(G.turn===1)) drawCard(pi); else log('phase',`${p.name} skips the first draw (playing first).`);
+  if(G.over)return;
+  // Main 1
+  await setPhase('Main 1');
+  if(p.isAI) await aiMainPhase(pi);
+  else { setStatus('Main phase: click cards in hand to cast (mana taps automatically). Click your command zone card to cast your commander.');
+    await waitDone('Go to Combat'); }
+  if(G.over)return;
+  // Combat
+  await combatPhase(pi); if(G.over)return;
+  // Main 2
+  await setPhase('Main 2');
+  if(p.isAI) await aiMainPhase(pi);
+  else { setStatus('Second main phase: cast more spells, then end the turn.');
+    await waitDone('End Turn'); }
+  if(G.over)return;
+  // End + cleanup
+  await setPhase('End Step');
+  for(const q of [0,1]) P(q).battlefield.forEach(c=>{c.tempP=0;c.tempT=0;c.damage=0;c.deathtouched=false;});
+  while(p.hand.length>7){
+    const disc=p.isAI?p.hand.slice().sort((a,b)=>b.cost.total-a.cost.total)[0]:p.hand[p.hand.length-1];
+    p.hand=p.hand.filter(c=>c.uid!==disc.uid); p.graveyard.push(disc);
+    log('phase',`${p.name} discards <b>${esc(disc.name)}</b> (hand size).`);
+  }
+  log('phase',`${p.name} ends the turn. Damage cleared.`);
+}
+async function gameLoop(){
+  while(!G.over){
+    await runTurn(G.active);
+    if(G.over)break;
+    G.active=opp(G.active); G.turn++;
+    updateHUD(); await sleep(400);
+  }
+}
+
+/* =====================================================================
+   HUD + floating numbers
+   ===================================================================== */
+function updateHUD(){
+  $('#lifeYouV').textContent=P(HUMAN)?P(HUMAN).life:40;
+  $('#lifeOppV').textContent=P(AI)?P(AI).life:40;
+  const cd=p=>Object.entries(p.cmdDmgTaken).map(([k,v])=>`${v}/21`).join(' ')||'0';
+  if(P(HUMAN)){$('#cmdYou').textContent='cmd dmg taken: '+cd(P(HUMAN)); $('#cmdOpp').textContent='cmd dmg taken: '+cd(P(AI));}
+}
+function lifeFloat(pi,text,color){
+  const anchor=pi===HUMAN?$('#lifeYou'):$('#lifeOpp');
+  const f=document.createElement('div'); f.className='float'; f.textContent=text; f.style.color=color;
+  f.style.left=(anchor.offsetLeft+130)+'px'; f.style.top=anchor.offsetTop+'px';
+  $('#overlay').appendChild(f); setTimeout(()=>f.remove(),1500);
+}
+
+/* =====================================================================
+   CANVAS RENDERER — entities w/ lerped transforms, rotated hit-testing
+   ===================================================================== */
+const canvas=$('#board'),ctx=canvas.getContext('2d');
+const ENT=new Map(); let hitList=[];
+const CW=76,CH=106;
+function zoneRows(w,h){
+  return { oppHand:h*0.055, oppLands:h*0.17, oppCreat:h*0.335, mid:h*0.475,
+           myCreat:h*0.615, myLands:h*0.78, myHand:h*0.925 };
+}
+function layoutRow(cards,cy,w,scale,faceUp,tag,cz){
+  const s=scale||1, cw=CW*s, gap=8;
+  const total=cards.length*(cw+gap);
+  let x=Math.max(cz?110:70,(w-total)/2);
+  const out=[];
+  for(const c of cards){ out.push({c,x:x+cw/2,y:cy,s,faceUp,tag}); x+=cw+gap; }
+  return out;
+}
+function computeTargets(){
+  if(!G.players.length)return[];
+  const w=canvas.clientWidth,h=canvas.clientHeight,R=zoneRows(w,h);
+  const T=[];
+  const bfSplit=pi=>{ const b=P(pi).battlefield;
+    return { lands:b.filter(c=>c.manaSource&&!c.is.creature), other:b.filter(c=>!(c.manaSource&&!c.is.creature)) }; };
+  // AI top
+  T.push(...layoutRow(P(AI).hand.map(()=>({uid:'aihand'+Math.random()})),0,0,0,false,'')); // placeholder (drawn separately)
+  const ai=bfSplit(AI);
+  T.push(...layoutRow(ai.lands,R.oppLands,w,0.82,true,'bf'));
+  T.push(...layoutRow(ai.other,R.oppCreat,w,1,true,'bf'));
+  const you=bfSplit(HUMAN);
+  T.push(...layoutRow(you.other,R.myCreat,w,1,true,'bf'));
+  T.push(...layoutRow(you.lands,R.myLands,w,0.82,true,'bf'));
+  T.push(...layoutRow(P(HUMAN).hand,R.myHand,w,1.06,true,'hand'));
+  // command zones
+  if(P(AI).commanderInCZ&&P(AI).commander) T.push({c:P(AI).commander,x:55,y:R.oppLands,s:0.82,faceUp:true,tag:'cz'});
+  if(P(HUMAN).commanderInCZ&&P(HUMAN).commander) T.push({c:P(HUMAN).commander,x:55,y:R.myLands,s:0.82,faceUp:true,tag:'cz'});
+  return T.filter(t=>t.c&&t.c.uid);
+}
+function drawPip(x,y,sym){
+  const col={W:'#f5f0d8',U:'#4a90d9',B:'#5a4a6a',R:'#d9534a',G:'#4a9d5f',C:'#b8b8b8'}[sym]||'#b8b8b8';
+  ctx.beginPath();ctx.arc(x,y,6,0,7);ctx.fillStyle=col;ctx.fill();
+  ctx.fillStyle=sym==='W'?'#333':'#fff';ctx.font='bold 8px sans-serif';ctx.textAlign='center';ctx.fillText(sym,x,y+3);
+}
+function cardBorderColor(c){
+  const cols=c.colors||[];
+  if(c.isCommander)return '#d4af37';
+  if(cols.length>1)return '#c9a94a';
+  return {W:'#d8d3b8',U:'#3d7dbf',B:'#6a5a7a',R:'#bf4a3d',G:'#3d8f57'}[cols[0]]||(c.is.land?'#8a7a5a':'#888');
+}
+function drawCard(e){
+  const c=e.card,s=e.s;
+  ctx.save(); ctx.translate(e.x,e.y); ctx.rotate(e.rot); ctx.globalAlpha=e.alpha;
+  const w=CW*s,h=CH*s;
+  // body
+  ctx.fillStyle=e.faceUp?'#1d2330':'#30253a';
+  roundRect(-w/2,-h/2,w,h,6); ctx.fill();
+  ctx.lineWidth=c.isCommander?3:(c.isToken?1.5:2);
+  ctx.strokeStyle=e.faceUp?cardBorderColor(c):'#5a4a6a';
+  if(c.isToken)ctx.setLineDash([4,3]);
+  ctx.stroke(); ctx.setLineDash([]);
+  if(c.attacking){ ctx.strokeStyle='rgba(229,83,75,.9)';ctx.lineWidth=3;roundRect(-w/2-3,-h/2-3,w+6,h+6,8);ctx.stroke(); }
+  if(UI.selBlocker===c){ ctx.strokeStyle='#539bf5';ctx.lineWidth=3;roundRect(-w/2-3,-h/2-3,w+6,h+6,8);ctx.stroke(); }
+  if(e.faceUp){
+    ctx.fillStyle='#e8ecf5';ctx.font=`bold ${9*s}px sans-serif`;ctx.textAlign='left';
+    const nm=c.name.length>13?c.name.slice(0,12)+'…':c.name;
+    ctx.fillText(nm,-w/2+4,-h/2+11*s);
+    // mana pips
+    let px=w/2-8;
+    for(const m of [...(c.mana_cost||'').matchAll(/\{([^}]+)\}/g)].reverse()){
+      const sym=/^\d+$/.test(m[1])?m[1]:m[1][0];
+      if(/^\d+$/.test(m[1])){ ctx.beginPath();ctx.arc(px,-h/2+22*s,6,0,7);ctx.fillStyle='#999';ctx.fill();
+        ctx.fillStyle='#111';ctx.font='bold 8px sans-serif';ctx.textAlign='center';ctx.fillText(m[1],px,-h/2+25*s); }
+      else drawPip(px,-h/2+22*s,sym);
+      px-=13;
+    }
+    // type band
+    ctx.fillStyle='#8b96ab';ctx.font=`${7.5*s}px sans-serif`;ctx.textAlign='left';
+    const tl=(c.type_line||'').split('—')[0].trim();
+    ctx.fillText(tl.slice(0,16),-w/2+4,-h/2+34*s);
+    // keywords
+    ctx.fillStyle='#c9b458';ctx.font=`italic ${7.5*s}px sans-serif`;
+    (c.kw||[]).slice(0,3).forEach((k,i)=>ctx.fillText(k,-w/2+4,-h/2+46*s+i*10*s));
+    // P/T
+    if(c.is.creature){
+      const pt=getPT(c); const buffed=pt.p!==(parseInt(c.power)||0)||pt.t!==(parseInt(c.toughness)||0);
+      ctx.fillStyle=buffed?'#57ab5a':'#e8ecf5';ctx.font=`bold ${11*s}px sans-serif`;ctx.textAlign='right';
+      ctx.fillText(pt.p+'/'+pt.t,w/2-5,h/2-6);
+      if(c.damage>0){ctx.fillStyle='#e5534b';ctx.textAlign='left';ctx.fillText('-'+c.damage,-w/2+4,h/2-6);}
+      if(c.counters['+1/+1']){ ctx.fillStyle='#2b6b3f';ctx.beginPath();ctx.arc(-w/2+11,h/2-25,9,0,7);ctx.fill();
+        ctx.fillStyle='#fff';ctx.font='bold 8px sans-serif';ctx.textAlign='center';ctx.fillText('+'+c.counters['+1/+1'],-w/2+11,h/2-22); }
+      if(c.sick){ctx.fillStyle='rgba(139,150,171,.85)';ctx.font=`${8*s}px sans-serif`;ctx.textAlign='center';ctx.fillText('💤',0,h/2-20);}
+    }
+    if(e.tag==='cz'){ ctx.fillStyle='#d4af37';ctx.font=`bold ${7*s}px sans-serif`;ctx.textAlign='center';
+      ctx.fillText('COMMAND',0,h/2+12); const tax=P(c.controllerHint??c.controller??0)?.commanderTax; }
+  } else { // card back
+    ctx.fillStyle='#4a3a5a';roundRect(-w/2+6,-h/2+8,w-12,h-16,4);ctx.fill();
+  }
+  ctx.restore();
+}
+function roundRect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+function frame(){
+  requestAnimationFrame(frame);
+  const dpr=window.devicePixelRatio||1;
+  const w=canvas.clientWidth,h=canvas.clientHeight;
+  if(canvas.width!==w*dpr){canvas.width=w*dpr;canvas.height=h*dpr;}
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h);
+  if(!G.players.length)return;
+  const R=zoneRows(w,h);
+  // zone guides
+  ctx.strokeStyle='rgba(42,53,80,.6)';ctx.lineWidth=1;
+  ctx.strokeRect(8,R.mid-16,w-16,32);
+  ctx.fillStyle='rgba(139,150,171,.5)';ctx.font='10px sans-serif';ctx.textAlign='left';
+  ctx.fillText(G.stack.length?('STACK: '+G.stack.map(s=>s.card.name).join(' ← ')):'STACK (empty) — instants resolve LIFO',14,R.mid+4);
+  ctx.fillText('⚑ command zone',14,R.oppLands-CH/2-6);
+  ctx.fillText('⚑ command zone',14,R.myLands-CH/2-6);
+  ctx.fillText(`AI graveyard: ${P(AI).graveyard.length} · exile: ${P(AI).exile.length} · library: ${P(AI).library.length}`,w-250,R.oppHand+40);
+  ctx.fillText(`Your graveyard: ${P(HUMAN).graveyard.length} · exile: ${P(HUMAN).exile.length} · library: ${P(HUMAN).library.length}`,w-260,R.myHand-70);
+  // AI hand (backs)
+  const n=P(AI).hand.length;
+  for(let i=0;i<n;i++){ const x=w/2+(i-n/2)*24;
+    ctx.save();ctx.translate(x,R.oppHand);ctx.fillStyle='#30253a';roundRect(-16,-24,32,48,4);ctx.fill();
+    ctx.strokeStyle='#5a4a6a';ctx.stroke();ctx.restore(); }
+  // entities
+  const targets=computeTargets();
+  const live=new Set();
+  hitList=[];
+  for(const t of targets){
+    live.add(t.c.uid);
+    let e=ENT.get(t.c.uid);
+    if(!e){ e={card:t.c,x:t.x,y:t.y+30,rot:0,s:t.s,alpha:0,faceUp:t.faceUp,tag:t.tag}; ENT.set(t.c.uid,e); }
+    e.card=t.c; e.tag=t.tag; e.faceUp=t.faceUp;
+    const trot=t.c.tapped?Math.PI/2:0;
+    e.x+=(t.x-e.x)*0.16; e.y+=(t.y-e.y)*0.16; e.rot+=(trot-e.rot)*0.2; e.s+=(t.s-e.s)*0.2; e.alpha+=(1-e.alpha)*0.12;
+    drawCard(e); hitList.push(e);
+  }
+  for(const k of [...ENT.keys()]) if(!live.has(k)) ENT.delete(k);
+  // attack arrows
+  for(const e of hitList) if(e.card.attacking){
+    const ty=e.card.controller===HUMAN?R.oppCreat-70:R.myCreat+70;
+    ctx.strokeStyle='rgba(229,83,75,.65)';ctx.lineWidth=2;ctx.beginPath();
+    ctx.moveTo(e.x,e.y);ctx.lineTo(e.x,ty);ctx.stroke();
+    ctx.fillStyle='rgba(229,83,75,.65)';ctx.beginPath();
+    const dir=e.card.controller===HUMAN?-1:1;
+    ctx.moveTo(e.x,ty);ctx.lineTo(e.x-6,ty-8*dir);ctx.lineTo(e.x+6,ty-8*dir);ctx.fill();
+  }
+  // block lines
+  for(const [auid,bs] of Object.entries(UI.blocks||{})){
+    const ae=ENT.get(auid); if(!ae)continue;
+    for(const b of bs){ const be=ENT.get(b.uid); if(!be)continue;
+      ctx.strokeStyle='rgba(83,155,245,.7)';ctx.lineWidth=2;ctx.setLineDash([5,4]);
+      ctx.beginPath();ctx.moveTo(be.x,be.y);ctx.lineTo(ae.x,ae.y);ctx.stroke();ctx.setLineDash([]); }
+  }
+}
+requestAnimationFrame(frame);
+
+/* ------- canvas interaction: rotated hit test, hover preview, clicks ------- */
+function hitAt(mx,my){
+  for(let i=hitList.length-1;i>=0;i--){ const e=hitList[i];
+    const dx=mx-e.x,dy=my-e.y,cos=Math.cos(-e.rot),sin=Math.sin(-e.rot);
+    const lx=dx*cos-dy*sin, ly=dx*sin+dy*cos;
+    if(Math.abs(lx)<=CW*e.s/2&&Math.abs(ly)<=CH*e.s/2) return e; }
+  return null;
+}
+canvas.addEventListener('mousemove',ev=>{
+  const r=canvas.getBoundingClientRect(); const e=hitAt(ev.clientX-r.left,ev.clientY-r.top);
+  const pv=$('#preview');
+  if(e&&e.faceUp){ pv.classList.add('on');
+    pv.querySelector('.pname').textContent=e.card.name+'  '+(e.card.mana_cost||'');
+    pv.querySelector('.ptype').textContent=e.card.type_line+(e.card.isCommander?' · COMMANDER':'')+(e.card.isToken?' · TOKEN':'');
+    pv.querySelector('.ptext').textContent=(e.card.oracle_text||'(no text)')+
+      (e.card.is.creature?`\n\n${getPT(e.card).p}/${getPT(e.card).t}`+(e.card.damage?` · ${e.card.damage} damage marked`:''):'');
+    canvas.style.cursor='pointer';
+  } else { pv.classList.remove('on'); canvas.style.cursor='default'; }
+});
+canvas.addEventListener('click',async ev=>{
+  if(G.over||UI.busy||!G.players.length)return;
+  const r=canvas.getBoundingClientRect(); const e=hitAt(ev.clientX-r.left,ev.clientY-r.top);
+  if(!e)return; const c=e.card;
+  // targeting mode has top priority
+  if(UI.targeting){
+    const ok=UI.targeting.opts.some(o=>o.uid===c.uid);
+    if(ok){ const res=UI.targeting.res; UI.targeting=null; setStatus(''); res(c); }
+    return;
+  }
+  // block assignment mode
+  if(UI.mode==='block'){
+    if(c.controller===HUMAN&&c.is.creature&&!c.tapped){ UI.selBlocker=UI.selBlocker===c?null:c; return; }
+    if(c.attacking&&UI.selBlocker){
+      if(!canBlock(UI.selBlocker,c)){ log('sys',`${esc(UI.selBlocker.name)} can't block ${esc(c.name)} (evasion).`); return; }
+      for(const k of Object.keys(UI.blocks)) UI.blocks[k]=UI.blocks[k].filter(b=>b.uid!==UI.selBlocker.uid);
+      (UI.blocks[c.uid]=UI.blocks[c.uid]||[]).push(UI.selBlocker);
+      UI.selBlocker=null; return;
+    }
+    return;
+  }
+  // attack declaration
+  if(UI.mode==='attack'&&c.controller===HUMAN&&c.is.creature){
+    if(c.tapped){log('sys',esc(c.name)+' is tapped.');return;}
+    if(c.sick&&!c.kw.includes('haste')){log('sys',esc(c.name)+' has summoning sickness.');return;}
+    c.attacking=!c.attacking; return;
+  }
+  // cast from hand / command zone (human, own main phase)
+  if(G.active===HUMAN&&isMainPhase()&&!P(HUMAN).isAI){
+    if(e.tag==='hand'){
+      if(!canCast(HUMAN,c,false)){ log('sys',c.is.land?'Land already played this turn.':'Not enough untapped mana for '+esc(c.name)+'.'); return; }
+      UI.busy=true; await castSpell(HUMAN,c,{}); UI.busy=false;
+    } else if(e.tag==='cz'&&c===P(HUMAN).commander&&P(HUMAN).commanderInCZ){
+      if(!canCast(HUMAN,c,true)){ log('sys',`Can't afford commander + tax ({${P(HUMAN).commanderTax*2}} extra).`); return; }
+      UI.busy=true; await castSpell(HUMAN,c,{fromCZ:true}); UI.busy=false;
+    }
+  }
+});
+
+/* =====================================================================
+   BOOT / SETUP
+   ===================================================================== */
+$('#btnSamples').onclick=()=>{ $('#deckYou').value=SAMPLE_YOU; $('#deckAI').value=SAMPLE_AI; };
+$('#btnRestart').onclick=()=>location.reload();
+$('#btnStart').onclick=async()=>{
+  const dy=parseDecklist($('#deckYou').value||SAMPLE_YOU), da=parseDecklist($('#deckAI').value||SAMPLE_AI);
+  if(!dy.commander||!da.commander){ $('#setupStatus').textContent='Each deck needs a commander (first line: "Commander: Name").'; return; }
+  const st=s=>$('#setupStatus').textContent=s;
+  $('#btnStart').disabled=true;
+  const allNames=[dy.commander,...dy.cards,da.commander,...da.cards];
+  const data=await scryfallFetch(allNames,st);
+  const lookup=n=>data.find(d=>d.name.toLowerCase()===n.toLowerCase()||d.name.toLowerCase().startsWith(n.toLowerCase()))||
+    {name:n,mana_cost:'{1}',type_line:'Unknown',oracle_text:'',keywords:[],colors:[],produced_mana:[]};
+  st('Compiling decks…');
+  G.players=[makePlayer('You',false),makePlayer('AI Opponent',true)];
+  [[HUMAN,dy],[AI,da]].forEach(([pi,d])=>{
+    const p=P(pi);
+    p.commander=compileCard(lookup(d.commander)); p.commander.isCommander=true; p.commander.controller=pi;
+    p.library=shuffle(d.cards.map(n=>{const c=compileCard(lookup(n));c.controller=pi;return c;}));
+    for(let i=0;i<7;i++){const c=p.library.pop();if(c)p.hand.push(c);}
+  });
+  $('#setupModal').classList.add('hid');
+  log('turnhead','🎲 Game start — Commander (EDH), 1v1, 40 life, 21 commander damage rule.');
+  log('sys',`Your commander: <b>${esc(P(HUMAN).commander.name)}</b> · AI commander: <b>${esc(P(AI).commander.name)}</b>. Opening hands drawn (7). No mulligans in this demo.`);
+  log('sys',CFG.key?`AI strategy & complex rules resolution: <b>${esc(CFG.model)}</b> via LLM (validated JSON ops).`:
+    'No LLM key configured — AI uses labeled heuristics. Add a key (⚙) for genuine LLM strategy, replacement-effect & stack resolution.');
+  updateHUD();
+  gameLoop();
+};
+$('#btnSamples').click(); // pre-fill samples
+setStatus('Paste decklists (or use the samples) and press Start.');
+</script>
+</body>
+</html>
