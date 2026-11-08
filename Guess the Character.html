@@ -1,0 +1,2055 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guess the Character · LLM Edition</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Luckiest+Guy&display=swap">
+<style>
+:root{--bg:#0e0e16;--panel:#171725;--panel2:#20203a;--line:#2d2d47;--text:#ececf4;--dim:#9b9bb2;
+  --a:#3dd6f5;--b:#ffc933;--host:#ff5fd2;--yes:#3ddc84;--no:#ff5a5a;--meh:#ffb347;--unsure:#8a8aa3;
+  --fun:'Luckiest Guy',system-ui,sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+body{display:grid;grid-template-rows:auto auto 1fr;height:100vh;overflow:hidden}
+button{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:7px 12px;font:inherit;cursor:pointer}
+button:hover:not(:disabled){border-color:#6a6a95}
+button:disabled{opacity:.35;cursor:default}
+button.primary{background:var(--host);border-color:var(--host);color:#22001c;font-weight:700}
+
+/* top bar */
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 16px;background:#12121d;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px}
+.brand h1{margin:0;font:400 26px/1 var(--fun);letter-spacing:1px}
+.brand small{color:var(--dim)}
+.logo{font-size:32px}
+.controls{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.meter{color:var(--dim);font-size:13px;margin-right:4px}
+
+/* host bar */
+.hostbar{text-align:center;padding:12px 16px 10px;border-bottom:1px solid var(--line);background:radial-gradient(ellipse at top,#2b1431 0%,transparent 70%)}
+.round-label{font:400 14px var(--fun);letter-spacing:2px;color:var(--host);text-transform:uppercase}
+.category{font:400 clamp(20px,3vw,32px)/1.15 var(--fun);letter-spacing:.5px;margin:4px auto;max-width:1000px}
+.host-sub{color:var(--dim);font-style:italic;min-height:1.3em}
+.round-dots{display:flex;gap:6px;justify-content:center;margin-top:6px;min-height:12px}
+.dot{width:12px;height:12px;border-radius:50%;background:var(--line)}
+.dot.now{outline:2px solid var(--host);outline-offset:1px;animation:pulse 1.2s infinite}
+.dot.w0{background:var(--a)}.dot.w1{background:var(--b)}.dot.wn{background:#55556a}
+.dot.wb{background:linear-gradient(90deg,var(--a) 50%,var(--b) 50%)}
+
+/* stage */
+.stage{display:grid;grid-template-columns:minmax(240px,300px) 1fr minmax(240px,300px);gap:14px;padding:14px;min-height:0}
+.player{--c:var(--a);background:var(--panel);border:2px solid var(--line);border-radius:14px;display:flex;flex-direction:column;min-height:0;position:relative;overflow:hidden;transition:border-color .2s,box-shadow .2s}
+.player.p1{--c:var(--b)}
+.player.active{border-color:var(--c);box-shadow:0 0 0 4px color-mix(in srgb,var(--c) 22%,transparent)}
+.card{margin:12px;border-radius:12px;padding:10px 12px;min-height:100px;position:relative;cursor:pointer;background:linear-gradient(160deg,var(--panel2),#141420);border:1px dashed color-mix(in srgb,var(--c) 55%,transparent)}
+.card-tag{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--dim)}
+.card-name{font:400 22px/1.1 var(--fun);color:var(--c);margin-top:4px}
+.card-src{font-size:13px;color:var(--dim)}
+.card-desc{font-size:12px;color:#c9c9da;margin-top:6px}
+.card.blur .card-body{filter:blur(9px);user-select:none}
+.card.blur::after{content:'\1F441  click to peek';position:absolute;inset:0;display:grid;place-items:center;font-weight:600;text-shadow:0 1px 4px #000}
+.card.blur.locked{cursor:default}
+.card.blur.locked::after{content:'\1F512  hidden from you'}
+.card.solved{border-style:solid;border-color:var(--yes)}
+.who{display:flex;align-items:center;gap:10px;padding:0 12px}
+.avatar{width:52px;height:52px;flex:none;border-radius:50%;display:grid;place-items:center;font-size:28px;border:2px solid var(--c);background:color-mix(in srgb,var(--c) 15%,var(--panel2))}
+.pname{font-weight:700;font-size:17px}
+.pmodel{font-size:12px;color:var(--dim);word-break:break-all}
+.score{margin-left:auto;text-align:center}
+.score b{display:block;font:400 30px/1 var(--fun);color:var(--c)}
+.score small{color:var(--dim);font-size:11px}
+.status{margin:8px 12px 0;font-size:13px;color:var(--dim);min-height:1.3em}
+.player.active .status{color:var(--c)}
+.notes{flex:1;min-height:0;overflow:auto;margin:10px 12px 12px;padding-top:8px;border-top:1px solid var(--line)}
+.notes h3{margin:0 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:var(--dim)}
+.notes ol{margin:0;padding-left:24px;font-size:13px}
+.notes li{margin:3px 0}
+.notes li[title]{cursor:help}
+.cmt{color:var(--dim)}
+.fixtag{color:var(--meh);font-size:11px;font-weight:700;margin-left:4px}
+.hintbox{display:flex;gap:8px;align-items:center;font-size:12px;color:var(--dim);margin:0 0 8px}
+.hintbox img{width:56px;height:56px;flex:none;background:#fff;border-radius:6px}
+.hintbox .emo{font-size:18px;white-space:pre-line}
+.chip{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.5px;padding:1px 7px;border-radius:999px;text-transform:uppercase;vertical-align:1px}
+.chip.yes{background:var(--yes);color:#04210f}.chip.no{background:var(--no);color:#2a0000}
+.chip.meh{background:var(--meh);color:#2a1600}.chip.unsure{background:var(--unsure);color:#111}
+
+/* feed */
+.feed-wrap{background:var(--panel);border:1px solid var(--line);border-radius:14px;min-height:0;display:flex;flex-direction:column}
+.feed{flex:1;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:6px}
+.speaker{font-size:11px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;margin:8px 4px 0}
+.speaker.left{align-self:flex-start;color:var(--a)}.speaker.right{align-self:flex-end;color:var(--b)}.speaker.host{align-self:center;color:var(--host)}
+.msg{max-width:78%;padding:8px 12px;border-radius:14px;background:var(--panel2);white-space:pre-wrap;overflow-wrap:anywhere;animation:pop .18s ease-out}
+.msg.left{align-self:flex-start;border-top-left-radius:4px;border-left:3px solid var(--a)}
+.msg.right{align-self:flex-end;border-top-right-radius:4px;border-right:3px solid var(--b)}
+.msg.host{align-self:center;text-align:center;max-width:90%;background:color-mix(in srgb,var(--host) 12%,transparent);border:1px solid color-mix(in srgb,var(--host) 40%,transparent)}
+.msg.thought{background:transparent;border:none;color:var(--dim);font-style:italic;font-size:13.5px;padding:2px 8px}
+.msg.thought::before{content:'\1F4AD  '}
+.msg.question{font-weight:650;font-size:16px}
+.msg.skip{font-style:italic;opacity:.75}
+.msg.fix{border-style:dashed;font-style:italic;color:#ffd9a0}
+.msg .chip{margin-right:6px}
+.msg.solve{align-self:center;text-align:center;max-width:92%;padding:10px 16px;font:400 20px/1.25 var(--fun);letter-spacing:.3px;background:color-mix(in srgb,var(--yes) 16%,transparent);border:2px solid var(--yes);animation:boom .5s ease-out}
+.msg.reveal{align-self:center;text-align:center;max-width:90%;background:#2b1d22;border:1px solid var(--no)}
+.msg.ruling{background:#2a2410;border:1px solid var(--meh)}
+.msg.ruling::before{content:'\2696\FE0F  '}
+.msg.warn{background:transparent;border:1px dashed var(--meh);color:#ffd9a0;font-size:13.5px}
+.msg.info{background:transparent;border:1px dashed var(--line);color:var(--dim);font-size:13.5px}
+.msg.drawing{background:#fdfdf8;border:4px solid #c9c9c9;padding:6px}
+.msg.emojidraw{background:#fdfdf8;color:#222;border:4px solid #c9c9c9;font-size:30px;line-height:1.35;letter-spacing:2px}
+.sketch{display:block;width:200px;height:200px}
+.divider{align-self:stretch;text-align:center;margin:14px 0 2px;padding-top:10px;border-top:1px dashed var(--line);color:var(--host);font:400 13px var(--fun);letter-spacing:2px}
+.typing{align-self:center;color:var(--dim);font-size:13px;padding:4px 10px}
+.typing.left{align-self:flex-start}.typing.right{align-self:flex-end}
+.typing i{display:inline-block;width:5px;height:5px;margin-left:4px;border-radius:50%;background:currentColor;animation:blink 1s infinite}
+.typing i:nth-child(2){animation-delay:.2s}.typing i:nth-child(3){animation-delay:.4s}
+.empty{margin:auto;max-width:460px;text-align:center;color:var(--dim)}
+.empty b{color:var(--text)}
+.hostline{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line)}
+.hostline input{flex:1;min-width:0}
+.humanbar{display:flex;flex-direction:column;gap:8px;padding:10px 12px;border-top:1px solid var(--line);background:color-mix(in srgb,var(--host) 9%,transparent)}
+.hb-title{font-weight:700;color:var(--host);overflow-wrap:anywhere}
+.hb-row{display:flex;gap:6px;flex-wrap:wrap}
+.hb-row input,.humanbar>div>input{flex:1;min-width:200px;width:100%}
+button.suggest{box-shadow:0 0 0 3px var(--yes)}
+
+/* error bar, dialogs */
+.errorbar{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:20;display:flex;gap:10px;align-items:center;max-width:min(92vw,780px);padding:10px 14px;border-radius:12px;background:#3a1218;border:1px solid var(--no);box-shadow:0 10px 30px #0009}
+.hidden{display:none!important}
+dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:16px;padding:0;width:min(760px,94vw);max-height:92vh}
+dialog::backdrop{background:#000b}
+dialog form{padding:18px 20px;display:flex;flex-direction:column;gap:12px}
+dialog h2{margin:0;font:400 24px var(--fun);letter-spacing:1px}
+fieldset{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+legend{color:var(--dim);font-size:12px;text-transform:uppercase;letter-spacing:1px;padding:0 6px}
+label{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--dim)}
+label.check{flex-direction:row;align-items:center;gap:8px;color:var(--text)}
+.wide{grid-column:1/-1}
+input,select,textarea{background:#0f0f1a;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:7px 9px;font:inherit}
+textarea.key{width:100%;min-height:160px;font:12.5px/1.4 ui-monospace,Menlo,Consolas,monospace;resize:vertical}
+.hint{font-size:12px;color:var(--dim);margin:0}
+.hint a{color:var(--a)}
+.note,.keywarn{color:var(--meh);font-weight:600;margin:0}
+.actions{display:flex;flex-direction:row-reverse;gap:8px}
+#drawCanvas{background:#fff;border-radius:8px;touch-action:none;width:300px;height:300px;cursor:crosshair;display:block}
+.palette{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px}
+.palette button[data-c]{width:26px;height:26px;border-radius:50%;padding:0;border:2px solid #555}
+.palette button.on{outline:3px solid var(--host);outline-offset:1px}
+
+/* pie */
+.pie{position:fixed;z-index:30;font-size:90px;pointer-events:none;transition:transform .7s cubic-bezier(.3,1.3,.6,1)}
+.player.splatted::after{content:'SPLAT!';position:absolute;inset:0;z-index:5;display:grid;place-items:center;font:400 54px var(--fun);color:#6b4a22;animation:splat .35s ease-out;
+  background:radial-gradient(circle at 30% 30%,#fffef6 0 18%,transparent 19%),radial-gradient(circle at 66% 44%,#fff9e8 0 24%,transparent 25%),radial-gradient(circle at 45% 70%,#fffdf3 0 20%,transparent 21%),radial-gradient(circle at 82% 80%,#fff 0 9%,transparent 10%),radial-gradient(circle at 14% 76%,#fff 0 8%,transparent 9%),#ffffffb5}
+
+@keyframes pop{from{transform:scale(.96);opacity:0}to{transform:none;opacity:1}}
+@keyframes boom{0%{transform:scale(.6);opacity:0}60%{transform:scale(1.06)}100%{transform:none;opacity:1}}
+@keyframes splat{from{transform:scale(.3);opacity:0}to{transform:none;opacity:1}}
+@keyframes pulse{50%{opacity:.4}}
+@keyframes blink{50%{opacity:.2}}
+@media (max-width:900px){
+  body{height:auto;overflow:auto}
+  .stage{grid-template-columns:1fr 1fr;grid-template-areas:"a b" "feed feed"}
+  #p0{grid-area:a}#p1{grid-area:b}.feed-wrap{grid-area:feed;height:70vh}
+  .notes{max-height:170px}
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><span class="logo">🥧</span><div><h1>Guess the Character</h1><small>LLM vs LLM · inspired by The Best in Jest</small></div></div>
+  <div class="controls">
+    <span class="meter" id="meter"></span>
+    <button type="button" id="btnSetup">⚙ Setup</button>
+    <button type="button" id="btnPause" disabled>⏸ Pause</button>
+    <button type="button" id="btnStop" disabled>■ Stop</button>
+    <button type="button" id="btnSave" disabled>⬇ Transcript</button>
+    <button type="button" id="btnStart" class="primary">▶ Start game</button>
+  </div>
+</header>
+
+<section class="hostbar">
+  <div class="round-label" id="roundLabel">Guess the Character</div>
+  <div class="category" id="category">Two players. Two secret characters. One pie.</div>
+  <div class="host-sub" id="hostSub">Each player can see the other's character, but not their own.</div>
+  <div class="round-dots" id="roundDots"></div>
+</section>
+
+<main class="stage" id="stage">
+  <aside class="player p0" id="p0"></aside>
+  <section class="feed-wrap">
+    <div class="feed" id="feed">
+      <div class="empty">
+        <p><b>How it works:</b> the host announces a shared trait and secretly gives each player a character.
+        Each player asks yes/no questions about their <i>own</i> character, and the opponent (who can see it) answers.
+        A yes keeps your turn, a no passes it. Name your character to score. Loser gets pied.</p>
+        <p>Open <b>⚙ Setup</b> to add an API key, pick models, or take a seat yourself. Or:</p>
+        <p><button type="button" id="btnDemo">🎲 Watch a free demo game</button></p>
+        <p class="hint">The demo uses a tiny built-in fake model (no API calls) so you can see the interface.</p>
+      </div>
+    </div>
+    <form class="hostline" id="hostForm" autocomplete="off">
+      <input id="hostInput" placeholder="Step in as the host: rulings and corrections go to both players" disabled>
+      <button id="hostSend" disabled>Send</button>
+    </form>
+    <form class="humanbar hidden" id="humanBar" autocomplete="off">
+      <div class="hb-title" id="hbTitle"></div>
+      <div class="hb-row" id="hbAsk">
+        <input id="hbQ" placeholder="Ask a yes/no question about your character, e.g. Am I from a video game?">
+        <button class="primary" id="hbAskBtn">Ask</button>
+        <button type="button" id="hbSkip">Skip</button>
+        <button type="button" id="hbDraw">🎨 Draw it</button>
+      </div>
+      <div id="hbAnswer">
+        <div class="hb-row" id="hbBtns">
+          <button type="button" data-a="yes">Yes</button>
+          <button type="button" data-a="no">No</button>
+          <button type="button" data-a="sometimes">Sometimes</button>
+          <button type="button" data-a="kind of">Kind of</button>
+          <button type="button" data-a="not sure">Not sure</button>
+          <button type="button" data-a="correct">✔ That's it!</button>
+        </div>
+        <input id="hbComment" placeholder="Optional reaction. Don't give away facts they didn't ask about.">
+      </div>
+    </form>
+  </section>
+  <aside class="player p1" id="p1"></aside>
+</main>
+
+<div class="errorbar hidden" id="errorbar">
+  <span id="errText"></span>
+  <button type="button" id="errRetry">Retry</button>
+  <button type="button" id="errStop">Stop game</button>
+</div>
+
+<dialog id="setup"><form method="dialog">
+  <h2>Setup</h2>
+  <p class="note hidden" id="setupNote"></p>
+  <fieldset><legend>Connection</legend>
+    <label class="wide">API base URL (any OpenAI-compatible endpoint) <input id="sBase"></label>
+    <label class="wide">API key <input id="sKey" type="password" autocomplete="off" placeholder="sk-or-..."></label>
+    <label class="check wide"><input type="checkbox" id="sRemember"> Remember key in this browser (localStorage)</label>
+    <p class="hint wide">Requests go straight from your browser to the API; nothing else sees your key.
+      Get one at <a href="https://openrouter.ai/keys" target="_blank" rel="noopener">openrouter.ai/keys</a>.
+      Type <code>demo</code> as any model name to use the free fake model.</p>
+  </fieldset>
+  <fieldset><legend>Contestants</legend>
+    <label class="wide">Take a seat yourself
+      <select id="sSeat"><option value="none">No, AIs only</option><option value="A">I'm Player A</option><option value="B">I'm Player B</option></select></label>
+    <p class="hint wide">If you take a seat, that player's model is ignored, the host must be an AI, and the answer-key check is
+      skipped (it would show you your own character).</p>
+    <label>Player A name <input id="sNameA" required></label>
+    <label>Player A model <input id="sModelA" list="modelList" required></label>
+    <label>Player A can see images <select id="sVisA"><option value="auto">Auto-detect</option><option value="yes">Yes</option><option value="no">No</option></select></label>
+    <label>Player B name <input id="sNameB" required></label>
+    <label>Player B model <input id="sModelB" list="modelList" required></label>
+    <label>Player B can see images <select id="sVisB"><option value="auto">Auto-detect</option><option value="yes">Yes</option><option value="no">No</option></select></label>
+    <label>Host model <input id="sHost" list="modelList" required></label>
+    <label>Host model can see images <select id="sVisHost"><option value="auto">Auto-detect</option><option value="yes">Yes</option><option value="no">No</option></select></label>
+    <label class="check"><input type="checkbox" id="sManual"> I'll be the host (I pick the characters)</label>
+    <p class="hint wide">"Can see images" matters for the drawing lifeline. Auto-detect asks OpenRouter's model list; on other servers, set it yourself.
+      <button type="button" id="btnLoadModels">Load model list from API</button> <span id="modelsStatus"></span></p>
+  </fieldset>
+  <fieldset><legend>Rules</legend>
+    <label>Rounds <input id="sRounds" type="number" min="1" max="12"></label>
+    <label>Max questions in a row <input id="sStreak" type="number" min="1" max="30"></label>
+    <label>Question limit per round <input id="sMaxQ" type="number" min="4" max="200"></label>
+    <label>Pace (ms between lines) <input id="sPace" type="number" min="0" max="5000" step="100"></label>
+    <label>Round winner
+      <select id="sScoring">
+        <option value="first">First to solve (the show's rules)</option>
+        <option value="fewest">Fewest questions (a tie gives a point each)</option>
+      </select></label>
+    <label>Drawing unlocks after this many questions <input id="sDrawAfter" type="number" min="1" max="50"></label>
+    <label>Answerer hints
+      <select id="sHints">
+        <option value="subtle">Subtle: warmer/colder and nudges, no giveaways</option>
+        <option value="strict">Strict: just the answer and a reaction</option>
+        <option value="generous">Generous: nudges, plus a detail when stuck</option>
+      </select></label>
+    <label class="wide">Drawing lifeline (once per round)
+      <select id="sDraw">
+        <option value="fair">Fair: both players get the drawing in the same format</option>
+        <option value="best">Best: each player gets the best format its model can handle</option>
+        <option value="off">Off: no drawings</option>
+      </select></label>
+    <p class="hint wide">A drawing reaches the guesser as the picture itself (if it can see images), as a written
+      description by a model that can, or as an emoji drawing if no model in the game can see images.</p>
+    <label class="check"><input type="checkbox" id="sFirst"> First solve ends the round (first-to-solve only)</label>
+    <label class="check"><input type="checkbox" id="sSpoil"> Show secret characters to the audience</label>
+    <label class="check wide"><input type="checkbox" id="sReview"> Let me check each answer key before the round starts (shows you both characters)</label>
+  </fieldset>
+  <datalist id="modelList"></datalist>
+  <div class="actions">
+    <button class="primary" value="start">Save &amp; start</button>
+    <button value="save">Save</button>
+    <button value="cancel" formnovalidate>Cancel</button>
+  </div>
+</form></dialog>
+
+<dialog id="manual"><form method="dialog">
+  <h2 id="manualTitle">You're the host</h2>
+  <p class="hint">The players never see this screen. Pick one shared trait, then a character for each player that fits it.</p>
+  <label>Category <input id="mCat" required placeholder="Both of your characters are the color pink."></label>
+  <fieldset><legend id="mLeg0">Player A's secret character</legend>
+    <label>Character <input id="mName0" required></label>
+    <label>From (show/game/movie) <input id="mSrc0" required></label>
+    <label class="wide">Notes for the answerer (optional): aliases, key facts <input id="mDesc0" placeholder="e.g. aka Snow White; middle schooler; survives season 1"></label>
+  </fieldset>
+  <fieldset><legend id="mLeg1">Player B's secret character</legend>
+    <label>Character <input id="mName1" required></label>
+    <label>From (show/game/movie) <input id="mSrc1" required></label>
+    <label class="wide">Notes for the answerer (optional) <input id="mDesc1"></label>
+  </fieldset>
+  <div class="actions">
+    <button class="primary" value="ok">Next: answer keys</button>
+    <button value="stop" formnovalidate>Stop game</button>
+  </div>
+</form></dialog>
+
+<dialog id="keyReview"><form method="dialog">
+  <h2>Check the answer keys</h2>
+  <p class="hint">Each answerer wrote down what it knows about the character it will answer for. These notes decide every
+    answer it gives, and whatever you leave in is treated as true, so fix anything that's wrong or missing.
+    Keep the "Also known as:" line, because those names get bleeped. Players never see this.</p>
+  <fieldset><legend id="kLeg0"></legend>
+    <p class="keywarn wide" id="kWarn0"></p>
+    <textarea class="key wide" id="kText0"></textarea>
+  </fieldset>
+  <fieldset><legend id="kLeg1"></legend>
+    <p class="keywarn wide" id="kWarn1"></p>
+    <textarea class="key wide" id="kText1"></textarea>
+  </fieldset>
+  <div class="actions">
+    <button class="primary" value="ok">Looks good, start the round</button>
+    <button value="stop" formnovalidate>Stop game</button>
+  </div>
+</form></dialog>
+
+<dialog id="drawDlg"><form method="dialog">
+  <h2 id="drawTitle">Draw it!</h2>
+  <p class="hint" id="drawHint"></p>
+  <div id="drawPicArea">
+    <canvas id="drawCanvas" width="300" height="300"></canvas>
+    <div class="palette"><span id="palette" class="palette" style="margin:0"></span><button type="button" id="drawClear">Clear</button></div>
+  </div>
+  <label id="drawEmojiArea">Emoji drawing <input id="drawEmoji" placeholder="🟥👕 🧢 🍄"></label>
+  <label>Comment (optional, no names) <input id="drawComment"></label>
+  <div class="actions">
+    <button class="primary" value="ok">Send drawing</button>
+    <button value="cancel" formnovalidate>Give up</button>
+  </div>
+</form></dialog>
+<script>
+'use strict';
+/* ============================== config ============================== */
+const $ = (s, r = document) => r.querySelector(s);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const shuffle = a => a.map(x => [Math.random(), x]).sort((p, q) => p[0] - q[0]).map(p => p[1]);
+const uniq = a => [...new Set(a)];
+const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
+const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const ANSWERS = ['yes', 'no', 'sometimes', 'kind of', 'not sure'];
+const EXPLAINABLE = new Set(['sometimes', 'kind of', 'not sure']);         // the only answers that may come with a "why"
+const KEEPS_TURN = new Set(['yes', 'sometimes', 'kind of', 'not sure']);   // only a real "no" passes the turn
+const DRAW_ASK = /\b(can|could|would|will)\s+you\b.*\b(draw|sketch|doodle)\b|^(please\s+)?(draw|sketch|doodle)\b/i;
+let RETRY_MS = 1200;
+const CATCH_UP = 10;    // questions the other player gets after the round's point is taken (Infinity = no limit)                                                     // backoff between retries of a failed call
+const FORMAT_LABEL = { image: 'the drawing itself (an image)', description: 'a written description of the drawing',
+  emoji: 'an emoji drawing' };
+// The host's reaction depends on how many questions the solve took.
+const SOLVED_LINES = { quick: ['Holy. Yes.', 'Oh my god. Yes.', 'Already?!', 'Ding ding ding.'],
+  normal: ['Very good. Very good.', 'THERE it is.', 'Ding ding ding.', 'Oh my god. Yes.'],
+  slow: ['Took you long enough.', 'FINALLY.', 'We got there. Eventually.'] };
+const solvedLine = n => pick(SOLVED_LINES[n <= 4 ? 'quick' : n >= 12 ? 'slow' : 'normal']);
+const SEEDS = ['preschool TV (Nick Jr., PBS Kids)', '2000s Cartoon Network / Nickelodeon', 'Nintendo', 'anime',
+  'stop motion', 'cereal & food mascots', 'live-action kids TV', 'PS2-era platformers', 'Pixar / DreamWorks',
+  'adult animation', 'horror', 'deep cuts', 'indie games', 'Muppets & puppets', 'a visual trait', 'a color',
+  'a weird body detail', 'a job or role', 'a video game mechanic', 'an accessory or piece of clothing',
+  'how they talk', 'where they live'];
+const AVATARS = ['🎓', '🎖️'];
+const SUGGESTED_MODELS = ['demo', 'anthropic/claude-sonnet-4.5', 'anthropic/claude-haiku-4.5', 'openai/gpt-5',
+  'openai/gpt-5-mini', 'google/gemini-2.5-pro', 'google/gemini-2.5-flash', 'x-ai/grok-4', 'deepseek/deepseek-chat',
+  'meta-llama/llama-3.3-70b-instruct'];
+const DEFAULTS = {
+  baseUrl: 'https://openrouter.ai/api/v1', key: '', remember: false, seat: 'none',
+  nameA: 'Professor Lando', modelA: 'anthropic/claude-sonnet-4.5', visA: 'auto',
+  nameB: 'Commander Connor', modelB: 'openai/gpt-5', visB: 'auto',
+  host: 'anthropic/claude-sonnet-4.5', visHost: 'auto', manual: false,
+  rounds: 4, streak: 6, maxQ: 50, pace: 700, scoring: 'first', firstEnds: false, spoilers: true, reviewKeys: true,
+  drawMode: 'fair', drawAfter: 8,
+};
+
+function loadSettings() {
+  let s = {}, key = '';
+  try { s = JSON.parse(localStorage.getItem('gtc.settings') || '{}'); key = localStorage.getItem('gtc.key') || ''; } catch {}
+  return { ...DEFAULTS, ...s, key, remember: !!key };
+}
+function saveSettings(cfg) {
+  const { key, ...rest } = cfg;
+  try {
+    localStorage.setItem('gtc.settings', JSON.stringify(rest));
+    if (cfg.remember && key) localStorage.setItem('gtc.key', key); else localStorage.removeItem('gtc.key');
+  } catch {}
+}
+
+/* ============================== prompts ============================== */
+const HINT_RULES = {
+  strict: `- "comment": optional, at most 6 words, a pure reaction with NO facts: "Ooh.", "Oof.", "Good question."
+  Only with "kind of", "sometimes" or "not sure" may it add one short, literally true sentence saying why.`,
+  subtle: `- "comment": optional, at most 15 words. Like a friend on the show, you may drop a SUBTLE hint, as long as your key backs it up:
+  which way to go ("warmer", "colder", "you're overthinking it", "think older", "simpler than that"),
+  how close a guess was ("right show, wrong character", "similar vibes, different series"), or a joke that nods at the truth.
+  Never hand over a fact they could ask about instead: no dates or years, publishers, creators, show or place names,
+  other characters' names, issue numbers or catchphrases.
+  WRONG: "Debuted in Action Comics #1." "From US comics, not Japan." "Debuted in 1984."
+  Keep it light while they're making progress, and be more helpful when they're stuck (see "Streak" below).
+  If you're not sure a hint is true, don't give it.`,
+  generous: `- "comment": optional, at most 20 words. You want them to get it: hint freely with direction ("warmer", "think older",
+  "right show, wrong character"), and when they're stuck you may add ONE true detail they haven't asked about
+  (a look, a vibe, a role), but never a name, franchise, date or catchphrase.`,
+};
+const HINT_WORDS = { strict: 6, subtle: 18, generous: 24 };   // safety cap on comment length
+
+const PROMPTS = {
+  hostSystem: `You are the gleefully cruel off-camera host of the comedy YouTube game show
+"Guess the Character". Each round you announce ONE shared trait and secretly give each of the two
+contestants a character with that trait. You love deep cuts, weird category stretches, and
+characters that are technically correct in a way that will make the contestants groan.
+Respond ONLY with JSON.`,
+
+  hostUser: (n, total, seed, used, cats = 'none') => `Round ${n} of ${total}.
+Write a category phrased like the show, e.g.
+  "Both of your characters have four fingers."
+  "Both of your characters are superheroes that are not from DC nor Marvel."
+  "Both of your characters are the color pink."
+  "Both of your characters take no fall damage."
+The category must fit MANY characters from many different franchises, so it can't point at one answer.
+Never build it from one franchise's own terms or one character's traits: "silent protagonists who wield a nail"
+is Hollow Knight jargon and gives the answer away.
+Then pick two DIFFERENT characters from two DIFFERENT franchises that fit every word of the category.
+Mix media: cartoons, anime, games, movies, kids' TV, mascots, live action, puppets.
+Both must be recognizable to a pop-culture nerd, but at least one should be a surprising pick.
+These players play a lot: skip the first character everyone would name for your category and go one pick deeper.
+Flavor seed for this round: ${seed}
+Already used, do not repeat: ${used}
+Categories from recent games, so come up with a different idea: ${cats}
+
+JSON shape:
+{"category": "Both of your characters ...",
+  "characters": [
+    {"name": "...", "source": "the franchise or show name only, no notes in brackets",
+      "description": "2-3 sentences: what they look like, what medium, key facts",
+      "forbidden": ["name variants, nicknames, franchise names - distinctive words only, never generic words like girl/man/the"]},
+    {"name": "...", "source": "...", "description": "...", "forbidden": ["..."]}
+  ],
+  "intro": "one snarky line to open the round that does NOT hint at either character"}`,
+
+  hostReplaceUser: (category, other, bad, problem, used) => `The round category is "${category}".
+Your pick for one player, ${bad.name} from ${bad.source}, has a problem: ${problem}
+Pick a REPLACEMENT character that fits every word of the category and is well documented (nothing obscure or made up).
+It must come from a different franchise than the other player's card, ${other.name} from ${other.source}.
+Already used, do not repeat: ${used}
+JSON: {"name": "...", "source": "the franchise or show name only", "description": "2-3 sentences: look, medium, key facts",
+  "forbidden": ["name variants, nicknames, franchise names - distinctive words only"]}`,
+
+  playerSystem: (name, opp, drawAfter, oppHuman) => `You are ${name}, a contestant on the comedy YouTube game show "Guess the Character",
+playing against ${opp}.
+RULES
+- You have a secret character that you CANNOT see. ${opp} can see it and answers your questions.
+- You CAN see ${opp}'s card (shown below). Never say their character's name or franchise out loud, and never put them
+  in a question: ${opp} can't be told their own character, and yours is a different one.
+- Both characters fit the round category. They are different characters, but they could share a franchise.
+- On your turn, ask ONE yes/no question about your own character ("Am I human?", "Am I from a
+  video game?", "Am I <specific character>?"). Naming a character IS how you guess - you win when it's right.
+- A yes-ish answer lets you keep asking; a no passes the turn. You may "skip" to pass and think.
+${drawAfter ? `- Drawing lifeline: once per round, after ${drawAfter} of your questions, use action "draw" and ${opp}
+  sketches your character. Never ask for a drawing as a question.` : '- There is no drawing lifeline in this game.'}
+- Only the answers to YOUR questions are about your character. ${opp}'s answers are about THEIR character.
+- ${oppHuman ? `${opp} is a real human, so answers can be casual,` : 'Answers come from a person, so they can be'} fuzzy or occasionally wrong. If answers contradict each other,
+  ask a clarifying question instead of building on the contradiction. HOST RULINGS override everything.
+- Comments after an answer can carry hints ("warmer", "right show, wrong character"). Use them.
+STYLE
+- Think out loud like a streamer: riff, second-guess, throw the occasional funny long-shot guess.
+  "say" is 1-2 short sentences and must not repeat your question.
+- "say" is only about YOUR character. Until ${opp} has guessed theirs, never mention, hint at or compare with it
+  ("another one", "like theirs", "same show as them"): ${oppHuman ? `${opp} reads everything you say` : 'the audience would hear it'}.
+- Don't spend questions confirming what you're already sure of. Once you're fairly confident, guess.
+- Never repeat a question you already asked.
+Respond ONLY with JSON.`,
+
+  actUser: o => `ROUND CATEGORY (true of both characters): "${o.category}"
+${o.rulings}
+== YOUR CHARACTER (hidden from you) ==
+Answers to YOUR questions (these are about you):
+${o.qa}
+${o.hint ? `\n${o.hint}\n` : ''}
+== ${o.opp.toUpperCase()}'S CHARACTER (you can see their card) ==
+Their card: ${o.oppCard}${o.oppSolved ? ' (they already guessed it)' : ' (never say this out loud)'}
+${o.opp}'s questions so far (about THEIR character, not yours):
+${o.oppQa}
+
+== YOUR TURN ==
+${o.notice ? o.notice + '\n' : ''}${o.drawStatus ? `Drawing lifeline: ${o.drawStatus}\n` : ''}JSON: {"say": "short thinking-out-loud", "action": "ask" | "skip"${o.canDraw ? ' | "draw"' : ''}, "question": "your yes/no question (if asking)"}`,
+
+  keySystem: name => `You are ${name}, a contestant on the comedy YouTube game show "Guess the Character".
+You're about to answer your opponent's yes/no questions about their secret character, so first you write
+yourself an honest answer key. Accuracy matters more than anything: a confident wrong fact ruins the round.
+Respond ONLY with JSON.`,
+
+  keyHostSystem: human => `You are the host of the comedy YouTube game show "Guess the Character". ${human} is a human player
+who will answer yes/no questions about their opponent's secret character, so you're writing the answer key they'll read.
+Accuracy matters more than anything: a wrong fact ruins the round. Be honest if you don't know the character.
+Respond ONLY with JSON.`,
+
+  keyUser: (opp, ch, category) => `Before the round starts, write your private ANSWER KEY for ${opp}'s secret character: ${ch.name} from ${ch.source}.
+Round category: "${category}"
+${ch.description ? `Host's note: ${ch.description}\n` : ''}
+Write down what you actually know: other names (civilian name, hero/magical name, nicknames), where they first
+appeared and in what medium, the year, gender, age or school year, species, look, powers, role (hero, villain, side
+character), team or affiliations, key relationships, fate (do they die or survive, and where), and how they fit the category.
+Only list facts you're confident about. Put anything shaky under "unsure".
+If you don't recognize this character, set "recognized" to false.
+If the name above is wrong (a typo, the wrong word order, or a mix-up of two characters), put the character's
+correct name in "name". If it's already right, leave "name" empty.
+Set "fits_category" to false only if the category is plainly untrue of them, and say why under "unsure".
+A technically-true stretch still fits: the host loves those.
+JSON: {"recognized": true, "name": "", "fits_category": true, "aliases": ["other names only, no notes in brackets"], "facts": ["short fact", "..."], "unsure": ["..."]}`,
+
+  answerSystem: (name, opp, hints) => `You are ${name}, a contestant on the comedy YouTube game show "Guess the Character".
+Your opponent ${opp} is trying to figure out THEIR OWN secret character. You can see it; they can't.
+Answer like a friend looking at the card: accurate first, fun second.
+- Base every answer on your ANSWER KEY, any HOST RULINGS, and what you confidently know. Never invent facts.
+  The key is notes, not a complete list: never answer "no" just because the key leaves something out.
+  If you aren't certain, answer "not sure". A confident wrong answer ruins the round.
+- A near miss isn't a flat "no": if the question is close to the truth (they're in TV ads, not a TV show),
+  answer "kind of" and say why in the comment.
+- The same goes the other way: something true only in part (one of several platforms, a show they appeared in
+  but didn't start in) is "kind of", not a flat "yes".
+- Stay consistent with your earlier answers. If you realize an earlier answer was wrong, correct it with "fix"
+  (that question's number and the right answer).
+- "check": one short private sentence naming the fact that decides this answer. ${opp} never sees it.
+- "answer" must be exactly one of: "yes", "no", "sometimes", "kind of", "not sure".
+${HINT_RULES[hints] || HINT_RULES.subtle}
+- Don't make the comment just repeat the answer ("Nope." after a no). Leave it empty instead.
+- When they name the character correctly, celebrate in that character's own style: a catchphrase or an in-joke
+  from their show. Never borrow a catchphrase from a different show.
+- Talk to ${opp} as "you". Never call their character "he", "she", "him" or "her" (that gives away gender).
+- Never say the character's name, other names, or franchise unless ${opp} already said them.
+- "correct": true ONLY if the question names this exact character (any of their names counts, and unambiguous
+  descriptions count, e.g. "the clock from Blue's Clues" = Tickety Tock). Right franchise, wrong character = false.
+- "fix": null, or {"number": 3, "answer": "no"} to correct your answer to question #3.
+Respond ONLY with JSON.`,
+
+  answerUser: (category, opp, ch, qa, question, rulings, streak) => `Round category: "${category}"
+${opp}'s secret character (they can't see this): ${ch.name} from ${ch.source}.
+${ch.description ? `Host's note: ${ch.description}\n` : ''}
+YOUR ANSWER KEY (written before the round${ch.reviewed ? ' and checked by the host' : ''}; trust it over your memory):
+${ch.keyText || '(none)'}
+
+${rulings}${opp}'s questions so far, with your answers:
+${qa}
+${streak}
+New question from ${opp}: "${question}"
+JSON: {"check": "...", "answer": "...", "comment": "", "correct": false, "fix": null}`,
+
+  drawSvgUser: (opp, ch) => `${opp} is stuck and asked you to DRAW their secret character: ${ch.name} from ${ch.source}.
+Your answer key:
+${ch.keyText || ch.description || '(none)'}
+
+Draw it like someone who's bad at drawing, with markers on a whiteboard: crude but recognizable shapes and the key colors.
+Reply with SVG code using viewBox="0 0 200 200" and only <rect>, <circle>, <ellipse>, <line>, <polyline>, <polygon>
+and <path>, at most 25 shapes. No <text>, no comments, and no letters, numbers or logos drawn with lines.
+After the SVG, add one last line: COMMENT: <a short reaction: no names, no "he"/"she", no new facts>`,
+
+  drawEmojiUser: (opp, ch) => `${opp} is stuck and asked you to DRAW their secret character: ${ch.name} from ${ch.source}.
+Your answer key:
+${ch.keyText || ch.description || '(none)'}
+
+${opp} can't see pictures, so draw it in EMOJI: 1-3 short lines, at most 12 emoji in total.
+Show only what a crude drawing would show: colors, body, clothes, things they carry, where they are.
+Never spell or pun on their name with emoji (e.g. no ❄️⚪ for "Snow White"), and use no letters, numbers or flags.
+JSON: {"emoji": "...", "comment": "short line: no names, no he/she, no new facts"}`,
+
+  describeSystem: `You describe crude whiteboard drawings for a party game. Nobody tells you what a drawing is meant to
+be, and you must not guess any specific character, show, game, or franchise. Respond ONLY with JSON.`,
+
+  describeUser: `A player who can't see images needs to know what this crude drawing shows. Describe it in 2-4 short
+sentences: shapes, colors, where things are, and what the parts look like (e.g. "a round pink face with two dots for eyes").
+Describe only what is drawn. If you see any writing, say "some scribbles" instead of reading it.
+JSON: {"description": "..."}`,
+};
+
+/* ============================== helpers ============================== */
+function extractJSON(text) {
+  text = String(text || '').replace(/```(?:json)?/g, '');
+  const a = text.indexOf('{'), b = text.lastIndexOf('}');
+  if (a < 0 || b <= a) throw new Error('no JSON in reply: ' + text.slice(0, 120));
+  return JSON.parse(text.slice(a, b + 1));
+}
+const escRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+const list = x => (Array.isArray(x) ? x : x ? [x] : []).map(v => String(v).trim()).filter(Boolean);
+
+/** Whole-word, case-insensitive: does `text` contain `term`? */
+const hasTerm = (text, term) => new RegExp('(?<![\\p{L}\\p{N}_])' + escRe(term) + '(?![\\p{L}\\p{N}_])', 'iu').test(text);
+/** Words that appear in the round category are public, so they're never bleeped or blocked. */
+const isPublic = term => !!G?.category && hasTerm(G.category, term);
+/** Bleep forbidden terms (names/franchises) unless the asker already said them. */
+function scrub(text, terms, alreadySaid = '') {
+  if (!text) return text || '';
+  const said = alreadySaid.toLowerCase();
+  for (const t of uniq(terms).sort((x, y) => y.length - x.length)) {
+    if (!t || said.includes(t.toLowerCase()) || isPublic(t)) continue;
+    text = text.replace(new RegExp('(?<![\\p{L}\\p{N}_])' + escRe(t) + '(?![\\p{L}\\p{N}_])', 'giu'), '[bleep]');
+  }
+  return text;
+}
+/** Does the text name any of these terms (ignoring words that are in the category)? */
+const namesAny = (text, terms) => terms.some(t => t && !isPublic(t) && hasTerm(text, t));
+/** "Am I Spyro the Dragon?" guesses that exact character; "Am I from the Spyro series?" doesn't. */
+function guessesOne(question, terms) {
+  const m = String(question).trim().match(/^(?:am i|i'm|i am|is it|is my character|could i be)\s+(.+?)[\s?.!]*$/i);
+  if (!m) return false;
+  const said = m[1].toLowerCase(), noTitle = s => s.replace(TITLES, '').trim();
+  // "Lord Voldemort", "Marlin from Finding Nemo", "Joker, the leader of the Phantom Thieves", "Dr. Eggman (Ivo Robotnik)"
+  const forms = [said, said.replace(/,?\s+(?:from|in|of)\s+.+$/, ''), said.split(/\s*[,(]/)[0]];
+  const all = new Set([...forms, ...forms.map(noTitle)].filter(Boolean));
+  return terms.some(t => { t = t.toLowerCase(); return all.has(t) || (!!noTitle(t) && all.has(noTitle(t))); });
+}
+const TITLES = /^(?:(?:the|lord|lady|king|queen|prince|princess|sir|dame|dr|doctor|mr|mrs|ms|miss|captain|cap'n|general|professor|prof|agent|detective|lieutenant|lt|commander|sergeant|sgt|master|saint|st)\.?\s+)+/i;
+const FILLER = /^(?:(?:yes|yeah|yep|yup|no|nope|nah|correct|incorrect|right|wrong)[\s.!,]*)+$/i;
+/** Drop comments that only repeat the answer ("No. Nope."), cap the length, and start with a capital letter. */
+function cleanComment(text, maxWords) {
+  text = String(text || '').trim();
+  if (FILLER.test(text)) return '';
+  // "Yes, though..." or "Yes—right game" repeat the chip. "No mask in that look" is a sentence, so it stays.
+  text = text.replace(/^(?:yes|yeah|yep|yup|no|nope|nah)\s*[.,!:;—–-]+\s*(?=\S)/i, '');
+  const w = text.split(/\s+/);
+  return cap(w.length > maxWords ? w.slice(0, maxWords).join(' ') + '…' : text);
+}
+/** "say" is meant to be 1-2 sentences, but some models write paragraphs. Keep whole sentences, up to about 40 words. */
+function shortSay(text, max = 40) {
+  const parts = String(text || '').match(/[^.!?…]*[.!?…]+\s*|[^.!?…]+$/g) || [];
+  let out = '', words = 0;
+  for (const s of parts) {
+    const n = s.trim().split(/\s+/).filter(Boolean).length;
+    if (words && words + n > max) break;
+    out += s; words += n;
+  }
+  out = out.trim();
+  const w = out.split(/\s+/);
+  return w.length > max ? w.slice(0, max).join(' ') + '…' : out;
+}
+/** "Am I Mr. Tumble?" and "am i mr tumble" are the same question. */
+const sameQ = s => String(s).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').replace(/\b(?:the|a|an)\b/g, ' ').replace(/\s+/g, ' ').trim();
+/** Remove whole sentences that mention any of these terms: "This has gotta be another [bleep]!" still gives it away. */
+function dropMentions(text, terms) {
+  const parts = String(text || '').match(/[^.!?…]*[.!?…]+\s*|[^.!?…]+$/g) || [];
+  return parts.filter(s => !namesAny(s, terms)).join('').trim();
+}
+function normalizeAnswer(a) {
+  a = String(a ?? '').toLowerCase().trim().replace(/[.!]+$/, '');
+  if (ANSWERS.includes(a)) return a;
+  if (/^(yes|yeah|yep)/.test(a)) return 'yes';
+  if (/^(no|nope)\b/.test(a)) return 'no';
+  if (/kind|sort/.test(a)) return 'kind of';
+  return 'not sure';
+}
+const qaBlock = qa => qa.length
+  ? qa.map((x, i) => `${i + 1}. ${x.q} -> ${x.a.toUpperCase()}${x.fixed ? ' (corrected)' : ''}${x.comment ? ` ("${x.comment}")` : ''}`).join('\n')
+  : '(nothing yet)';
+/** "Naruto from Naruto" -> "Naruto" */
+const cardLabel = ch => ch.source && ch.source.toLowerCase() !== ch.name.toLowerCase() ? `${ch.name} from ${ch.source}` : ch.name;
+/** "Silent Hill (1999 video game)" -> "Silent Hill" */
+const cleanSource = s => String(s ?? '').replace(/\s*\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
+function makeCharacter(d) {
+  const name = String(d.name ?? '???').trim(), source = cleanSource(d.source);
+  return { name, source, description: String(d.description ?? '').trim(),
+    nameTerms: [name].filter(f => f.length >= 3),                                          // blocked in questions
+    forbidden: uniq([name, ...[source, ...list(d.forbidden)].filter(bleepable)]).filter(f => f.length >= 3), // bleeped
+    keyText: '', recognized: true, fits: true, reviewed: false };
+}
+// Generic words that show up in names and nicknames but shouldn't be bleeped on their own.
+const NAME_STOP = new Set(('mister miss missus doctor captain king queen prince princess lord lady master general agent '
+  + 'professor commander sergeant officer girl boy man woman kid baby big little great super mega ultra star hero knight '
+  + 'ninja pirate sailor witch wizard ghost monster robot magic magical dark black white red blue green pink yellow golden '
+  + 'silver purple orange brown gray grey iron junior senior saint uncle aunt grandma grandpa mama papa mother father brother '
+  + 'sister possible incredible builder mouse bear duck frog dog cat pig bunny rabbit fox wolf dragon monkey bird fish shark '
+  + 'tiger lion snake spider bat owl hell heaven demon angel devil god sea ocean space alien player character protagonist '
+  + 'main villain leader female male person traveler traveller the and of from with').split(' '));
+// Studios, publishers and networks own thousands of characters, so naming one never gives a card away.
+const BRANDS = new Set(('marvel|marvel comics|dc|dc comics|image comics|dark horse|disney|pixar|dreamworks|warner bros|'
+  + 'nintendo|sega|sony|playstation|xbox|microsoft|capcom|konami|square enix|squaresoft|atlus|bandai namco|namco|'
+  + 'ubisoft|valve|blizzard|rockstar|netflix|hbo|prime video|nickelodeon|cartoon network|pbs|nbc|abc|cbs|'
+  + 'shonen jump|weekly shonen jump|toei|hasbro|mattel').split('|'));
+/** "Player character" or "The Traveler" is made of generic words only, so it's never worth bleeping or blocking. */
+const generic = t => t.toLowerCase().split(/\s+/).every(w => NAME_STOP.has(w));
+const bleepable = t => t.length >= 3 && !generic(t) && !BRANDS.has(t.toLowerCase());
+/** Only for the name on the card: "Koyuki Himekawa" -> ["Koyuki", "Himekawa"], so a first name alone gets bleeped too. */
+const nameParts = (name, category = '') => name.split(/[\s.,'’"()\-–:]+/)
+  .filter(w => w.length >= 4 && !NAME_STOP.has(w.toLowerCase()) && !category.toLowerCase().includes(w.toLowerCase()));
+/** "Koyuki Himekawa (civilian name)" -> "Koyuki Himekawa"; "Hero Name: Caped Baldy" -> "Caped Baldy" */
+const cleanAlias = a => String(a).replace(/\([^)]*\)/g, '').replace(/^[^:]{1,30}:\s*/, '').replace(/\s+/g, ' ').trim();
+function addAliases(ch, aliases) {          // other names are bleeped as whole phrases, never split into words
+  const a = aliases.map(x => x.trim()).filter(bleepable);
+  ch.nameTerms = uniq([...ch.nameTerms, ...a]);
+  ch.forbidden = uniq([...ch.forbidden, ...a]);
+}
+function formatKey(recognized, aliases, facts, unsure) {
+  return [recognized ? '' : "(I don't really recognize this character.)",
+    `Also known as: ${aliases.join(', ') || '-'}`,
+    'Facts:', ...(facts.length ? facts.map(f => '- ' + f) : ['- (none)']),
+    ...(unsure.length ? ['Unsure:', ...unsure.map(u => '- ' + u)] : [])].filter(Boolean).join('\n');
+}
+const parseAliases = text => ((text.match(/^also known as:\s*(.*)$/im) || [])[1] || '')
+  .split(',').map(cleanAlias).filter(s => s && s !== '-');
+const isLocal = url => /\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])/.test(url);
+const isDemo = m => String(m).trim().toLowerCase() === 'demo';
+
+/* ---------- drawings: whatever a model draws is rebuilt from a whitelist ---------- */
+const SVG_SHAPES = { rect: ['x', 'y', 'width', 'height', 'rx', 'ry'], circle: ['cx', 'cy', 'r'], ellipse: ['cx', 'cy', 'rx', 'ry'],
+  line: ['x1', 'y1', 'x2', 'y2'], polyline: ['points'], polygon: ['points'], path: ['d'] };
+const SVG_PAINT = ['fill', 'stroke', 'stroke-width', 'opacity', 'fill-opacity', 'stroke-opacity', 'stroke-linecap',
+  'stroke-linejoin', 'transform'];
+const SVG_COLOR = /^(#[0-9a-f]{3,8}|[a-z]{3,20}|rgba?\([\d\s.,%]+\))$/i;
+const SVG_OK = { points: /^[\d\s.,eE+-]+$/, d: /^[\d\s.,eE+\-MmLlHhVvCcSsQqTtAaZz]+$/, fill: SVG_COLOR, stroke: SVG_COLOR,
+  transform: /^((translate|rotate|scale)\([\d\s.,eE+-]+\)\s*)+$/, 'stroke-linecap': /^(round|square|butt)$/,
+  'stroke-linejoin': /^(round|miter|bevel)$/ };
+const SVG_NUM = /^-?(\d+\.?\d*|\.\d+)(e-?\d+)?(px|%)?$/i;
+const MAX_SHAPES = 40;
+
+/** Keep only basic shapes with plain attributes. Text, comments, ids, scripts, links and styles never survive. */
+function sanitizeSVG(raw) {
+  raw = String(raw || '').replace(/<!--[\s\S]*?-->/g, '');
+  const vbm = raw.match(/<svg\b[^>]*\bviewBox\s*=\s*["']\s*(-?[\d.]+)[\s,]+(-?[\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)\s*["']/i);
+  const vb = vbm && +vbm[3] > 0 && +vbm[4] > 0 ? vbm.slice(1, 5).map(Number).join(' ') : '0 0 200 200';
+  const shapes = [];
+  for (const m of raw.matchAll(/<(rect|circle|ellipse|line|polyline|polygon|path)\b([^>]*)>/gi)) {
+    const tag = m[1].toLowerCase(), attrs = {}, out = {};
+    for (const a of m[2].matchAll(/([\w:-]+)\s*=\s*(?:"([^"]*)"|'([^']*)')/g)) attrs[a[1].toLowerCase()] = (a[2] ?? a[3]).trim();
+    for (const decl of (attrs.style || '').split(';')) {             // style="fill:red" -> fill="red"
+      const [k, v] = decl.split(':').map(s => (s || '').trim().toLowerCase());
+      if (k && v && SVG_PAINT.includes(k) && attrs[k] == null) attrs[k] = v;
+    }
+    for (const k of [...SVG_SHAPES[tag], ...SVG_PAINT]) if (attrs[k] != null && (SVG_OK[k] || SVG_NUM).test(attrs[k])) out[k] = attrs[k];
+    if (!SVG_SHAPES[tag].some(k => k in out)) continue;
+    if ((tag === 'line' || tag === 'polyline') && !out.stroke) { out.stroke = '#222'; out['stroke-width'] ??= '3'; }
+    shapes.push(`<${tag} ${Object.entries(out).map(([k, v]) => `${k}="${v}"`).join(' ')}/>`);
+    if (shapes.length >= MAX_SHAPES) break;
+  }
+  return shapes.length ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}" width="200" height="200">` +
+    `<rect x="-9999" y="-9999" width="19999" height="19999" fill="#ffffff"/>${shapes.join('')}</svg>` : null;
+}
+/** Emoji drawings: strip anything that could spell a name (letters in any script, digits, flags, enclosed letters). */
+function sanitizeEmoji(raw) {
+  return String(raw || '').split(/\r?\n|\\n/)
+    .map(l => l.replace(/[\p{L}\p{N}\u20E3\u2460-\u24FF\u3200-\u32FF\u{1F100}-\u{1F2FF}]/gu, '')
+      .replace(/(^|\s)\uFE0F+/gu, '$1').replace(/\s+/g, ' ').trim())
+    .filter(l => /\p{Extended_Pictographic}/u.test(l)).slice(0, 4).join('\n');
+}
+const svgURL = svg => 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg).replace(/\(/g, '%28').replace(/\)/g, '%29');
+
+/* ---------- which models accept images (OpenRouter's model list says) ---------- */
+let MODEL_LIST = null;
+async function fetchModels(base, key) {
+  base = (base || DEFAULTS.baseUrl).trim().replace(/\/+$/, '');
+  if (MODEL_LIST?.base === base) return MODEL_LIST;
+  const r = await fetch(base + '/models', { headers: key ? { Authorization: 'Bearer ' + key } : {} });
+  if (!r.ok) throw new Error('HTTP ' + r.status);
+  const j = await r.json(), models = j.data || j.models || [];
+  const vision = new Set(models.filter(m => {
+    const a = m.architecture || {};
+    return (a.input_modalities || []).includes('image') || /image/.test(String(a.modality || '').split('->')[0]);
+  }).map(m => m.id));
+  return (MODEL_LIST = { base, ids: models.map(m => m.id || m.name).filter(Boolean).sort(), vision });
+}
+const listSaysVision = (lst, model) => lst.vision.has(model) || lst.vision.has(String(model).split(':')[0]);
+
+/* ============================== game state ============================== */
+let CFG = loadSettings();
+let G = null;                         // the current game
+class StopGame extends Error {}
+
+const mkPlayer = (idx, name, model) => ({ idx, name, model, avatar: AVATARS[idx], human: false, character: null, qa: [],
+  solved: false, drew: false, drawFails: 0, hint: null, notice: '', revealed: false, score: 0, status: '', active: false });
+
+function newGame(cfg) {
+  const seat = { A: 0, B: 1 }[cfg.seat] ?? null;
+  const mk = (i, name, model) => seat === i
+    ? Object.assign(mkPlayer(i, name, 'human'), { human: true, avatar: '🧑' }) : mkPlayer(i, name, model);
+  return { cfg, human: seat, players: [mk(0, cfg.nameA, cfg.modelA), mk(1, cfg.nameB, cfg.modelB)],
+    round: 0, category: '', intro: '', used: [], log: [], rulings: [], roundWinners: [], peek: [false, false],
+    vision: { 0: false, 1: false, host: false }, noVision: new Set(),
+    running: true, paused: false, stopped: false, abort: new AbortController(), calls: 0, tokens: 0, cost: 0 };
+}
+
+async function gate() {
+  while (G.paused && !G.stopped) await sleep(120);
+  if (G.stopped) throw new StopGame('stopped');
+}
+
+/** Post a line to the feed + transcript. */
+async function say(kind, who, side, text, opts = {}) {
+  await gate();
+  const body = opts.chip ? cap(opts.chip) + '.' + (text ? ' ' + text : '') : text;
+  let line = opts.log ?? (kind === 'divider' ? `\n## ${text}` : who ? `${who}: ${body}` : body);
+  if (opts.check) line += `  _(private check: ${opts.check})_`;
+  G.log.push(line);
+  UI.add({ kind, who, side, text, chip: opts.chip, img: opts.img });
+  if (G.cfg.pace > 0) await sleep(G.cfg.pace * (kind === 'solve' || kind === 'drawing' ? 2 : 1));
+}
+
+/** Host rulings, with the recipient's own character bleeped out (in case the host named it). */
+function rulingsFor(p) {
+  if (!G.rulings.length) return '';
+  // A seated player's notes could name the AI's own card, so those get bleeped. The host's rulings go through as typed.
+  const own = p.character && !p.solved && G.human != null ? p.character.forbidden : [];
+  return 'HOST RULINGS (authoritative; they override any earlier answer):\n' +
+    G.rulings.map(r => '- ' + scrub(r, own)).join('\n') + '\n';
+}
+
+/* ============================== model calls ============================== */
+async function callModel(model, system, user, images = []) {
+  if (isDemo(model)) return demoReply(system, user, images);
+  const cfg = G.cfg, base = cfg.baseUrl.trim().replace(/\/+$/, '');
+  if (!cfg.key && !isLocal(base))
+    throw Object.assign(new Error('No API key set. Open Setup, or use model "demo".'), { fatal: true });
+  const content = images.length
+    ? [{ type: 'text', text: user }, ...images.map(url => ({ type: 'image_url', image_url: { url } }))] : user;
+  const body = { model, messages: [{ role: 'system', content: system }, { role: 'user', content }] };
+  if (/openrouter\.ai/.test(base)) body.usage = { include: true };      // ask OpenRouter for cost info
+  const headers = { 'Content-Type': 'application/json' };
+  if (cfg.key) headers.Authorization = 'Bearer ' + cfg.key;
+  let r;
+  try {
+    r = await fetch(base + '/chat/completions', { method: 'POST', headers, body: JSON.stringify(body), signal: G.abort.signal });
+  } catch (e) {
+    if (G.stopped) throw new StopGame();
+    throw new Error(`network/CORS error (${e.message})`);
+  }
+  if (!r.ok) {
+    const t = await r.text().catch(() => '');
+    throw Object.assign(new Error(`HTTP ${r.status}: ${t.slice(0, 220)}`), {
+      fatal: [400, 401, 402, 403, 404].includes(r.status),
+      imageRejected: images.length > 0 && ([400, 404, 415, 422].includes(r.status) || /image|vision|modalit/i.test(t)) });
+  }
+  const j = await r.json();
+  G.calls++;
+  if (j.usage) { G.tokens += j.usage.total_tokens || 0; if (typeof j.usage.cost === 'number') G.cost += j.usage.cost; }
+  UI.meter();
+  let c = j.choices?.[0]?.message?.content;
+  if (Array.isArray(c)) c = c.map(p => p.text ?? '').join('');
+  if (!c) throw new Error('empty reply' + (j.error ? ': ' + JSON.stringify(j.error).slice(0, 160) : ''));
+  return c;
+}
+
+/** One stateless call -> parsed result. Every prompt is rebuilt from game state, so a player never sees its own card.
+ *  soft: give up quietly (null) instead of showing the error bar; the reason still goes in the transcript.
+ *  Image rejections always go back to the caller. */
+async function ask(model, system, user, { images = [], parse = extractJSON, soft = false } = {}) {
+  for (;;) {
+    let err;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      await gate();
+      try { return parse(await callModel(model, system, user, images)); }
+      catch (e) {
+        if (e instanceof StopGame || G.stopped) throw new StopGame();
+        if (e.imageRejected) throw e;
+        err = e;
+        if (e.fatal) break;
+        await sleep(RETRY_MS * (attempt + 1));
+      }
+    }
+    if (soft) {
+      console.warn(`${model}: ${err.message}`);
+      G.log.push(`> ${model} didn't manage it: ${String(err.message).slice(0, 200)}`);
+      return null;
+    }
+    if ((await UI.error(`${model}: ${err.message}`)) === 'stop') throw new StopGame();
+  }
+}
+
+/* Recent picks and categories, kept across games, so a regular doesn't keep getting the same characters. */
+const RECENT_KEY = 'gtc.recent', RECENT_NAMES = 60, RECENT_CATS = 16;
+const keepLast = a => a.filter((x, i) => a.lastIndexOf(x) === i);
+function loadRecent() {
+  try { const r = JSON.parse(localStorage.getItem(RECENT_KEY) || '{}'); return { names: list(r.names), cats: list(r.cats) }; }
+  catch { return { names: [], cats: [] }; }
+}
+function saveRecent(names, cats) {
+  try {
+    localStorage.setItem(RECENT_KEY, JSON.stringify({ names: keepLast(names).slice(-RECENT_NAMES), cats: keepLast(cats).slice(-RECENT_CATS) }));
+  } catch {}
+}
+
+async function hostPick(n) {
+  const real = !isDemo(G.cfg.host), recent = real ? loadRecent() : { names: [], cats: [] };
+  const avoid = keepLast([...recent.names, ...G.used]);
+  const d = await ask(G.cfg.host, PROMPTS.hostSystem, PROMPTS.hostUser(n, G.cfg.rounds, pick(SEEDS),
+    avoid.join(', ') || 'none', recent.cats.join(' | ') || 'none'));
+  const chars = (d.characters || []).slice(0, 2).map(makeCharacter);
+  if (chars.length < 2 || !d.category) throw new Error('host reply was missing a category or characters');
+  const category = String(d.category).trim();
+  if (real) saveRecent([...avoid, ...chars.map(c => c.name)], [...recent.cats, category]);
+  return { category, chars, intro: String(d.intro || '').trim() };
+}
+
+/** Answer keys. Each AI answerer writes its own; when a human answers, the host writes one for them to read.
+ *  If the writer doesn't recognize a pick, or says it doesn't fit the category, the host swaps it (twice at most). */
+async function writeKey(asker) {
+  const answerer = G.players[1 - asker.idx], ch = asker.character;
+  const [model, system] = answerer.human ? [G.cfg.host, PROMPTS.keyHostSystem(answerer.name)]
+    : [answerer.model, PROMPTS.keySystem(answerer.name)];
+  const d = await ask(model, system, PROMPTS.keyUser(asker.name, ch, G.category));
+  const aliases = uniq(list(d.aliases).map(cleanAlias)).filter(a => a.length >= 3);
+  ch.recognized = String(d.recognized).toLowerCase() !== 'false';
+  ch.fits = String(d.fits_category ?? true).toLowerCase() !== 'false';
+  ch.keyText = formatKey(ch.recognized, aliases, list(d.facts), list(d.unsure));
+  addAliases(ch, aliases);
+  if (ch.recognized) renameCard(ch, d.name);
+}
+
+/** The key's writer can fix a wrong name: "Cliff Porter" is really Sam Porter Bridges, "Illdian" is Illidan Stormrage.
+ *  The old name stays as another name, so a guess of either one still counts. A fuller or shorter form of the same
+ *  name ("Spyro" and "Spyro the Dragon") isn't a fix, so it's left alone, and so are replies like "N/A". */
+const squash = s => String(s || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+function renameCard(ch, fixed) {
+  fixed = cleanAlias(fixed || '');
+  const a = squash(ch.name), b = squash(fixed);
+  if (b.length < 2 || a.includes(b) || b.includes(a) || fixed.split(/\s+/).length > 6
+    || /^(?:n\/?a|none|null|same|unchanged|correct|ok|no (?:change|correction|fix))\b/i.test(fixed)) return;
+  const old = ch.name;
+  ch.name = fixed;
+  addAliases(ch, [old, ...nameParts(fixed, G.category)]);
+  ch.nameTerms = uniq([fixed, ...ch.nameTerms]);
+  ch.forbidden = uniq([fixed, ...ch.forbidden]);
+  G.used.push(fixed);
+  G.log.push(`> Card renamed: the answer key's writer says "${old}" is really ${fixed}.`);
+}
+
+async function swapPick(p, problem) {
+  const other = G.players[1 - p.idx].character, old = p.character, rejected = [];
+  const os = String(other.source || '').toLowerCase();
+  for (let tries = 0; tries < 2; tries++) {
+    const d = await ask(G.cfg.host, PROMPTS.hostSystem, PROMPTS.hostReplaceUser(G.category, other, old, problem,
+      [...G.used, ...rejected].join(', ')), { soft: true });
+    const c = d && (d.characters?.[0] ?? d);
+    const name = String(c?.name || '').trim(), src = cleanSource(c?.source).toLowerCase();
+    if (!name) continue;
+    const sameFranchise = !!src && !!os && (src.includes(os) || os.includes(src));
+    if (sameFranchise || [other.name, old.name].some(n => n.toLowerCase() === name.toLowerCase())) { rejected.push(name); continue; }
+    p.character = makeCharacter(c);
+    addAliases(p.character, nameParts(p.character.name, G.category));
+    G.used.push(p.character.name);
+    return true;
+  }
+  return false;
+}
+
+/** A card's other names can't include the other card's name: when one answer key says Stelle is "also known as
+ *  Caelus", Caelus is the other card, not another name for her. */
+function separateCards() {
+  const [a, b] = G.players.map(p => p.character);
+  for (const [ch, other] of [[a, b], [b, a]]) {
+    const theirs = new Set([other.name, ...nameParts(other.name, G.category)].map(t => t.toLowerCase()));
+    const keep = t => t.toLowerCase() === ch.name.toLowerCase() || !theirs.has(t.toLowerCase());
+    ch.nameTerms = ch.nameTerms.filter(keep);
+    ch.forbidden = ch.forbidden.filter(keep);
+  }
+}
+
+async function prepareKeys() {
+  UI.typing('host', "The players are studying each other's cards");
+  try {
+    await Promise.all(G.players.map(async asker => {
+      for (let tries = 0; ; tries++) {
+        await writeKey(asker);
+        const ch = asker.character;
+        const problem = !ch.recognized ? "the answerer doesn't recognize this character."
+          : !ch.fits ? "the answerer says this character doesn't fit the category." : '';
+        if (!problem || G.cfg.manual || tries >= 2 || !(await swapPick(asker, problem))) break;
+        const why = ch.recognized ? "didn't really fit the category" : "wasn't one the answerer knew";
+        // Never name the old pick on screen when it was the human's own card. The transcript gets it all.
+        await say('info', '', 'host', `🔁 The host swapped ${asker.name}'s card: ${asker.human ? 'the first pick' : cardLabel(ch)} ${why}.`);
+        const doubts = (ch.keyText.split(/^Unsure:$/m)[1] || '').trim().replace(/^- /, '').replace(/\n- /g, '; ');
+        G.log.push(`> First pick: ${cardLabel(ch)}.${doubts ? ` The answerer's doubts: ${doubts}` : ''}`);
+        UI.players();
+      }
+    }));
+  } finally { UI.typing(null); }
+  if (G.cfg.reviewKeys && G.human == null) {      // the check screen would show a human player their own card
+    const texts = await UI.review();
+    G.players.forEach((p, i) => {
+      const ch = p.character;
+      ch.keyText = texts[i] || ch.keyText; ch.reviewed = true;
+      addAliases(ch, parseAliases(ch.keyText));
+    });
+  }
+}
+
+/* ============================== who can see images ============================== */
+// "Slots" are 0 (player A), 1 (player B) and 'host'. Each call starts fresh, so any model can describe a drawing.
+const slotModel = s => s === 'host' ? G.cfg.host : G.players[s].model;
+const slotHuman = s => s !== 'host' && G.players[s].human;
+const slotSees = s => slotHuman(s) || (!!G.vision[s] && !G.noVision.has(slotModel(s)));
+
+/** Models that could describe a drawing for this guesser (they're never told what it is). Humans can't be called. */
+function describerSlots(guesser) {
+  const slots = [...(G.cfg.manual ? [] : ['host']), 1 - guesser.idx, guesser.idx].filter(s => !slotHuman(s) && slotSees(s));
+  return slots.filter((s, i) => slots.findIndex(t => slotModel(t) === slotModel(s)) === i);
+}
+/** How a drawing reaches this guesser. Best: the best format it can use. Fair: the weaker of the two players' formats. */
+function hintFormat(guesser) {
+  const fmtFor = p => slotSees(p.idx) ? 'image' : describerSlots(p).length ? 'description' : 'emoji';
+  if (G.cfg.drawMode === 'best') return fmtFor(guesser);
+  const both = G.players.map(fmtFor);
+  return ['emoji', 'description', 'image'].find(f => both.includes(f));
+}
+
+/** Settle who can see images: Yes/No from Setup, or Auto from OpenRouter's model list. Returns true if Auto couldn't check. */
+async function detectVision() {
+  const c = G.cfg, slots = [[0, c.visA, c.modelA], [1, c.visB, c.modelB], ['host', c.visHost, c.host]]
+    .filter(([s]) => !slotHuman(s) && !(s === 'host' && c.manual));
+  const needList = slots.some(([, v, m]) => v === 'auto' && !isDemo(m));
+  let lst = null;
+  if (needList && /openrouter\.ai/.test(c.baseUrl)) lst = await fetchModels(c.baseUrl, c.key).catch(() => null);
+  for (const [s, v, m] of slots) G.vision[s] = v === 'yes' || (v === 'auto' && !!lst && !isDemo(m) && listSaysVision(lst, m));
+  return needList && !lst;
+}
+function drawPlan(unknown) {
+  const [a, b] = G.players, fa = hintFormat(a), fb = hintFormat(b);
+  const sees = [a, b].map(p => `${p.name} ${slotSees(p.idx) ? 'can' : "can't"} see images`).join(', ');
+  const how = fa === fb ? `Either way, the guesser gets ${FORMAT_LABEL[fa]}.`
+    : `${a.name} would get ${FORMAT_LABEL[fa]}; ${b.name} would get ${FORMAT_LABEL[fb]}.`;
+  return `🎨 Drawing lifeline (${G.cfg.drawMode === 'fair' ? 'Fair' : 'Best'}, unlocks after ${plural(G.cfg.drawAfter, 'question')}): ` +
+    `${sees}. ${how}` +
+    (unknown ? ` Couldn't check which models accept images, so "Auto" counts as no. You can set it in Setup.` : '');
+}
+async function markNoVision(model) {
+  if (G.noVision.has(model)) return;
+  G.noVision.add(model);
+  await say('warn', '', 'host', `⚠ ${model} turned down an image, so it counts as text-only from now on.`);
+}
+
+/* ============================== drawings ============================== */
+function parseSVGReply(text) {
+  // Some models send the SVG inside JSON or as HTML entities: <circle cx=\"100\"> or &lt;svg&gt;. Undo that first.
+  const t = String(text).replace(/\\"/g, '"').replace(/\\n/g, '\n').replace(/\\\//g, '/')
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+  const svg = sanitizeSVG((t.match(/<svg[\s\S]*?<\/svg>/i) || [])[0]);
+  if (!svg) throw new Error(/<svg/i.test(t) ? 'the SVG had no usable shapes' : 'no SVG in the reply');
+  const comment = (t.match(/COMMENT:\s*(.+)/i) || t.match(/"comment"\s*:\s*"([^"]*)"/i) || [])[1] || '';
+  return { svg, comment: comment.trim() };
+}
+async function drawSVG(drawer, guesser) {
+  UI.typing(drawer.idx, `${drawer.name} is drawing`);
+  // The shared system prompt ends "Respond ONLY with JSON", which can make a model wrap the SVG in JSON.
+  const system = PROMPTS.keySystem(drawer.name).replace('Respond ONLY with JSON.', 'This time, reply with SVG code, not JSON.');
+  try {
+    return await ask(drawer.model, system, PROMPTS.drawSvgUser(guesser.name, guesser.character),
+      { parse: parseSVGReply, soft: true });
+  } finally { UI.typing(null); }
+}
+async function drawEmoji(drawer, guesser) {
+  UI.typing(drawer.idx, `${drawer.name} is drawing in emoji`);
+  try {
+    return await ask(drawer.model, PROMPTS.keySystem(drawer.name), PROMPTS.drawEmojiUser(guesser.name, guesser.character), {
+      soft: true, parse: t => {
+        const d = extractJSON(t), emoji = sanitizeEmoji(d.emoji);
+        if (!emoji) throw new Error('no usable emoji in the reply');
+        return { emoji, comment: String(d.comment || '').trim() };
+      } });
+  } finally { UI.typing(null); }
+}
+/** A picture as { img (to show), png (to send to models), comment }, from a model's SVG or a human's drawing pad. */
+async function drawPic(drawer, guesser) {
+  if (drawer.human) return UI.humanDraw('pic', guesser);
+  const pic = await drawSVG(drawer, guesser);
+  if (!pic) return null;
+  const png = await UI.rasterize(pic.svg).catch(e => { G.log.push(`> Turning the sketch into a PNG failed: ${e?.message || e}`); return null; });
+  return { img: svgURL(pic.svg), png, comment: pic.comment };
+}
+const drawEmo = (drawer, guesser) => drawer.human ? UI.humanDraw('emoji', guesser) : drawEmoji(drawer, guesser);
+
+/** A model that can see images describes the drawing. It only gets the picture, never the answer. */
+async function describeFor(guesser, png) {
+  for (const s of describerSlots(guesser)) {
+    const model = slotModel(s);
+    UI.typing('host', `${model} is describing the drawing`);
+    try {
+      const d = await ask(model, PROMPTS.describeSystem, PROMPTS.describeUser, { images: [png], soft: true });
+      const text = scrub(String(d?.description || '').trim(), guesser.character.forbidden);
+      if (text) return { text, by: model };
+    } catch (e) {
+      if (!e.imageRejected) throw e;
+      await markNoVision(model);
+    } finally { UI.typing(null); }
+  }
+  return null;
+}
+/** Draw, then get the drawing to the guesser in its format, falling back a step whenever something fails. */
+async function makeHint(drawer, guesser) {
+  const fmt = hintFormat(guesser);
+  let pic = null;
+  if (fmt !== 'emoji') {
+    pic = await drawPic(drawer, guesser);
+    if (pic?.png && fmt === 'image') return { kind: 'image', ...pic };
+    if (pic?.png) {
+      const d = await describeFor(guesser, pic.png);
+      if (d) return { kind: 'description', ...pic, text: d.text, by: d.by };
+    }
+  }
+  const emo = await drawEmo(drawer, guesser);
+  return emo && { kind: 'emoji', img: pic?.img || null, png: pic?.png || null, emoji: emo.emoji,
+    comment: pic?.comment || emo.comment, fellBack: fmt === 'emoji' ? null : pic?.png ? 'description' : 'sketch' };
+}
+async function showHint(drawer, guesser, h) {
+  // A human guesser only gets to see what their format allows, so the picture isn't shown when it reached them as text.
+  const showPic = !!h.img && !(guesser.human && h.kind !== 'image');
+  if (showPic) await say('drawing', drawer.name, drawer.idx, '', { img: h.img, log: `${drawer.name} drew this: ![drawing](${h.img})` });
+  else if (h.img) G.log.push(`${drawer.name} drew this (not shown to ${guesser.name}): ![drawing](${h.img})`);
+  if (h.fellBack) await say('info', '', 'host', h.fellBack === 'sketch'
+    ? `🖍 ${drawer.name}'s sketch didn't come through, so it's an emoji drawing instead.`
+    : `🖍 Nobody could describe the sketch for ${guesser.name}, so it's an emoji drawing instead.`);
+  if (h.kind === 'image') await say('info', '', 'host', `🖼 ${guesser.name} gets the drawing itself.`);
+  if (h.kind === 'description') await say('info', '', 'host', `🔎 What ${guesser.name} gets, described by ${h.by}: "${h.text}"`);
+  if (h.kind === 'emoji') await (showPic
+    ? say('info', '', 'host', `😶 What ${guesser.name} gets, an emoji version:\n${h.emoji}`)
+    : say('emojidraw', drawer.name, drawer.idx, h.emoji, { log: `${drawer.name} drew this in emoji:\n${h.emoji}` }));
+  if (h.comment) await say('answer', drawer.name, drawer.idx, cap(scrub(h.comment, guesser.character.forbidden)));
+}
+/** The guesser's model turned down its image: step that drawing down to a description, then emoji. */
+async function downgradeHint(p) {
+  const drawer = G.players[1 - p.idx], h = p.hint;
+  const d = await describeFor(p, h.png);
+  if (d) {
+    p.hint = { ...h, kind: 'description', text: d.text, by: d.by };
+    return say('info', '', 'host', `🔎 ${p.name} gets a description instead, by ${d.by}: "${d.text}"`);
+  }
+  const emo = await drawEmo(drawer, p);
+  if (emo) {
+    p.hint = { ...h, kind: 'emoji', emoji: emo.emoji };
+    return say('info', '', 'host', `😶 ${p.name} gets an emoji version instead:\n${emo.emoji}`);
+  }
+  Object.assign(p, { hint: null, drew: false, notice: "HOST: Your drawing got lost, so your lifeline isn't used up." });
+  return say('host', 'HOST', 'host', `${p.name}'s drawing got lost. The lifeline isn't used up.`);
+}
+function hintPrompt(p, opp) {
+  const h = p.hint;
+  if (!h) return '';
+  if (h.kind === 'image') return `${opp.name} drew your character for you. The drawing is attached as an image (a crude marker sketch with no writing).`;
+  if (h.kind === 'description') return `${opp.name} drew your character for you. You can't see it, but a neutral viewer who doesn't know the answer described it:\n"${h.text}"`;
+  return `${opp.name} drew your character for you, in emoji:\n${h.emoji}`;
+}
+const canDrawNow = p => G.cfg.drawMode !== 'off' && !p.drew && p.drawFails < 2 && p.qa.length >= G.cfg.drawAfter;
+function drawStatus(p) {
+  if (G.cfg.drawMode === 'off') return '';
+  if (p.drew) return 'already used this round';
+  if (p.drawFails >= 2) return 'unavailable this round (the drawing failed twice)';
+  if (p.qa.length < G.cfg.drawAfter) return `locked until you've asked ${G.cfg.drawAfter} questions (you've asked ${p.qa.length})`;
+  let noRun = 0;
+  for (let i = p.qa.length - 1; i >= 0 && p.qa[i].a === 'no'; i--) noRun++;
+  return `AVAILABLE now (action "draw"). It would reach you as ${FORMAT_LABEL[hintFormat(p)]}.` +
+    (noRun >= 4 ? ` You've had ${noRun} no's in a row: this is a good moment to use it.` : '');
+}
+
+/* ============================== player actions ============================== */
+async function aiAct(p, opp, can) {
+  let notice = p.notice;
+  p.notice = '';
+  // After the round's point is taken, remind the player how many questions are left, every turn.
+  const left = p.capAt - p.qa.length;
+  if (Number.isFinite(left)) notice = [notice, `HOST: You have ${plural(left, 'question')} left before your answer is shown.` +
+    (can ? " Your drawing lifeline is still unused, and it doesn't cost a question." : '')].filter(Boolean).join('\n');
+  p.status = 'Thinking…'; UI.players(); UI.typing(p.idx, `${p.name} is thinking`);
+  try {
+    for (let tries = 0; ; tries++) {
+      const images = p.hint?.kind === 'image' ? [p.hint.png] : [];
+      try {
+        return await ask(p.model,
+          PROMPTS.playerSystem(p.name, opp.name, G.cfg.drawMode !== 'off' && G.cfg.drawAfter, opp.human), PROMPTS.actUser({
+            category: G.category, rulings: rulingsFor(p), qa: qaBlock(p.qa), hint: hintPrompt(p, opp),
+            opp: opp.name, oppCard: cardLabel(opp.character), oppSolved: opp.solved,
+            oppQa: qaBlock(opp.qa), notice, canDraw: can, drawStatus: drawStatus(p) }), { images });
+      } catch (e) {
+        if (!e.imageRejected || tries) throw e;
+        await markNoVision(p.model);
+        for (const q of G.cfg.drawMode === 'fair' ? G.players : [p]) if (q.hint?.kind === 'image') await downgradeHint(q);
+        notice = [notice, p.notice].filter(Boolean).join('\n'); p.notice = '';
+        UI.players(); UI.typing(p.idx, `${p.name} is thinking`);
+      }
+    }
+  } finally { UI.typing(null); p.status = ''; }
+}
+
+async function playerAct(p, opp) {
+  const can = canDrawNow(p);
+  let d;
+  if (p.human) {
+    p.notice = ''; p.status = 'Your turn!'; UI.players();
+    try {
+      d = await UI.humanAct(p, can, can ? `available now (you'd get ${FORMAT_LABEL[hintFormat(p)]})` : drawStatus(p));
+    } finally { p.status = ''; }
+  } else d = await aiAct(p, opp, can);
+  let action = String(d.action || 'ask').toLowerCase().trim();
+  let question = String(d.question || '').trim();
+  if (!['ask', 'skip', 'draw'].includes(action)) action = 'ask';
+  if (action === 'ask' && DRAW_ASK.test(question)) action = 'draw';       // "Can you draw my character?"
+  if (action === 'draw' && !can)
+    action = G.cfg.drawMode === 'off' ? 'nodraw' : p.drew ? 'used' : p.drawFails >= 2 ? 'broken' : 'locked';
+  if (action === 'ask' && !question) action = 'skip';
+  // Names that also belong to the asker's own card never get a question blocked: twins like Caelus and Stelle
+  // are both "the Trailblazer", and the asker has every right to guess that.
+  const mine = new Set([...p.character.nameTerms, ...p.character.forbidden].map(t => t.toLowerCase()));
+  const theirsOnly = terms => terms.filter(t => !mine.has(t.toLowerCase()));
+  // A question naming the opponent's own character can't be answered without spoiling it, so it goes back unasked.
+  if (action === 'ask' && !opp.solved) {
+    const hit = theirsOnly(opp.character.forbidden).filter(t => !isPublic(t) && hasTerm(question, t));
+    if (hit.length) {
+      action = 'spoiler'; BLOCKED = hit.map(t => `"${t}"`).join(', ');
+      G.log.push(`> Sent back unasked: ${p.name} asked "${question}", which used ${BLOCKED}.`);
+    }
+  }
+  // Guessing the opponent's (already solved) card is stopped once. Asked again right away, it goes to the answerer.
+  if (action === 'ask' && opp.solved && !p.refused && guessesOne(question, theirsOnly(opp.character.nameTerms))) {
+    action = 'theirs';
+    G.log.push(`> Sent back unasked: ${p.name} asked "${question}", which names the other card.`);
+  }
+  let sayText = shortSay(String(d.say || '').trim());
+  if (question && sayText.includes(question)) sayText = sayText.replace(question, '').trim();
+  if (!opp.solved) {
+    // A human reads the AI's thinking, so any sentence about their own card goes. For the audience a bleep is enough.
+    sayText = opp.human ? dropMentions(sayText, opp.character.forbidden) : scrub(sayText, opp.character.forbidden);
+    question = scrub(question, theirsOnly(opp.character.nameTerms));
+  }
+  // The same question twice wastes a turn. A "not sure" can be asked again, since a ruling may have settled it since.
+  if (action === 'ask') {
+    const i = p.qa.findIndex(x => x.a !== 'not sure' && sameQ(x.q) === sameQ(question));
+    if (i >= 0) {
+      action = 'repeat'; REPEATED = `#${i + 1} ("${p.qa[i].q}") got ${p.qa[i].a.toUpperCase()}`;
+      G.log.push(`> Sent back unasked: ${p.name} repeated question ${REPEATED}.`);
+    }
+  }
+  return { action, question, sayText };
+}
+
+async function playerAnswer(answerer, asker, question) {
+  const ch = asker.character, hints = G.cfg.hints || 'subtle';
+  let noRun = 0;
+  for (let i = asker.qa.length - 1; i >= 0 && asker.qa[i].a === 'no'; i--) noRun++;
+  const streak = !asker.qa.length ? '' : `Streak: ${noRun
+    ? `the last ${plural(noRun, 'answer')} in a row ${noRun === 1 ? 'was' : 'were'} "no"` : "the last answer wasn't a no"}` +
+    `${noRun >= 5 ? ", so they're stuck" : ''}.\n`;
+  let d;
+  answerer.status = answerer.human ? 'Your answer…' : 'Answering…'; UI.players();
+  try {
+    if (answerer.human) d = await UI.humanAnswer(asker, question);
+    else {
+      UI.typing(answerer.idx, `${answerer.name} is looking at the card`);
+      d = await ask(answerer.model, PROMPTS.answerSystem(answerer.name, asker.name, hints),
+        PROMPTS.answerUser(G.category, asker.name, ch, qaBlock(asker.qa), question, rulingsFor(answerer), streak));
+    }
+  } finally { UI.typing(null); answerer.status = answerer.solved ? solvedStatus(answerer) : ''; }
+  let correct = String(d.correct).toLowerCase() === 'true';
+  // A human clicking "Yes" on "Am I Hornet?" means "That's it!"
+  if (!correct && answerer.human && normalizeAnswer(d.answer) === 'yes' && guessesOne(question, ch.nameTerms)) correct = true;
+  const answer = correct ? 'yes' : normalizeAnswer(d.answer);
+  let fix = null;
+  if (d.fix && typeof d.fix === 'object') {
+    const num = parseInt(d.fix.number, 10), a = normalizeAnswer(d.fix.answer);
+    if (num >= 1 && num <= asker.qa.length && asker.qa[num - 1].a !== a) fix = { number: num, answer: a };
+  }
+  const raw = d.comment ?? d.hint ?? [d.react, d.explain].filter(Boolean).join(' ');
+  const max = correct ? 40 : hints === 'strict' && EXPLAINABLE.has(answer) ? 22 : HINT_WORDS[hints] ?? 18;
+  let comment = answerer.human ? String(raw || '').trim() : cleanComment(raw, max);
+  // "he shows up in more than one form" gives away gender, so sentences with he/she/him/her lose out.
+  if (!correct && !answerer.human) comment = (comment.match(/[^.!?…]*[.!?…]+\s*|[^.!?…]+$/g) || [])
+    .filter(s => !/\b(he|she|him|her|his|hers|himself|herself)\b/i.test(s)).join('').trim();
+  if (!correct) comment = scrub(comment, ch.forbidden, asker.qa.map(x => x.q).join(' ') + ' ' + question);
+  return { answer, correct, fix, check: String(d.check || '').trim(), comment };
+}
+
+const solvedStatus = p => `Solved ✔ (${plural(p.qa.length, 'question')})`;
+
+/* ============================== round / game loop ============================== */
+let BLOCKED = '', REPEATED = ''; // the words that got the last question sent back, for the asker's next prompt
+const DRAW_REFUSALS = {
+  locked: n => [`The drawing lifeline is locked until you've asked ${G.cfg.drawAfter} questions. Ask a normal yes/no question.`,
+    `Nice try, ${n}. No drawings until you've asked ${G.cfg.drawAfter} questions.`],
+  used: n => ['You already used your drawing this round. Ask a normal yes/no question.', `One drawing per round, ${n}.`],
+  broken: n => ['The drawing lifeline is broken this round. Ask a normal yes/no question.', `The markers are dead, ${n}. No more drawings this round.`],
+  nodraw: n => ['There are no drawings in this game. Ask a normal yes/no question.', `No drawings this game, ${n}.`],
+  spoiler: n => [`Your question used ${BLOCKED || 'a word'} from your opponent's own card, and they can't be told that. Ask without it.`,
+    `Careful, ${n}. That question would've spoiled your opponent.`],
+  theirs: n => ["That name is on your opponent's card, and they've already guessed it. If you're sure it's your name too, ask the same question again and it goes through.",
+    `That's the other card, ${n}.`],
+  repeat: n => [`You already asked that: ${REPEATED}. Ask something new.`, `You already asked that one, ${n}.`],
+};
+
+async function playRound(n) {
+  const cfg = G.cfg, fewest = cfg.scoring === 'fewest';
+  Object.assign(G, { round: n, category: '', intro: '', rulings: [], peek: [false, false] });
+  for (const p of G.players) Object.assign(p, { character: null, qa: [], solved: false, drew: false, drawFails: 0,
+    refused: 0, strikeouts: 0, capAt: Infinity,
+    hint: null, notice: '', revealed: false, active: false, status: 'Waiting for the host…' });
+  UI.round(); UI.players();
+
+  let pickRes;
+  UI.typing('host', cfg.manual ? 'Waiting for you to pick the characters' : 'The host is picking characters');
+  try { pickRes = cfg.manual ? await UI.manual(n) : await hostPick(n); }
+  finally { UI.typing(null); }
+  const { category, chars, intro } = pickRes;
+  G.used.push(...chars.map(c => c.name));
+  chars.forEach(ch => addAliases(ch, nameParts(ch.name, category)));
+  G.players.forEach((p, i) => { p.character = chars[i]; p.status = 'Studying the other card…'; });
+  Object.assign(G, { category, intro: scrub(intro, [...chars[0].forbidden, ...chars[1].forbidden]) });
+
+  const final = n === cfg.rounds;
+  await say('divider', '', 'host', final ? 'Final round' : `Round ${n}`);
+  UI.round(); UI.players();
+  await say('host', 'HOST', 'host', `${final ? 'This is the final round.' : `This is round ${n}.`} ${category}`);
+  if (G.intro) await say('host', 'HOST', 'host', G.intro);
+
+  await prepareKeys();
+  separateCards();
+  // Remember the final cards (swaps and your own picks too), so the AI host doesn't hand them out again.
+  if (cfg.manual || !isDemo(cfg.host)) {
+    const r = loadRecent();
+    saveRecent([...r.names, ...G.players.map(p => p.character.name)], [...r.cats, G.category]);
+  }
+  G.players.forEach(p => { p.status = ''; });
+  UI.players();
+  for (const asker of G.players) {
+    const answerer = G.players[1 - asker.idx], ch = asker.character;
+    const by = answerer.human ? `the host, for ${answerer.name} to read` : answerer.name;
+    G.log.push(`> Answer key for ${ch.name}, written by ${by}${ch.reviewed ? ' and checked by the host' : ''}:\n> ` +
+      ch.keyText.split('\n').join('\n> '));
+    if (!ch.recognized && !ch.reviewed)
+      await say('warn', '', 'host', answerer.human
+        ? `⚠ The host barely knows ${asker.name}'s character, so your notes are thin. Trust your own memory.`
+        : `⚠ ${answerer.name} admits it barely knows ${asker.name}'s character. Expect shaky answers.`);
+  }
+
+  // Fewest-questions mode: stop once the player still guessing can't match the solver's count.
+  const decided = () => {
+    if (!fewest) return false;
+    const s = G.players.filter(p => p.solved);
+    return s.length === 1 && G.players[1 - s[0].idx].qa.length >= s[0].qa.length;
+  };
+  let turn = (n - 1) % 2, streak = 0, questions = 0, actions = 0, first = null;
+  // First to solve: once the point is taken, the other player gets CATCH_UP more questions, then the answer is shown.
+  const overtime = () => !!first && G.players.some(p => !p.solved && p.qa.length >= p.capAt);
+  while (!G.players.every(p => p.solved) && !decided() && !overtime() && questions < cfg.maxQ && actions < cfg.maxQ * 2) {
+    actions++;
+    const asker = G.players[turn], answerer = G.players[1 - turn];
+    if (asker.solved) { turn = 1 - turn; streak = 0; continue; }
+    G.players.forEach(p => { p.active = p === asker; });
+
+    const { action, question, sayText } = await playerAct(asker, answerer);
+    if (sayText) await say('thought', asker.name, asker.idx, sayText);
+
+    if (DRAW_REFUSALS[action]) {
+      const [toPlayer, toAudience] = DRAW_REFUSALS[action](asker.name);
+      asker.notice = `HOST: ${toPlayer}`;
+      if (action === 'theirs' || action === 'repeat') await say('question', asker.name, asker.idx, question);
+      await say('host', 'HOST', 'host', toAudience);
+      // Never let one player spin in place: three in a row passes the turn, or ends the round if nobody's left to pass to.
+      asker.refused = (asker.refused || 0) + 1;
+      if (asker.refused >= 3) {
+        asker.refused = 0;
+        if (!answerer.solved) {
+          turn = 1 - turn; streak = 0;
+          await say('host', 'HOST', 'host', `Three strikes, ${asker.name}. Your turn passes.`);
+        } else if ((asker.strikeouts = (asker.strikeouts || 0) + 1) >= 2) {
+          await say('host', 'HOST', 'host', `That's enough, ${asker.name}. We'll stop the round here.`);
+          break;
+        }
+      }
+      continue;
+    }
+    asker.refused = 0;
+    if (action === 'skip') {
+      await say('skip', asker.name, asker.idx, 'I skip.');
+      if (!answerer.solved) { turn = 1 - turn; streak = 0; }
+      continue;
+    }
+    if (action === 'draw') {
+      await say('question', asker.name, asker.idx, 'Can you just… draw it?');
+      const hint = await makeHint(answerer, asker);
+      if (!hint) {                    // the lifeline only counts once a drawing actually reaches the player
+        asker.drawFails++;
+        asker.notice = "HOST: The drawing didn't work out, so your lifeline isn't used up.";
+        await say('host', 'HOST', 'host', `The drawing didn't work out. ${asker.name}'s lifeline isn't used up.`);
+        continue;
+      }
+      Object.assign(asker, { drew: true, hint });
+      UI.players();
+      await showHint(answerer, asker, hint);
+      continue;
+    }
+
+    questions++;
+    await say('question', asker.name, asker.idx, question);
+    const res = await playerAnswer(answerer, asker, question);
+    asker.qa.push({ q: question, a: res.answer, comment: res.comment, check: res.check });
+    UI.players();
+    await say('answer', answerer.name, answerer.idx, res.comment, { chip: res.answer, check: res.check });
+    if (res.fix) {
+      const item = asker.qa[res.fix.number - 1];
+      Object.assign(item, { was: item.a, a: res.fix.answer, fixed: true });
+      UI.players();
+      await say('fix', answerer.name, answerer.idx,
+        `✎ Correction on #${res.fix.number} ("${item.q}"): that's actually a ${res.fix.answer.toUpperCase()}.`);
+    }
+
+    if (res.correct) {
+      asker.solved = true; asker.status = solvedStatus(asker);
+      const other = G.players[1 - asker.idx], tookPoint = !fewest && !first;
+      if (tookPoint) { first = asker; asker.score++; G.roundWinners[n - 1] = asker.idx; other.capAt = other.qa.length + CATCH_UP; }
+      UI.round(); UI.players();
+      await say('solve', 'HOST', 'host', `${solvedLine(asker.qa.length)} ${asker.name} is ${cardLabel(asker.character)}!` +
+        (fewest ? ` That took ${plural(asker.qa.length, 'question')}.` : ''));
+      if (tookPoint && cfg.firstEnds) break;
+      if (tookPoint && !other.solved && CATCH_UP < Infinity) {
+        other.notice = `HOST: ${asker.name} took this round's point. You have ${plural(CATCH_UP, 'more question')} to get yours, then the answer is shown.`;
+        await say('host', 'HOST', 'host', `${other.name}, you've got ${plural(CATCH_UP, 'more question')}.`);
+      }
+      turn = 1 - turn; streak = 0;
+      continue;
+    }
+    streak++;
+    if (!KEEPS_TURN.has(res.answer) || streak >= cfg.streak) {
+      if (!answerer.solved) turn = 1 - turn;
+      streak = 0;
+    }
+  }
+
+  G.players.forEach(p => { p.active = false; });
+  const cut = decided();
+  for (const p of G.players) if (!p.solved) {
+    p.revealed = true; p.status = cut ? "Can't catch up" : 'Ran out of time';
+    const other = G.players[1 - p.idx];
+    await say('reveal', 'HOST', 'host', cut
+      ? `${p.name} can't match ${plural(other.qa.length, 'question')} anymore. You were ${cardLabel(p.character)}.`
+      : `Time! ${p.name}, you were ${cardLabel(p.character)}.`);
+  }
+  if (fewest) {
+    const s = G.players.filter(p => p.solved), best = Math.min(...s.map(p => p.qa.length));
+    const winners = s.filter(p => p.qa.length === best);
+    winners.forEach(p => { p.score++; });
+    G.roundWinners[n - 1] = winners.length === 2 ? 'both' : winners.length ? winners[0].idx : 'none';
+    if (winners.length === 2) await say('host', 'HOST', 'host', `You both took ${plural(best, 'question')}. A point each.`);
+    else if (winners.length) await say('host', 'HOST', 'host', `${winners[0].name} takes the round with ${plural(best, 'question')}.`);
+  } else if (!first) G.roundWinners[n - 1] = 'none';
+  UI.round(); UI.players();
+  await say('host', 'HOST', 'host', 'Score: ' + G.players.map(p => `${p.name} ${p.score}`).join(' | '));
+}
+
+async function finale() {
+  const [a, b] = G.players;
+  G.round = G.cfg.rounds + 1; UI.round();
+  await say('divider', '', 'host', 'Final score');
+  if (a.score === b.score) {
+    await say('solve', 'HOST', 'host', `${a.score}–${b.score}. A tie. The fated day of double pie.`);
+    await UI.pie([0, 1]);
+  } else {
+    const [w, l] = a.score > b.score ? [a, b] : [b, a];
+    await say('solve', 'HOST', 'host', `${w.name} wins ${w.score}–${l.score}!`);
+    await say('host', 'HOST', 'host', `${l.name}, you know what time it is.`);
+    await UI.pie([l.idx]);
+  }
+  await say('host', 'HOST', 'host', 'SPLAT.');
+}
+
+async function runGame() {
+  UI.reset(); UI.controls(); UI.players(); UI.round();
+  const [a, b] = G.players, who = p => `${p.name} (${p.human ? 'human' : p.model})`;
+  try {
+    await say('host', 'HOST', 'host', `This one's for the wicked… Today we're playing Guess the Character with ${who(a)} and ${who(b)}.`);
+    if (G.cfg.drawMode !== 'off') await say('info', '', 'host', drawPlan(await detectVision()));
+    for (let n = 1; n <= G.cfg.rounds; n++) await playRound(n);
+    await finale();
+  } catch (e) {
+    UI.typing(null);
+    const msg = e instanceof StopGame ? 'Game stopped.' : 'Something broke: ' + e.message;
+    if (!(e instanceof StopGame)) console.error(e);
+    G.log.push('HOST: ' + msg);
+    UI.add({ kind: e instanceof StopGame ? 'host' : 'reveal', who: 'HOST', side: 'host', text: msg });
+  } finally {
+    G.running = false; G.players.forEach(p => { p.active = false; });
+    UI.cancelHuman();
+    UI.players(); UI.round(); UI.controls();
+  }
+}
+
+function startGame(overrides = {}) {
+  if (G?.running) return;
+  const cfg = { ...CFG, ...overrides }, seat = { A: 0, B: 1 }[cfg.seat];
+  if (seat != null && cfg.manual) {
+    UI.openSetup(`You can't host and play at once: you'd be picking your own character. Untick "I'll be the host", or leave your seat.`);
+    return;
+  }
+  const models = [seat === 0 ? null : cfg.modelA, seat === 1 ? null : cfg.modelB, cfg.manual ? null : cfg.host].filter(Boolean);
+  if (models.some(m => !isDemo(m)) && !cfg.key && !isLocal(cfg.baseUrl)) {
+    UI.openSetup('Add an API key first, or type "demo" as the model names to try the free fake model.');
+    return;
+  }
+  G = newGame(cfg);
+  runGame();
+}
+
+function addRuling(text) {
+  if (!G?.running || !text) return;
+  const who = G.human != null ? `${G.players[G.human].name} (note)` : G.cfg.manual ? 'HOST (you)' : 'REFEREE (you)';
+  G.rulings.push(text);
+  G.log.push(`${who}: ${text}`);
+  UI.add({ kind: 'ruling', who, side: 'host', text });
+}
+
+function transcript() {
+  const [a, b] = G.players, c = G.cfg;
+  return `# Guess the Character — ${new Date().toLocaleString()}\n\n` +
+    `- ${a.name}: ${a.human ? 'human player' : a.model}\n- ${b.name}: ${b.human ? 'human player' : b.model}\n` +
+    `- Host: ${c.manual ? 'human' : c.host}\n- Round winner: ${c.scoring === 'fewest' ? 'fewest questions' : 'first to solve'}\n` +
+    `- Answerer hints: ${c.hints || 'subtle'}\n` +
+    `- Drawing lifeline: ${c.drawMode}${c.drawMode === 'off' ? '' : ` (after ${plural(c.drawAfter, 'question')})`}\n\n` +
+    G.log.join('\n\n') + '\n';
+}
+
+/* ============================== demo model (free, offline) ==============================
+   A tiny fake "LLM" that reads the same prompts real models get and answers from tags.
+   It only sees the prompt text, so it plays fair, but it's dumb. Real models are funnier. */
+const DEMO_ROUNDS = [
+  { category: 'Both of your characters have four fingers.', chars: [
+    ['Mickey Mouse', 'Disney', 'cartoon animal mascot'], ['Homer Simpson', 'The Simpsons', 'cartoon human'],
+    ['Toad', 'Super Mario', 'game nintendo'], ['Bob the Builder', 'Bob the Builder', 'human preschool stopmotion'],
+    ['Tickety Tock', "Blue's Clues", 'object preschool cartoon']] },
+  { category: 'Both of your characters are the color pink.', chars: [
+    ['Peppa Pig', 'Peppa Pig', 'cartoon animal preschool'], ['Kirby', 'Kirby', 'game nintendo'],
+    ['Lavagirl', 'The Adventures of Sharkboy and Lavagirl', 'human live movie superhero'],
+    ['Patrick Star', 'SpongeBob SquarePants', 'cartoon animal'], ['Jigglypuff', 'Pokémon', 'game nintendo cartoon animal']] },
+  { category: 'Both of your characters take no fall damage.', chars: [
+    ['Mario', 'Super Mario Bros.', 'game nintendo human'], ['Chell', 'Portal', 'game human'],
+    ['Fall Guy', 'Fall Guys', 'game mascot'], ['Sonic', 'Sonic the Hedgehog', 'game animal cartoon movie']] },
+  { category: 'Both of your characters are superheroes that are not from DC nor Marvel.', chars: [
+    ['The Tick', 'The Tick', 'cartoon human live superhero'], ['Mr. Incredible', 'The Incredibles', 'cartoon human movie superhero'],
+    ['Kim Possible', 'Kim Possible', 'cartoon human superhero'], ['Sharkboy', 'The Adventures of Sharkboy and Lavagirl', 'human live movie superhero']] },
+];
+const DEMO_QS = [['Am I human?', 'human'], ['Am I from a video game?', 'game'], ['Am I an animal?', 'animal'],
+  ['Am I animated?', 'cartoon'], ['Am I from a show for little kids?', 'preschool'], ['Am I from a movie?', 'movie'],
+  ['Am I a Nintendo character?', 'nintendo'], ['Am I stop motion?', 'stopmotion'], ['Am I live action?', 'live'],
+  ['Am I an object?', 'object'], ['Am I a mascot?', 'mascot'], ['Am I a superhero?', 'superhero']];
+const DEMO_SAY = ['Okay okay okay.', 'I have a theory.', 'This is gonna be bad.', "Don't laugh at me.",
+  'Process of elimination, baby.', 'I feel like I know this.', 'Wait wait wait.', 'Chat, help me.', 'Hmm.'];
+const DEMO_EMOJI = { human: '🧍', animal: '🐾', cartoon: '✏️', game: '🕹️', preschool: '🧸', movie: '🍿', superhero: '🦸',
+  object: '⏰', mascot: '🎉', nintendo: '🍄', stopmotion: '🧱', live: '🎥' };
+const hasTag = (c, t) => c[2].split(' ').includes(t);
+const demoChar = name => DEMO_ROUNDS.flatMap(r => r.chars).find(c => c[0] === name);
+const demoDrawTarget = user => demoChar((user.match(/DRAW their secret character: (.+?) from /) || [])[1]);
+const demoNorm = s => String(s || '').toLowerCase().replace(/^(the|a|an)\s+/, '').replace(/[?.!\s]+$/, '').trim();
+
+async function demoReply(system, user, images = []) {
+  if (G.cfg.pace > 0) await sleep(250 + Math.random() * 450);   // pretend to think
+  G.calls++; UI.meter();
+  if (user.includes('Reply with SVG code')) return demoSVG(demoDrawTarget(user));
+  let out;
+  if (system.includes('off-camera host')) {
+    const used = (user.match(/Already used, do not repeat: (.*)/) || [])[1] || '';
+    const fresh = DEMO_ROUNDS.filter(r => !r.chars.some(c => used.split(', ').includes(c[0])));
+    const r = pick(fresh.length ? fresh : DEMO_ROUNDS);
+    out = { category: r.category, intro: pick(['Good luck. You will need it.', 'I picked these with love. Mostly.', "This one's mean."]),
+      characters: shuffle(r.chars).slice(0, 2).map(c => ({ name: c[0], source: c[1], description: `Demo character (${c[2]}).`, forbidden: [c[0]] })) };
+  } else if (user.includes('write your private ANSWER KEY')) {
+    const ch = demoChar((user.match(/ANSWER KEY for .+?'s secret character: (.+?) from /) || [])[1]);
+    out = ch ? { recognized: true, aliases: [], facts: DEMO_QS.map(([q, t]) => `${q.slice(5, -1)}: ${hasTag(ch, t) ? 'yes' : 'no'}`), unsure: [] }
+      : { recognized: false, aliases: [], facts: [], unsure: ['everything, honestly'] };
+  } else if (system.includes('You describe crude whiteboard drawings')) {
+    out = { description: images.length ? pick(['A lumpy circle with two dots for eyes and a wobbly smile, on a stick body.',
+      'A round colored head with dot eyes. Below it, either a body or a potato.']) : 'I was promised a picture.' };
+  } else if (user.includes('draw it in EMOJI')) {
+    const ch = demoDrawTarget(user);   // includes the name in plain letters on purpose: the sanitizer must strip it
+    out = { emoji: `${pick(['🟥', '🟦', '🟨', '🟩', '🟪'])}${ch ? ch[2].split(' ').map(t => DEMO_EMOJI[t] || '').join('') : '❓'}\n👀 ${ch?.[0] ?? ''}`,
+      comment: 'Emoji Picasso over here.' };
+  } else if (system.includes('playing against')) {
+    out = demoAsk(user);
+  } else {
+    out = demoAnswer(user);
+  }
+  return '```json\n' + JSON.stringify(out) + '\n```';
+}
+
+/** A bad stick-figure SVG. It deliberately includes a comment and a <text> label with the name: both must be stripped. */
+function demoSVG(ch) {
+  const col = pick(['#ff6fb5', '#3d8bff', '#ffcc33', '#55c96b', '#e2453c', '#a66bff']);
+  const body = ch && hasTag(ch, 'animal')
+    ? `<ellipse cx="100" cy="140" rx="48" ry="30" fill="${col}" stroke="#222" stroke-width="3"/>`
+    : `<line x1="100" y1="105" x2="100" y2="160" stroke="#222" stroke-width="4"/><line x1="68" y1="125" x2="132" y2="125" stroke="#222" stroke-width="4"/>` +
+      `<polyline points="78,192 100,160 122,192" fill="none" stroke="#222" stroke-width="4"/>`;
+  return `Here you go!\n<svg viewBox="0 0 200 200"><!-- this is ${ch?.[0]} --><circle cx="100" cy="70" r="36" style="fill:${col};stroke:#222;stroke-width:3"/>` +
+    `<circle cx="88" cy="62" r="4" fill="#222"/><circle cx="112" cy="62" r="4" fill="#222"/>` +
+    `<path d="M86 82 Q100 94 114 82" fill="none" stroke="#222" stroke-width="3"/>${body}<text x="8" y="20">${ch?.[0]}</text></svg>\n` +
+    `COMMENT: ${pick(['I am not an artist.', 'Do not laugh.', 'This is my best work.'])}`;
+}
+
+function demoAsk(user) {
+  const cat = (user.match(/ROUND CATEGORY \(true of both characters\): "(.*)"/) || [])[1];
+  const round = DEMO_ROUNDS.find(r => r.category === cat);
+  if (!round) return { say: 'I have no idea what this category means.', action: 'ask', question: 'Am I human?' };
+  const mine = (user.split('== YOUR CHARACTER')[1] || '').split('\n== ')[0];      // only MY answers
+  const theirs = (user.match(/^Their card: (.+?)(?: from .*)? \((?:they already|never say)/m) || [])[1];   // not me
+  const qa = [...mine.matchAll(/^\d+\. (.+) -> (YES|NO|SOMETIMES|KIND OF|NOT SURE)/gm)].map(m => ({ q: m[1], a: m[2].toLowerCase() }));
+  const asked = new Set(qa.map(x => x.q));
+  const wrong = new Set(qa.filter(x => x.a === 'no').map(x => (x.q.match(/^Am I (.+)\?$/) || [])[1]).filter(Boolean));
+  const pool = round.chars.filter(c => c[0] !== theirs && !wrong.has(c[0]));
+  let cands = pool.filter(c => qa.every(x => {
+    const t = DEMO_QS.find(d => d[0] === x.q);
+    return !t || (x.a === 'yes' ? hasTag(c, t[1]) : x.a === 'no' ? !hasTag(c, t[1]) : true);
+  }));
+  if (!cands.length) cands = pool.length ? pool : round.chars;
+  if (user.includes('AVAILABLE now') && Math.random() < 0.4) return { say: "I'm cooked. Just draw it.", action: 'draw' };
+  if (user.includes('locked until') && !user.includes('HOST: The drawing lifeline') && Math.random() < 0.03)
+    return { say: 'Desperate times.', action: 'ask', question: 'Can you draw my character?' };
+  if (Math.random() < 0.05) return { say: 'I need a second.', action: 'skip' };
+  const useful = DEMO_QS.filter(([q]) => !asked.has(q))
+    .map(([q, t]) => ({ q, split: Math.min(cands.filter(c => hasTag(c, t)).length, cands.filter(c => !hasTag(c, t)).length) }))
+    .filter(x => x.split > 0).sort((x, y) => y.split - x.split);
+  if (cands.length === 1 || !useful.length || Math.random() < 0.2) {
+    const g = pick(cands);
+    return { say: cands.length === 1 ? 'It has to be.' : 'Long shot incoming.', action: 'ask', question: `Am I ${g[0]}?` };
+  }
+  return { say: pick(DEMO_SAY), action: 'ask', question: useful[0].q };
+}
+
+function demoAnswer(user) {
+  const cname = (user.match(/\(they can't see this\): (.+?) from /) || [])[1] || '';
+  const q = (user.match(/New question from .+?: "(.*)"\s*\nJSON/) || [])[1] || '';
+  const ch = demoChar(cname), t = DEMO_QS.find(d => demoNorm(d[0]) === demoNorm(q));
+  if (t && ch) return { check: `key says ${t[1]}: ${hasTag(ch, t[1]) ? 'yes' : 'no'}`, answer: hasTag(ch, t[1]) ? 'yes' : 'no',
+    react: Math.random() < 0.3 ? pick(['Mmm.', 'Interesting question.', 'Ooh.', 'Heh.', 'Good one.']) : '', explain: '',
+    correct: false, fix: null };
+  const m = q.match(/^am i\s+(.+)$/i);
+  if (m && (/^[A-Z]/.test(m[1]) || DEMO_ROUNDS.some(r => r.chars.some(c => demoNorm(c[0]) === demoNorm(m[1]))))) {
+    const ok = demoNorm(m[1]) === demoNorm(cname);
+    return { check: ok ? 'that is the name on the card' : 'different character', answer: ok ? 'yes' : 'no', correct: ok,
+      react: ok ? 'FINALLY.' : pick(['', 'Nope.', 'Good guess though.', 'Not even close.']), explain: '', fix: null };
+  }
+  return { check: 'not covered by my key', answer: 'not sure', correct: false, react: '',
+    explain: 'The demo only understands simple questions like "Am I human?" or "Am I animated?".', fix: null };
+}
+
+/* ============================== UI ============================== */
+const chipCls = a => a === 'yes' ? 'yes' : a === 'no' ? 'no' : a === 'not sure' ? 'unsure' : 'meh';
+const sideCls = s => s === 'host' ? 'host' : s === 0 ? 'left' : 'right';
+const NO_SPEAKER = ['solve', 'reveal', 'warn', 'info'];
+const canSave = () => !!G?.log.length && !(G.running && G.human != null);   // the log holds the human's own card
+const PAD_COLORS = ['#222222', '#e2453c', '#ff8c1a', '#ffcc33', '#55c96b', '#3d8bff', '#a66bff', '#ff6fb5', '#8b5a2b', '#ffffff'];
+
+function previewPlayers() {      // the panels before any game has started
+  const seat = { A: 0, B: 1 }[CFG.seat];
+  return [[CFG.nameA, CFG.modelA], [CFG.nameB, CFG.modelB]].map(([name, model], i) => seat === i
+    ? Object.assign(mkPlayer(i, name, 'human'), { human: true, avatar: '🧑' }) : mkPlayer(i, name, model));
+}
+
+const UI = {
+  last: null, errWaiters: [], manualResolve: null, reviewResolve: null,
+  human: null, drawResolve: null, drawKind: '', padDirty: false,
+
+  init() {
+    $('#btnStart').onclick = () => startGame();
+    $('#btnDemo').onclick = () => startGame({ modelA: 'demo', modelB: 'demo', host: 'demo', manual: false, reviewKeys: false, seat: 'none' });
+    $('#btnSetup').onclick = () => UI.openSetup();
+    $('#btnPause').onclick = () => { if (!G?.running) return; G.paused = !G.paused; UI.controls(); };
+    $('#btnStop').onclick = () => {
+      if (!G?.running) return;
+      Object.assign(G, { stopped: true, paused: false }); G.abort.abort();
+      UI.resolveErrors('stop');
+      UI.cancelHuman();
+      for (const id of ['#manual', '#keyReview']) if ($(id).open) $(id).close('stop');
+    };
+    $('#btnSave').onclick = () => {
+      if (!canSave()) return;
+      const a = document.createElement('a'), d = new Date(), p = n => String(n).padStart(2, '0');
+      a.href = URL.createObjectURL(new Blob([transcript()], { type: 'text/markdown' }));
+      a.download = `gtc_${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}.md`;
+      a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    };
+    $('#errRetry').onclick = () => UI.resolveErrors('retry');
+    $('#errStop').onclick = () => $('#btnStop').click();
+    $('#btnLoadModels').onclick = loadModels;
+    $('#hostForm').addEventListener('submit', e => {
+      e.preventDefault();
+      const t = $('#hostInput').value.trim();
+      if (!t || !G?.running) return;
+      $('#hostInput').value = '';
+      addRuling(t);
+    });
+    $('#stage').addEventListener('click', e => {            // click a blurred card to peek
+      const card = e.target.closest('[data-peek]');
+      if (!card || !G) return;
+      const i = +card.dataset.peek; G.peek[i] = !G.peek[i]; UI.players();
+    });
+    $('#setup').addEventListener('close', () => {
+      const v = $('#setup').returnValue;
+      if (v !== 'save' && v !== 'start') return;
+      CFG = readSetup(); saveSettings(CFG);
+      if (!G?.running) { UI.players(); UI.controls(); }
+      if (v === 'start') startGame();
+    });
+    for (const id of ['#manual', '#keyReview', '#drawDlg']) $(id).addEventListener('cancel', e => e.preventDefault());  // no Esc
+    $('#manual').addEventListener('close', () => {
+      const ok = $('#manual').returnValue === 'ok', r = UI.manualResolve; UI.manualResolve = null;
+      if (!r) return;
+      if (!ok) return r(Promise.reject(new StopGame()));
+      const chars = [0, 1].map(i => makeCharacter({ name: $('#mName' + i).value, source: $('#mSrc' + i).value,
+        description: $('#mDesc' + i).value }));
+      r({ category: $('#mCat').value.trim(), chars, intro: '' });
+    });
+    $('#keyReview').addEventListener('close', () => {
+      const ok = $('#keyReview').returnValue === 'ok', r = UI.reviewResolve; UI.reviewResolve = null;
+      if (!r) return;
+      if (!ok) return r(Promise.reject(new StopGame()));
+      r([0, 1].map(i => $('#kText' + i).value.trim()));
+    });
+    $('#drawDlg').addEventListener('close', () => {
+      const r = UI.drawResolve; UI.drawResolve = null;
+      if (!r) return;
+      if ($('#drawDlg').returnValue !== 'ok') return r(null);
+      const comment = $('#drawComment').value.trim();
+      if (UI.drawKind === 'emoji') {
+        const emoji = sanitizeEmoji($('#drawEmoji').value);
+        return r(emoji ? { emoji, comment } : null);
+      }
+      if (!UI.padDirty) return r(null);
+      const png = $('#drawCanvas').toDataURL('image/png');
+      r({ img: png, png, comment });
+    });
+    // the human player's controls
+    $('#humanBar').addEventListener('submit', e => {
+      e.preventDefault();
+      const q = $('#hbQ').value.trim();
+      if (UI.human?.mode === 'ask' && q) UI.humanDone({ action: 'ask', question: q });
+    });
+    $('#hbSkip').onclick = () => { if (UI.human?.mode === 'ask') UI.humanDone({ action: 'skip' }); };
+    $('#hbDraw').onclick = () => { if (UI.human?.mode === 'ask') UI.humanDone({ action: 'draw' }); };
+    $('#hbBtns').addEventListener('click', e => {
+      const b = e.target.closest('button[data-a]');
+      if (!b || UI.human?.mode !== 'answer') return;
+      const correct = b.dataset.a === 'correct';
+      UI.humanDone({ answer: correct ? 'yes' : b.dataset.a, correct, react: $('#hbComment').value.trim() });
+    });
+    UI.initPad();
+    fillModelList(SUGGESTED_MODELS);
+    UI.players(); UI.controls();
+  },
+
+  reset() {
+    $('#feed').innerHTML = ''; UI.last = null;
+    document.querySelectorAll('.splatted').forEach(el => el.classList.remove('splatted'));
+    $('#errorbar').classList.add('hidden'); $('#humanBar').classList.add('hidden'); UI.meter();
+  },
+
+  add(e) {
+    const feed = $('#feed'), typing = $('#typing');
+    feed.querySelector('.empty')?.remove();
+    const stick = feed.scrollHeight - feed.scrollTop - feed.clientHeight < 120;
+    const put = el => typing ? feed.insertBefore(el, typing) : feed.append(el);
+    const div = (cls, text) => { const d = document.createElement('div'); d.className = cls; if (text != null) d.textContent = text; return d; };
+    if (e.kind === 'divider') { put(div('divider', e.text)); UI.last = null; }
+    else {
+      const side = sideCls(e.side), key = e.side + '|' + e.who;
+      if (e.who && UI.last !== key && !NO_SPEAKER.includes(e.kind)) put(div('speaker ' + side, e.who));
+      UI.last = NO_SPEAKER.includes(e.kind) ? null : key;
+      const m = div(`msg ${side} ${e.kind}`);
+      if (e.chip) m.append(div('chip ' + chipCls(e.chip), e.chip));
+      if (e.img) {
+        const img = document.createElement('img');
+        img.className = 'sketch'; img.alt = 'drawing'; img.src = e.img;
+        m.append(img);
+      }
+      if (e.text) m.append(document.createTextNode(e.text));
+      put(m);
+    }
+    if (stick || G?.human != null) feed.scrollTop = feed.scrollHeight;
+  },
+
+  typing(side, text) {
+    $('#typing')?.remove();
+    if (side == null) return;
+    const t = document.createElement('div');
+    t.id = 'typing'; t.className = 'typing ' + sideCls(side);
+    t.innerHTML = `${esc(text)}<i></i><i></i><i></i>`;
+    const feed = $('#feed'); feed.querySelector('.empty')?.remove(); feed.append(t);
+    if (feed.scrollHeight - feed.scrollTop - feed.clientHeight < 160) feed.scrollTop = feed.scrollHeight;
+  },
+
+  players() {
+    const ps = G ? G.players : previewPlayers();
+    const spoilers = G ? G.cfg.spoilers : CFG.spoilers;
+    ps.forEach((p, i) => {
+      const el = $('#p' + i), answerer = ps[1 - i], h = p.hint;
+      const locked = p.human && !!p.character && !p.solved && !p.revealed;   // a human's own card never goes on the page
+      const ch = locked ? null : p.character;
+      // a seated human always sees the AI's card (they answer about it), never their own
+      const visible = p.human ? p.solved || p.revealed
+        : spoilers || G?.human != null || !!G?.peek[i] || p.solved || p.revealed;
+      const notes = el.querySelector('.notes');
+      const keepScroll = notes && notes.scrollHeight - notes.scrollTop - notes.clientHeight > 40 ? notes.scrollTop : null;
+      const item = x => `<li${visible && x.check ? ` title="${esc(answerer.name)}'s private check: ${esc(x.check)}"` : ''}>${esc(x.q)}
+        <span class="chip ${chipCls(x.a)}">${esc(x.a)}</span>${x.fixed ? `<span class="fixtag" title="was: ${esc(x.was)}">✎ fixed</span>` : ''}
+        ${x.comment ? `<span class="cmt">${esc(x.comment)}</span>` : ''}</li>`;
+      const showImg = h?.img && !(p.human && h.kind !== 'image');
+      const hintBox = !h ? '' : `<div class="hintbox"${h.text ? ` title="${esc(h.text)}"` : ''}>${showImg ? `<img src="${esc(h.img)}" alt="">` : ''}
+        <div>🎨 Got ${esc(FORMAT_LABEL[h.kind])}${h.kind === 'emoji' ? `<div class="emo">${esc(h.emoji)}</div>` : ''}${p.human && h.kind === 'description' ? `<div class="cmt">${esc(h.text)}</div>` : ''}</div></div>`;
+      const facts = answerer.human && ch?.keyText ? `<details ${UI.factsOpen !== false ? 'open' : ''} ontoggle="UI.factsOpen = this.open"
+          style="margin:0 12px;font-size:12.5px"><summary style="cursor:pointer;color:var(--meh)">📋 Your notes for answering (from the host)</summary>
+          <div style="white-space:pre-wrap;color:#c9c9da;margin-top:4px;max-height:200px;overflow:auto">${esc(ch.keyText)}</div></details>` : '';
+      const tag = p.solved ? '✔ Solved' : p.human ? 'Your secret character' : `Secret character · hidden from ${esc(p.name)}`;
+      const src = ch ? esc(ch.source) : locked ? 'Hidden from you. Ask questions to find out!'
+        : G?.running ? 'The host is choosing…' : 'Waiting for a game';
+      el.classList.toggle('active', !!p.active);
+      el.innerHTML = `
+        <div class="who" style="margin-top:12px">
+          <div class="avatar">${p.avatar}</div>
+          <div><div class="pname">${esc(p.name)}</div><div class="pmodel">${p.human ? 'you · human player' : esc(p.model)}</div></div>
+          <div class="score"><b>${p.score}</b><small>points</small></div>
+        </div>
+        <div class="card ${p.character && !visible ? 'blur' : ''} ${locked ? 'locked' : ''} ${p.solved ? 'solved' : ''}"${ch && !p.human ? ` data-peek="${i}" title="Click to hide/peek"` : ''}>
+          <div class="card-tag">${tag}</div>
+          <div class="card-body">
+            <div class="card-name">${locked ? '🔒 ???' : ch ? esc(ch.name) : '?'}</div>
+            <div class="card-src">${src}</div>
+            ${ch?.description ? `<div class="card-desc">${esc(ch.description)}</div>` : ''}
+          </div>
+        </div>
+        ${facts}
+        <div class="status">${esc(p.status || (p.active ? (p.human ? 'Your turn' : 'Their turn') : ''))}</div>
+        <div class="notes"><h3>What ${p.human ? 'you have' : esc(p.name) + ' has'} learned</h3>${hintBox}${p.qa.length
+          ? '<ol>' + p.qa.map(item).join('') + '</ol>' : '<p class="hint">Nothing yet.</p>'}</div>`;
+      const n2 = el.querySelector('.notes'); n2.scrollTop = keepScroll ?? n2.scrollHeight;
+    });
+  },
+
+  round() {
+    const cfg = G ? G.cfg : CFG, n = G?.round || 0;
+    $('#roundLabel').textContent = !G ? 'Guess the Character' : n > cfg.rounds ? 'Game over'
+      : n === cfg.rounds ? `Final round · ${n} of ${cfg.rounds}` : `Round ${n} of ${cfg.rounds}`;
+    if (G) $('#category').textContent = n > cfg.rounds ? 'Pie time.' : G.category || 'The host is thinking…';
+    if (G) $('#hostSub').textContent = n > cfg.rounds ? '' : G.intro || '';
+    $('#roundDots').innerHTML = !G ? '' : Array.from({ length: cfg.rounds }, (_, i) => {
+      const w = G.roundWinners[i];
+      const cls = w === 0 ? 'w0' : w === 1 ? 'w1' : w === 'both' ? 'wb' : w === 'none' ? 'wn' : '';
+      return `<span class="dot ${cls} ${i === n - 1 && G.running ? 'now' : ''}" title="Round ${i + 1}"></span>`;
+    }).join('');
+  },
+
+  controls() {
+    const running = !!G?.running, humanSeated = G ? G.human != null : CFG.seat !== 'none';
+    $('#btnStart').disabled = running; $('#btnSetup').disabled = running;
+    $('#btnPause').disabled = !running; $('#btnStop').disabled = !running;
+    $('#btnPause').textContent = G?.paused ? '▶ Resume' : '⏸ Pause';
+    $('#btnSave').disabled = !canSave();
+    $('#btnSave').title = running && G.human != null ? 'Available when the game ends (it would show you your own card)' : '';
+    $('#btnStart').textContent = G && !running ? '↻ New game' : '▶ Start game';
+    $('#hostInput').disabled = $('#hostSend').disabled = !running;
+    $('#hostInput').placeholder = humanSeated
+      ? 'Fix one of your answers, e.g. "My answer to #3 should be no." The AI treats it as a ruling.'
+      : (G ? G.cfg : CFG).manual ? 'Step in as the host: rulings and corrections go to both players'
+      : 'Step in as referee: rulings and corrections go to both players';
+  },
+
+  meter() {
+    if (!G) return;
+    $('#meter').textContent = `${G.calls} calls` + (G.tokens ? ` · ${G.tokens.toLocaleString()} tokens` : '') +
+      (G.cost ? ` · $${G.cost.toFixed(4)}` : '');
+    $('#btnSave').disabled = !canSave();
+  },
+
+  error(msg) {        // several calls can fail at once (answer keys run in parallel): one bar, everyone waits
+    $('#errText').textContent = '⚠ ' + msg;
+    $('#errorbar').classList.remove('hidden');
+    return new Promise(res => UI.errWaiters.push(res));
+  },
+  resolveErrors(v) {
+    const w = UI.errWaiters; UI.errWaiters = [];
+    $('#errorbar').classList.add('hidden');
+    w.forEach(f => f(v));
+  },
+
+  /** Vision models want PNG/JPEG, not SVG, so draw the SVG onto a canvas first. */
+  async rasterize(svg, size = 400) {
+    const img = new Image();
+    img.src = svgURL(svg);
+    await img.decode();
+    const c = document.createElement('canvas');
+    c.width = c.height = size;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, size, size);
+    ctx.drawImage(img, 0, 0, size, size);
+    return c.toDataURL('image/png');
+  },
+
+  /* ---------- the human player ---------- */
+  humanPrompt(mode, title) {
+    $('#hbTitle').textContent = title;
+    $('#hbAsk').classList.toggle('hidden', mode !== 'ask');
+    $('#hbAnswer').classList.toggle('hidden', mode !== 'answer');
+    $('#humanBar').classList.remove('hidden');
+    const feed = $('#feed'); feed.scrollTop = feed.scrollHeight;
+    setTimeout(() => (mode === 'ask' ? $('#hbQ') : $('#hbComment')).focus(), 0);
+    return new Promise((resolve, reject) => { UI.human = { mode, resolve, reject }; });
+  },
+  humanDone(v) {
+    const h = UI.human;
+    if (!h) return;
+    UI.human = null; $('#humanBar').classList.add('hidden');
+    h.resolve(v);
+  },
+  cancelHuman() {
+    const h = UI.human; UI.human = null;
+    $('#humanBar').classList.add('hidden');
+    if ($('#drawDlg').open) $('#drawDlg').close('cancel');
+    h?.reject(new StopGame());
+  },
+  humanAct(p, can, drawText) {
+    $('#hbQ').value = '';
+    $('#hbDraw').disabled = !can;
+    $('#hbDraw').classList.toggle('hidden', G.cfg.drawMode === 'off');
+    return UI.humanPrompt('ask', `Your turn, ${p.name}! Ask a yes/no question about your own character, or guess it ("Am I …?").` +
+      (drawText ? ` Drawing lifeline: ${drawText}.` : ''));
+  },
+  humanAnswer(asker, question) {
+    $('#hbComment').value = '';
+    const named = asker.character.nameTerms.some(t =>
+      new RegExp('(?<![\\p{L}\\p{N}_])' + escRe(t) + '(?![\\p{L}\\p{N}_])', 'iu').test(question));
+    $('#hbBtns').querySelectorAll('button').forEach(b => b.classList.toggle('suggest', named && b.dataset.a === 'correct'));
+    return UI.humanPrompt('answer', `${asker.name} asks about ${cardLabel(asker.character)}: "${question}"`);
+  },
+  async humanDraw(kind, guesser) {
+    await gate();
+    UI.drawKind = kind;
+    $('#drawTitle').textContent = `Draw ${cardLabel(guesser.character)} for ${guesser.name}`;
+    $('#drawHint').textContent = kind === 'emoji'
+      ? `${guesser.name} can't see pictures, so draw it in emoji. Letters, numbers and flags get removed.`
+      : 'Crude is the point. No letters or numbers: draw what they look like.';
+    $('#drawPicArea').classList.toggle('hidden', kind === 'emoji');
+    $('#drawEmojiArea').classList.toggle('hidden', kind !== 'emoji');
+    $('#drawEmoji').value = ''; $('#drawComment').value = '';
+    UI.clearPad();
+    $('#drawDlg').returnValue = ''; $('#drawDlg').showModal();
+    return new Promise(res => { UI.drawResolve = res; });
+  },
+  initPad() {
+    const c = $('#drawCanvas'), ctx = c.getContext('2d'), pal = $('#palette');
+    let color = PAD_COLORS[0], last = null;
+    pal.innerHTML = PAD_COLORS.map((col, i) => `<button type="button" data-c="${col}" class="${i ? '' : 'on'}" ` +
+      `style="background:${col}" title="${col === '#ffffff' ? 'Eraser' : 'Marker'}"></button>`).join('');
+    pal.addEventListener('click', e => {
+      const b = e.target.closest('[data-c]');
+      if (!b) return;
+      color = b.dataset.c;
+      pal.querySelectorAll('[data-c]').forEach(x => x.classList.toggle('on', x === b));
+    });
+    const at = e => { const r = c.getBoundingClientRect(); return [(e.clientX - r.left) * c.width / r.width, (e.clientY - r.top) * c.height / r.height]; };
+    const stroke = (from, to) => {
+      Object.assign(ctx, { strokeStyle: color, lineWidth: color === '#ffffff' ? 22 : 7, lineCap: 'round', lineJoin: 'round' });
+      ctx.beginPath(); ctx.moveTo(...from); ctx.lineTo(...to); ctx.stroke();
+    };
+    c.addEventListener('pointerdown', e => { last = at(e); c.setPointerCapture(e.pointerId); stroke(last, last); UI.padDirty = true; });
+    c.addEventListener('pointermove', e => { if (!last) return; const p = at(e); stroke(last, p); last = p; });
+    for (const ev of ['pointerup', 'pointercancel']) c.addEventListener(ev, () => { last = null; });
+    $('#drawClear').onclick = () => UI.clearPad();
+    UI.clearPad();
+  },
+  clearPad() {
+    const c = $('#drawCanvas'), ctx = c.getContext('2d');
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, c.width, c.height);
+    UI.padDirty = false;
+  },
+
+  manual(n) {
+    const d = $('#manual');
+    $('#manualTitle').textContent = `You're the host · round ${n}`;
+    G.players.forEach((p, i) => { $('#mLeg' + i).textContent = `${p.name}'s secret character`; });
+    ['mCat', 'mName0', 'mSrc0', 'mDesc0', 'mName1', 'mSrc1', 'mDesc1'].forEach(id => { $('#' + id).value = ''; });
+    d.returnValue = ''; d.showModal();
+    return new Promise(res => { UI.manualResolve = res; });
+  },
+
+  review() {
+    G.players.forEach((asker, i) => {
+      const answerer = G.players[1 - i], ch = asker.character;
+      $('#kLeg' + i).textContent = `${asker.name}'s card: ${ch.name} (${ch.source}). ${answerer.name} answers.`;
+      $('#kWarn' + i).textContent = ch.recognized ? ''
+        : `⚠ ${answerer.name} says it doesn't really know this character. Add the key facts yourself, or its answers will be guesswork.`;
+      $('#kText' + i).value = ch.keyText;
+    });
+    $('#keyReview').returnValue = ''; $('#keyReview').showModal();
+    return new Promise(res => { UI.reviewResolve = res; });
+  },
+
+  openSetup(note) {
+    const c = CFG, set = (id, v) => { const el = $('#' + id); el.type === 'checkbox' ? el.checked = !!v : el.value = v; };
+    Object.entries({ sBase: c.baseUrl, sKey: c.key, sRemember: c.remember, sSeat: c.seat, sNameA: c.nameA, sModelA: c.modelA,
+      sVisA: c.visA, sNameB: c.nameB, sModelB: c.modelB, sVisB: c.visB, sHost: c.host, sVisHost: c.visHost, sManual: c.manual,
+      sRounds: c.rounds, sStreak: c.streak, sMaxQ: c.maxQ, sPace: c.pace, sScoring: c.scoring, sHints: c.hints || 'subtle',
+      sDrawAfter: c.drawAfter, sDraw: c.drawMode, sFirst: c.firstEnds, sSpoil: c.spoilers, sReview: c.reviewKeys })
+      .forEach(([k, v]) => set(k, v));
+    $('#setupNote').textContent = note || ''; $('#setupNote').classList.toggle('hidden', !note);
+    $('#setup').returnValue = ''; $('#setup').showModal();
+  },
+
+  async pie(targets) {
+    for (const i of targets) {
+      const panel = $('#p' + i), r = panel.getBoundingClientRect(), pie = document.createElement('div');
+      pie.className = 'pie'; pie.textContent = '🥧';
+      Object.assign(pie.style, { left: `${innerWidth / 2 - 45}px`, top: `${innerHeight + 20}px` });
+      document.body.append(pie);
+      await sleep(40);
+      pie.style.transform = `translate(${r.left + r.width / 2 - innerWidth / 2}px, ${r.top + r.height / 3 - innerHeight - 60}px) rotate(-25deg) scale(1.4)`;
+      await sleep(720);
+      pie.remove(); panel.classList.add('splatted');
+      await sleep(250);
+    }
+  },
+};
+
+function readSetup() {
+  const v = id => $('#' + id).value.trim(), c = id => $('#' + id).checked;
+  const num = (id, lo, hi, d) => { const x = parseInt(v(id), 10); return Number.isFinite(x) ? Math.min(hi, Math.max(lo, x)) : d; };
+  return { baseUrl: v('sBase') || DEFAULTS.baseUrl, key: v('sKey'), remember: c('sRemember'), seat: v('sSeat') || 'none',
+    nameA: v('sNameA') || DEFAULTS.nameA, modelA: v('sModelA') || 'demo', visA: v('sVisA') || 'auto',
+    nameB: v('sNameB') || DEFAULTS.nameB, modelB: v('sModelB') || 'demo', visB: v('sVisB') || 'auto',
+    host: v('sHost') || 'demo', visHost: v('sVisHost') || 'auto', manual: c('sManual'),
+    rounds: num('sRounds', 1, 12, 4), streak: num('sStreak', 1, 30, 6), maxQ: num('sMaxQ', 4, 200, 50),
+    pace: num('sPace', 0, 5000, 700), scoring: v('sScoring') || 'first', hints: v('sHints') || 'subtle',
+    drawAfter: num('sDrawAfter', 1, 50, 8), drawMode: v('sDraw') || 'fair', firstEnds: c('sFirst'),
+    spoilers: c('sSpoil'), reviewKeys: c('sReview') };
+}
+
+function fillModelList(ids) {
+  $('#modelList').innerHTML = ids.map(id => `<option value="${esc(id)}"></option>`).join('');
+}
+
+async function loadModels() {
+  const st = $('#modelsStatus'); st.textContent = 'Loading…';
+  try {
+    MODEL_LIST = null;
+    const lst = await fetchModels($('#sBase').value, $('#sKey').value.trim());
+    fillModelList(['demo', ...lst.ids]);
+    const mine = ['sModelA', 'sModelB', 'sHost'].map(id => {
+      const m = $('#' + id).value.trim();
+      return `${m}: ${isDemo(m) ? 'text only' : listSaysVision(lst, m) ? 'sees images' : lst.ids.includes(m) ? 'text only' : 'not in the list'}`;
+    });
+    st.textContent = `Loaded ${lst.ids.length} models. ` + (lst.vision.size
+      ? mine.join(' · ') : "This server doesn't say which models see images, so set it by hand.");
+  } catch (e) { st.textContent = 'Could not load: ' + e.message; }
+}
+
+if (typeof document !== 'undefined') UI.init();
+</script>
+</body>
+</html>
