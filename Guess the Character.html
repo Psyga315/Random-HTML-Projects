@@ -356,7 +356,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const ANSWERS = ['yes', 'no', 'sometimes', 'kind of', 'not sure'];
 const EXPLAINABLE = new Set(['sometimes', 'kind of', 'not sure']);         // the only answers that may come with a "why"
 const KEEPS_TURN = new Set(['yes', 'sometimes', 'kind of', 'not sure']);   // only a real "no" passes the turn
-const DRAW_ASK = /\b(can|could|would|will)\s+you\b.*\b(draw|sketch|doodle)\b|^(please\s+)?(draw|sketch|doodle)\b/i;
+const DRAW_ASK = /^(?:(?:can|could|would|will)\s+you\s+)?(?:please\s+)?(?:just\s+)?(?:draw|sketch|doodle)\b/i;
 let RETRY_MS = 1200;
 const CATCH_UP = 10;    // questions the other player gets after the round's point is taken (Infinity = no limit)                                                     // backoff between retries of a failed call
 const FORMAT_LABEL = { image: 'the drawing itself (an image)', description: 'a written description of the drawing',
@@ -886,13 +886,20 @@ function saveRecent(names, cats) {
   } catch {}
 }
 
+/** Check the host's reply inside ask(), so a malformed one is retried instead of ending the game. */
+const parsePick = t => {
+  const d = extractJSON(t);
+  const characters = (Array.isArray(d.characters) ? d.characters : []).filter(c => c?.name).slice(0, 2);
+  if (!d.category || characters.length < 2) throw new Error('host reply was missing a category or characters');
+  return { ...d, characters };
+};
+
 async function hostPick(n) {
   const real = !isDemo(G.cfg.host), recent = real ? loadRecent() : { names: [], cats: [] };
   const avoid = keepLast([...recent.names, ...G.used]);
   const d = await ask(G.cfg.host, PROMPTS.hostSystem, PROMPTS.hostUser(n, G.cfg.rounds, pick(SEEDS),
-    avoid.join(', ') || 'none', recent.cats.join(' | ') || 'none'));
-  const chars = (d.characters || []).slice(0, 2).map(makeCharacter);
-  if (chars.length < 2 || !d.category) throw new Error('host reply was missing a category or characters');
+    avoid.join(', ') || 'none', recent.cats.join(' | ') || 'none'), { parse: parsePick });
+  const chars = d.characters.map(makeCharacter);
   const category = String(d.category).trim();
   if (real) saveRecent([...avoid, ...chars.map(c => c.name)], [...recent.cats, category]);
   return { category, chars, intro: String(d.intro || '').trim() };
@@ -965,7 +972,7 @@ function separateCards() {
 async function prepareKeys() {
   UI.typing('host', "The players are studying each other's cards");
   try {
-    await Promise.all(G.players.map(async asker => {
+    const results = await Promise.allSettled(G.players.map(async asker => {
       for (let tries = 0; ; tries++) {
         await writeKey(asker);
         const ch = asker.character;
@@ -980,6 +987,8 @@ async function prepareKeys() {
         UI.players();
       }
     }));
+    const failed = results.find(r => r.status === 'rejected');
+    if (failed) throw failed.reason;
   } finally { UI.typing(null); }
   if (G.cfg.reviewKeys && G.human == null) {      // the check screen would show a human player their own card
     const texts = await UI.review();
@@ -1255,8 +1264,8 @@ async function playerAnswer(answerer, asker, question) {
     }
   } finally { UI.typing(null); answerer.status = answerer.solved ? solvedStatus(answerer) : ''; }
   let correct = String(d.correct).toLowerCase() === 'true';
-  // A human clicking "Yes" on "Am I Hornet?" means "That's it!"
-  if (!correct && answerer.human && normalizeAnswer(d.answer) === 'yes' && guessesOne(question, ch.nameTerms)) correct = true;
+  // A "yes" to "Am I Hornet?" means "That's it!", whether a human clicked it or a model forgot to set "correct".
+  if (!correct && normalizeAnswer(d.answer) === 'yes' && guessesOne(question, ch.nameTerms)) correct = true;
   const answer = correct ? 'yes' : normalizeAnswer(d.answer);
   let fix = null;
   if (d.fix && typeof d.fix === 'object') {
